@@ -15,15 +15,28 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
+-- "현재 로그인한 사람이 리더인가?"를 확인하는 함수.
+-- security definer로 만들어서 테이블 소유자 권한으로 조회하기 때문에,
+-- 정책(policy) 안에서 같은 테이블을 다시 조회해도 무한 루프가 생기지 않음.
+create or replace function public.is_leader()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles where id = auth.uid() and role = 'leader'
+  );
+$$;
+
 -- 본인 프로필은 본인이 조회 가능
 create policy "select_own_profile" on public.profiles
   for select using (auth.uid() = id);
 
 -- 리더는 전체 회원 프로필 조회 가능
 create policy "leader_select_all_profiles" on public.profiles
-  for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'leader')
-  );
+  for select using (public.is_leader());
 
 -- 회원가입하면 자동으로 프로필 행을 만들어줌 (기본 역할: member)
 create function public.handle_new_user()
@@ -59,9 +72,7 @@ create policy "member_manage_own_submissions" on public.submissions
 
 -- 리더는 전체 제출물 조회 가능
 create policy "leader_select_all_submissions" on public.submissions
-  for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'leader')
-  );
+  for select using (public.is_leader());
 
 
 -- 3) 주간 피드백 테이블
@@ -83,11 +94,7 @@ create policy "member_select_own_feedback" on public.weekly_feedback
 
 -- 리더는 전체 피드백 조회/작성/수정 가능
 create policy "leader_manage_all_feedback" on public.weekly_feedback
-  for all using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'leader')
-  ) with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'leader')
-  );
+  for all using (public.is_leader()) with check (public.is_leader());
 
 
 -- ============================================================
