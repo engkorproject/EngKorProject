@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --primary: #C96A2B; --primary-hover: #B15F26; --primary-tint: #F3DCC9;
@@ -167,6 +168,20 @@
     .cta-band { padding: 44px 24px; margin-bottom: 64px; }
   }
 
+  /* ===== AUTH (login / signup) ===== */
+  #auth-view { display: none; padding: 60px 20px; }
+  .auth-card { max-width: 380px; margin: 0 auto; background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 32px 28px; box-shadow: var(--shadow-soft); }
+  .auth-card h2 { font-size: 22px; margin-bottom: 4px; }
+  .auth-card p.sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+  .auth-field input { width: 100%; height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--canvas); font-family: inherit; font-size: 14px; color: var(--foreground); }
+  .auth-field input:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+  .auth-error { color: var(--error); font-size: 12.5px; margin-top: 10px; }
+  .auth-success { color: var(--success); font-size: 12.5px; margin-top: 10px; }
+  .auth-switch { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 18px; }
+  .auth-switch button { background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; padding: 0; font-size: inherit; }
+
   /* ===== APP / DASHBOARD ZONE ===== */
   #app-view { display: none; padding: 30px 20px 60px; }
   .dz-app { font-family: inherit; color: var(--foreground); background: var(--background); border: 1px solid var(--hairline); border-radius: 20px; max-width: 800px; margin: 0 auto; box-shadow: var(--shadow-soft); }
@@ -252,10 +267,7 @@
     <a href="#pricing">Pricing</a>
     <a href="#trust">Who it's for</a>
   </div>
-  <div class="nav-actions">
-    <button class="btn-sm" id="nav-member-btn">📊 Member Dashboard</button>
-    <button class="btn-sm leader" id="nav-leader-btn">🛠 Leader Dashboard</button>
-  </div>
+  <div class="nav-actions" id="nav-actions"></div>
 </nav>
 
 <!-- ============ LANDING VIEW ============ -->
@@ -406,94 +418,35 @@
   <div class="dz-app" id="dz-root"><div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div></div>
 </div>
 
+<!-- ============ LOGIN / SIGNUP VIEW ============ -->
+<div id="auth-view">
+  <div class="dz-back" id="auth-back-link">← Back to website</div>
+  <div class="auth-card" id="auth-card"></div>
+</div>
+
 <script>
 (function() {
   const landingView = document.getElementById('landing-view');
   const appView = document.getElementById('app-view');
+  const authView = document.getElementById('auth-view');
   const dzRoot = document.getElementById('dz-root');
-  const MEMBERS_KEY = 'engkor-en-members-v3';
   const MAX_REC_SECONDS = 20;
 
-  const hasRealStorage = !!(window.storage && typeof window.storage.get === 'function');
-  const storage = hasRealStorage ? window.storage : {
-    async get(key) {
-      const v = localStorage.getItem('engkor-en-fallback-v3::' + key);
-      if (v === null) throw new Error('not found');
-      return { key, value: v };
-    },
-    async set(key, value) {
-      localStorage.setItem('engkor-en-fallback-v3::' + key, value);
-      return { key, value };
-    }
-  };
+  const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const todayStr = () => new Date().toISOString().slice(0, 10);
-  const dateOffset = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
   const pad2 = (n) => String(n).padStart(2, '0');
 
-  function generateWritingImage(dateLabel, text) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 480; canvas.height = 260;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#FFFDF7'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#EAE3D8'; ctx.lineWidth = 2; ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
-    ctx.fillStyle = '#B15F26'; ctx.font = '13px sans-serif';
-    ctx.fillText('Writing · ' + dateLabel, 20, 30);
-    ctx.strokeStyle = '#EAE3D8'; ctx.beginPath(); ctx.moveTo(20, 40); ctx.lineTo(460, 40); ctx.stroke();
-    ctx.fillStyle = '#2E2E2E'; ctx.font = '16px sans-serif';
-    wrapText(ctx, text, 20, 68, 440, 24);
-    return canvas.toDataURL('image/png');
-  }
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(' '); let line = '', cy = y;
-    for (let i = 0; i < words.length; i++) {
-      const test = line + words[i] + ' ';
-      if (ctx.measureText(test).width > maxWidth && line) { ctx.fillText(line, x, cy); line = words[i] + ' '; cy += lineHeight; }
-      else line = test;
-    }
-    ctx.fillText(line, x, cy);
-  }
-
-  const SEED_MEMBERS = [
-    { id: 'alex', name: 'Alex' },
-    { id: 'mina', name: 'Mina' },
-    { id: 'jordan', name: 'Jordan' }
-  ];
-  function buildSeedSubmissions() {
-    // Alex has only one submission — the target date (yesterday relative to today), in Korean
-    const s1 = {};
-    s1[dateOffset(0)] = { diary: generateWritingImage(dateOffset(0), "오늘 학교에 갔다. 즐거우다"), shadowing: 'seed' };
-
-    const s2 = {};
-    s2[dateOffset(0)] = { diary: 'seed', shadowing: 'seed' };
-    s2[dateOffset(1)] = { diary: 'seed', shadowing: null };
-    s2[dateOffset(3)] = { diary: 'seed', shadowing: 'seed' };
-    s2[dateOffset(4)] = { diary: null, shadowing: 'seed' };
-    s2[dateOffset(6)] = { diary: 'seed', shadowing: 'seed' };
-
-    const s3 = {};
-    s3[dateOffset(0)] = { diary: 'seed', shadowing: null };
-    s3[dateOffset(1)] = { diary: 'seed', shadowing: 'seed' };
-
-    return { alex: s1, mina: s2, jordan: s3 };
-  }
-  function buildSeedWeeklyFeedback() {
-    const wkA = weekKeyOf(dateOffset(0));
-    const textA = `'즐거웠다' is grammatically correct than '즐거우다'.`;
-    return { alex: { [wkA]: textA } };
-  }
-  function buildSeedWeeklyFeedbackByDate() {
-    const wkA = weekKeyOf(dateOffset(0));
-    const byDateA = {
-      [dateOffset(0)]: `'즐거웠다' is grammatically correct than '즐거우다'.`
-    };
-    return { alex: { [wkA]: byDateA } };
-  }
+  let currentUser = null;   // Supabase auth user
+  let currentProfile = null; // { id, name, role } from public.profiles
 
   let state = {
-    view: 'landing', // 'landing' | 'member' | 'leader'
+    view: 'landing', // 'landing' | 'auth' | 'member' | 'leader'
     members: [], submissions: {}, weeklyFeedback: {}, weeklyFeedbackByDate: {}, classifyLoading: {},
-    currentId: 'alex', leaderFocusId: null, loaded: false,
+    leaderboard: [],
+    leaderFocusId: null, loaded: false,
     recording: false, recError: null,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     aiLoading: false, aiSuggestion: null, aiError: null
@@ -501,39 +454,52 @@
   let mediaRecorder = null, recChunks = [], recTimer = null;
 
   async function loadAll() {
-    let members = [];
-    try { const r = await storage.get(MEMBERS_KEY, true); members = r ? JSON.parse(r.value) : []; }
-    catch (e) { members = []; }
-    if (!members.length) {
-      try {
-        members = SEED_MEMBERS.slice();
-        await storage.set(MEMBERS_KEY, JSON.stringify(members), true);
-        const seedSub = buildSeedSubmissions();
-        for (const m of members) await storage.set('engkor-en-sub-v3-' + m.id, JSON.stringify(seedSub[m.id] || {}), true);
-        const seedWfb = buildSeedWeeklyFeedback();
-        for (const m of members) await storage.set('engkor-en-wfb-v3-' + m.id, JSON.stringify(seedWfb[m.id] || {}), true);
-        const seedWfbDate = buildSeedWeeklyFeedbackByDate();
-        for (const m of members) await storage.set('engkor-en-wfbdate-v3-' + m.id, JSON.stringify(seedWfbDate[m.id] || {}), true);
-      } catch (e) { console.error('Seed failed, continuing in-memory:', e); }
+    state.submissions = {}; state.weeklyFeedback = {}; state.weeklyFeedbackByDate = {}; state.leaderboard = [];
+
+    if (currentProfile.role === 'leader') {
+      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name').eq('role', 'member').order('name');
+      if (membersErr) console.error(membersErr);
+      state.members = members || [];
+      const memberIds = state.members.map(m => m.id);
+      state.members.forEach(m => { state.submissions[m.id] = {}; state.weeklyFeedback[m.id] = {}; state.weeklyFeedbackByDate[m.id] = {}; });
+      if (memberIds.length) {
+        const { data: subs } = await sb.from('submissions').select('*').in('member_id', memberIds);
+        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
+        const { data: wfbRows } = await sb.from('weekly_feedback').select('*').in('member_id', memberIds);
+        (wfbRows || []).forEach(r => {
+          state.weeklyFeedback[r.member_id][r.week_key] = r.text || '';
+          state.weeklyFeedbackByDate[r.member_id][r.week_key] = r.by_date || null;
+        });
+      }
+    } else {
+      const memberId = currentProfile.id;
+      state.members = [{ id: memberId, name: currentProfile.name }];
+      state.submissions[memberId] = {}; state.weeklyFeedback[memberId] = {}; state.weeklyFeedbackByDate[memberId] = {};
+      const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
+      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
+      const { data: wfbRows } = await sb.from('weekly_feedback').select('*').eq('member_id', memberId);
+      (wfbRows || []).forEach(r => {
+        state.weeklyFeedback[memberId][r.week_key] = r.text || '';
+        state.weeklyFeedbackByDate[memberId][r.week_key] = r.by_date || null;
+      });
+      const { data: lb } = await sb.from('leaderboard').select('*');
+      state.leaderboard = lb || [];
     }
-    const submissions = {}, weeklyFeedback = {}, weeklyFeedbackByDate = {};
-    for (const m of members) {
-      try { const r = await storage.get('engkor-en-sub-v3-' + m.id, true); submissions[m.id] = r ? JSON.parse(r.value) : {}; } catch (e) { submissions[m.id] = {}; }
-      try { const r2 = await storage.get('engkor-en-wfb-v3-' + m.id, true); weeklyFeedback[m.id] = r2 ? JSON.parse(r2.value) : {}; } catch (e) { weeklyFeedback[m.id] = {}; }
-      try { const r3 = await storage.get('engkor-en-wfbdate-v3-' + m.id, true); weeklyFeedbackByDate[m.id] = r3 ? JSON.parse(r3.value) : {}; } catch (e) { weeklyFeedbackByDate[m.id] = {}; }
-    }
-    state.members = members; state.submissions = submissions; state.weeklyFeedback = weeklyFeedback;
-    state.weeklyFeedbackByDate = weeklyFeedbackByDate; state.loaded = true;
+    state.loaded = true;
     renderApp();
   }
   async function saveSub(memberId) {
-    try { await storage.set('engkor-en-sub-v3-' + memberId, JSON.stringify(state.submissions[memberId] || {}), true); }
-    catch (e) { alert('Failed to save. Try a smaller file.'); }
+    const day = (state.submissions[memberId] || {})[todayStr()] || { diary: null, shadowing: null };
+    const { error } = await sb.from('submissions').upsert({
+      member_id: memberId, date: todayStr(), diary_url: day.diary, shadowing_url: day.shadowing
+    }, { onConflict: 'member_id,date' });
+    if (error) { console.error(error); alert('Failed to save. Try a smaller file.'); }
   }
   async function saveWeeklyFeedback(memberId, weekKey, text) {
     if (!state.weeklyFeedback[memberId]) state.weeklyFeedback[memberId] = {};
     state.weeklyFeedback[memberId][weekKey] = text;
-    try { await storage.set('engkor-en-wfb-v3-' + memberId, JSON.stringify(state.weeklyFeedback[memberId]), true); } catch (e) {}
+    const { error } = await sb.from('weekly_feedback').upsert({ member_id: memberId, week_key: weekKey, text }, { onConflict: 'member_id,week_key' });
+    if (error) console.error(error);
     renderApp();
     await classifyWeeklyFeedback(memberId, weekKey, text);
   }
@@ -541,7 +507,8 @@
   async function saveWeeklyFeedbackByDate(memberId, weekKey, parsed) {
     if (!state.weeklyFeedbackByDate[memberId]) state.weeklyFeedbackByDate[memberId] = {};
     state.weeklyFeedbackByDate[memberId][weekKey] = parsed;
-    try { await storage.set('engkor-en-wfbdate-v3-' + memberId, JSON.stringify(state.weeklyFeedbackByDate[memberId]), true); } catch (e) {}
+    const { error } = await sb.from('weekly_feedback').upsert({ member_id: memberId, week_key: weekKey, by_date: parsed }, { onConflict: 'member_id,week_key' });
+    if (error) console.error(error);
   }
   function getWeeklyFeedbackByDate(memberId, weekKey) { return (state.weeklyFeedbackByDate[memberId] || {})[weekKey] || null; }
 
@@ -643,6 +610,95 @@
   function removeDiary(memberId) { setDay(memberId, todayStr(), { diary: null }); renderApp(); saveSub(memberId); }
   function removeShadow(memberId) { setDay(memberId, todayStr(), { shadowing: null }); renderApp(); saveSub(memberId); }
 
+  // ---- auth ----
+  let authMode = 'login'; // 'login' | 'signup'
+  let authError = null, authMessage = null, authLoading = false;
+
+  function renderNav() {
+    const el = document.getElementById('nav-actions');
+    if (!currentProfile) {
+      el.innerHTML = `<button class="btn-sm" id="nav-login-btn">로그인</button>`;
+      document.getElementById('nav-login-btn').addEventListener('click', showAuth);
+    } else {
+      const label = currentProfile.role === 'leader' ? '🛠 Admin Dashboard' : '📊 My Dashboard';
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">${label}</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      document.getElementById('nav-dash-btn').addEventListener('click', () => showApp(currentProfile.role));
+      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
+    }
+  }
+
+  function renderAuth() {
+    const card = document.getElementById('auth-card');
+    const isSignup = authMode === 'signup';
+    card.innerHTML = `
+      <h2>${isSignup ? 'Create your account' : 'Welcome back'}</h2>
+      <p class="sub">${isSignup ? 'Sign up to start your EngKor challenge.' : 'Log in to see your dashboard.'}</p>
+      <form id="auth-form">
+        ${isSignup ? `<div class="auth-field"><label>Name</label><input type="text" id="auth-name" required /></div>` : ''}
+        <div class="auth-field"><label>Email</label><input type="email" id="auth-email" required /></div>
+        <div class="auth-field"><label>Password</label><input type="password" id="auth-password" minlength="6" required /></div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${authLoading ? 'disabled' : ''}>${authLoading ? '...' : (isSignup ? 'Sign up' : 'Log in')}</button>
+        ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
+        ${authMessage ? `<p class="auth-success">${escapeHtml(authMessage)}</p>` : ''}
+      </form>
+      <div class="auth-switch">
+        ${isSignup ? `Already have an account? <button type="button" id="auth-toggle">Log in</button>` : `No account yet? <button type="button" id="auth-toggle">Sign up</button>`}
+      </div>
+    `;
+    document.getElementById('auth-toggle').addEventListener('click', () => {
+      authMode = isSignup ? 'login' : 'signup'; authError = null; authMessage = null; renderAuth();
+    });
+    document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const nameField = document.getElementById('auth-name');
+    const name = nameField ? nameField.value.trim() : '';
+    authError = null; authMessage = null; authLoading = true; renderAuth();
+    try {
+      if (authMode === 'signup') {
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
+        if (error) throw error;
+        if (!data.session) {
+          authMessage = 'Check your email to confirm your account, then log in.';
+          authMode = 'login';
+        }
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err) {
+      authError = err.message || 'Something went wrong. Please try again.';
+    }
+    authLoading = false; renderAuth();
+  }
+
+  function showAuth() {
+    state.view = 'auth';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    window.scrollTo(0, 0);
+    authMode = 'login'; authError = null; authMessage = null;
+    renderAuth();
+  }
+
+  async function handleSession(session) {
+    if (session && session.user) {
+      currentUser = session.user;
+      const { data: profile, error } = await sb.from('profiles').select('id,name,role').eq('id', currentUser.id).single();
+      if (error || !profile) { console.error(error); currentProfile = null; renderNav(); return; }
+      currentProfile = profile;
+      renderNav();
+      if (state.view === 'landing' || state.view === 'auth') showApp(currentProfile.role);
+    } else {
+      currentUser = null; currentProfile = null;
+      renderNav();
+      if (state.view === 'member' || state.view === 'leader') showLanding();
+    }
+  }
+
   // ---- AI classification ----
   function extractJsonObject(raw) {
     if (!raw) return null;
@@ -730,22 +786,30 @@
     return weeks.map(wk => `<div class="dz-week-header">${weekKeyToLabel(wk)}</div><div class="dz-feedback-note">${escapeHtml(wfb[wk])}</div>`).join('');
   }
 
-  function showLanding() { state.view = 'landing'; landingView.style.display = 'block'; appView.style.display = 'none'; window.scrollTo(0,0); }
+  function showLanding() {
+    state.view = 'landing';
+    landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none';
+    window.scrollTo(0,0);
+  }
   function showApp(view) {
     state.view = view;
-    landingView.style.display = 'none'; appView.style.display = 'block';
+    landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none';
     window.scrollTo(0,0);
+    state.loaded = false;
     renderApp();
+    loadAll();
   }
 
   function renderApp() {
-    if (state.view === 'landing') return;
+    if (state.view === 'landing' || state.view === 'auth') return;
     if (!state.loaded) { dzRoot.innerHTML = '<div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div>'; return; }
 
     const isLeader = state.view === 'leader';
     let body = '';
 
-    if (isLeader) {
+    if (isLeader && !state.members.length) {
+      body = `<span class="dz-tag leader">Leader Mode</span><p class="dz-muted" style="margin-top:12px;">No members have signed up yet.</p>`;
+    } else if (isLeader) {
       const focusId = state.leaderFocusId || state.members[0].id;
       const focusMember = state.members.find(m => m.id === focusId);
       const chips = state.members.map(m => `<button class="dz-member-chip ${m.id === focusId ? 'active' : ''}" data-focus="${m.id}">${escapeHtml(m.name)} · ${completionRate(m.id)}%</button>`).join('');
@@ -794,14 +858,16 @@
         <div class="dz-detail-panel">${allHistory}</div>
       `;
     } else {
-      const me = state.members.find(m => m.id === state.currentId) || state.members[0];
+      const me = state.members[0];
       const rate = completionRate(me.id), streak = currentStreak(me.id);
       const today = getDay(me.id, todayStr());
       const selDay = getDay(me.id, state.selectedDate);
 
-      const board = [...state.members].sort((a, b) => completionRate(b.id) - completionRate(a.id)).map(m => {
-        const r = completionRate(m.id);
-        return `<div class="dz-board-row ${m.id === me.id ? 'me' : ''}"><span class="name">${escapeHtml(m.name)}${m.id === me.id ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r}%"></div></div><span class="dz-pct">${r}%</span></div>`;
+      const totalDays = daysInMonth(new Date().getFullYear(), new Date().getMonth());
+      const board = [...state.leaderboard].sort((a, b) => b.completed_days - a.completed_days).map(m => {
+        const r = Math.round((m.completed_days / totalDays) * 100);
+        const isMe = m.member_id === me.id;
+        return `<div class="dz-board-row ${isMe ? 'me' : ''}"><span class="name">${escapeHtml(m.name)}${isMe ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r}%"></div></div><span class="dz-pct">${r}%</span></div>`;
       }).join('');
 
       const wk = weekKeyOf(state.selectedDate);
@@ -810,12 +876,9 @@
       const generalSnippet = classified ? classified.general : null;
       const feedbackHtml = dateSnippet ? `<div class="dz-feedback-note">Feedback for this date: ${escapeHtml(dateSnippet)}</div>` : generalSnippet ? `<div class="dz-feedback-note">This week's general feedback: ${escapeHtml(generalSnippet)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No leader feedback for this date yet.</p>`;
 
-      const memberSwitch = state.members.map(m => `<button class="dz-member-chip ${m.id === me.id ? 'active' : ''}" data-switch-member="${m.id}">${escapeHtml(m.name)}</button>`).join('');
-
       body = `
         <span class="dz-tag">Member Mode</span>
-        <h2 class="dz-section">Viewing as (demo)</h2>
-        <div class="dz-member-picker">${memberSwitch}</div>
+        <p style="margin:8px 0 0; font-size:15px; font-weight:700;">Welcome back, ${escapeHtml(me.name)}</p>
 
         <h2 class="dz-section">Today's Check-in</h2>
         <div class="dz-cards">
@@ -870,42 +933,37 @@
       <div class="dz-body">
         ${body}
         <div class="dz-shared-note">
-          This is a demo with sample data for Alex / Mina / Jordan. In production, each member logs in and sees only their own account.${!hasRealStorage ? ' (Currently running in local-only fallback mode — data does not sync across devices.)' : ''}
+          ${isLeader ? 'You are viewing this as an admin — only you can see other members\' submissions.' : 'Your check-ins are private — only you and your challenge leader can see them.'}
         </div>
       </div>
     `;
 
     if (!isLeader) {
-      state.members.forEach(m => {}); // no-op, keeps structure
       const diaryDrop = document.getElementById('diary-drop');
       const diaryFile = document.getElementById('diary-file');
       if (diaryDrop) diaryDrop.addEventListener('click', () => diaryFile.click());
-      if (diaryFile) diaryFile.addEventListener('change', (e) => handleDiaryUpload(state.currentId, e.target.files[0]));
+      if (diaryFile) diaryFile.addEventListener('change', (e) => handleDiaryUpload(currentProfile.id, e.target.files[0]));
       const removeDiaryBtn = document.querySelector('[data-remove-diary]');
-      if (removeDiaryBtn) removeDiaryBtn.addEventListener('click', () => removeDiary(state.currentId));
+      if (removeDiaryBtn) removeDiaryBtn.addEventListener('click', () => removeDiary(currentProfile.id));
 
       const shadowDrop = document.getElementById('shadow-drop');
       const shadowFile = document.getElementById('shadow-file');
       if (shadowDrop) shadowDrop.addEventListener('click', () => shadowFile.click());
-      if (shadowFile) shadowFile.addEventListener('change', (e) => handleShadowUploadFile(state.currentId, e.target.files[0]));
+      if (shadowFile) shadowFile.addEventListener('change', (e) => handleShadowUploadFile(currentProfile.id, e.target.files[0]));
       const removeShadowBtn = document.querySelector('[data-remove-shadow]');
-      if (removeShadowBtn) removeShadowBtn.addEventListener('click', () => removeShadow(state.currentId));
+      if (removeShadowBtn) removeShadowBtn.addEventListener('click', () => removeShadow(currentProfile.id));
 
       const recBtn = document.getElementById('rec-btn');
-      if (recBtn) recBtn.addEventListener('click', () => { state.recording ? stopRecording() : startRecording(state.currentId); });
+      if (recBtn) recBtn.addEventListener('click', () => { state.recording ? stopRecording() : startRecording(currentProfile.id); });
 
       const calPrev = document.getElementById('cal-prev');
       if (calPrev) calPrev.addEventListener('click', () => { state.calMonth--; if (state.calMonth < 0) { state.calMonth = 11; state.calYear--; } renderApp(); });
       const calNext = document.getElementById('cal-next');
       if (calNext) calNext.addEventListener('click', () => { state.calMonth++; if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; } renderApp(); });
       document.querySelectorAll('.dz-cal-btn').forEach(btn => { if (!btn.disabled) btn.addEventListener('click', () => { state.selectedDate = btn.getAttribute('data-date'); renderApp(); }); });
-
-      document.querySelectorAll('[data-switch-member]').forEach(chip => {
-        chip.addEventListener('click', () => { state.currentId = chip.getAttribute('data-switch-member'); renderApp(); });
-      });
     }
 
-    if (isLeader) {
+    if (isLeader && state.members.length) {
       document.querySelectorAll('[data-focus]').forEach(chip => {
         chip.addEventListener('click', () => { state.leaderFocusId = chip.getAttribute('data-focus'); state.aiSuggestion = null; state.aiError = null; renderApp(); });
       });
@@ -928,9 +986,8 @@
     }
   }
 
-  document.getElementById('nav-member-btn').addEventListener('click', () => showApp('member'));
-  document.getElementById('nav-leader-btn').addEventListener('click', () => showApp('leader'));
   document.getElementById('back-link').addEventListener('click', showLanding);
+  document.getElementById('auth-back-link').addEventListener('click', showLanding);
   const navLogo = document.getElementById('nav-logo');
   navLogo.addEventListener('click', showLanding);
   navLogo.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showLanding(); } });
@@ -975,7 +1032,9 @@
     targets.forEach(t => io.observe(t));
   })();
 
-  loadAll();
+  renderNav();
+  sb.auth.getSession().then(({ data: { session } }) => handleSession(session));
+  sb.auth.onAuthStateChange((_event, session) => { handleSession(session); });
 })();
 </script>
 </body>

@@ -97,6 +97,29 @@ create policy "leader_manage_all_feedback" on public.weekly_feedback
   for all using (public.is_leader()) with check (public.is_leader());
 
 
+-- 4) 커뮤니티 리더보드용 뷰
+--    멤버는 본인 제출물만 볼 수 있지만(RLS), 랜딩/대시보드의 "커뮤니티 리더보드"는
+--    다른 멤버의 완료율도 보여줘야 함. 그렇다고 다른 사람의 제출물 원본(사진/음성)을
+--    그대로 노출하면 안 되니까, 완료 "횟수"만 미리 계산해서 보여주는 뷰를 따로 둠.
+--    뷰는 기본적으로 테이블 소유자 권한으로 동작해서 RLS를 우회하지만,
+--    이 뷰 자체가 노출하는 컬럼은 이름 + 완료 횟수뿐이라 안전함.
+create or replace view public.leaderboard as
+select
+  p.id as member_id,
+  p.name,
+  count(s.id) filter (
+    where s.date >= date_trunc('month', current_date)::date
+      and s.diary_url is not null
+      and s.shadowing_url is not null
+  ) as completed_days
+from public.profiles p
+left join public.submissions s on s.member_id = p.id
+where p.role = 'member'
+group by p.id, p.name;
+
+grant select on public.leaderboard to authenticated;
+
+
 -- ============================================================
 -- 참고: 첫 리더 계정 만드는 법
 -- 1. 웹사이트에서 평소처럼 이메일로 회원가입을 한 번 합니다.
