@@ -660,7 +660,7 @@
     authError = null; authMessage = null; authLoading = true; renderAuth();
     try {
       if (authMode === 'signup') {
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
         if (error) throw error;
         if (!data.session) {
           authMessage = 'Check your email to confirm your account, then log in.';
