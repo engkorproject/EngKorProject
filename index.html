@@ -436,9 +436,14 @@
   const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const CLAUDE_PROXY_URL = SUPABASE_URL + '/functions/v1/claude-proxy';
 
-  const todayStr = () => new Date().toISOString().slice(0, 10);
   const pad2 = (n) => String(n).padStart(2, '0');
+  // Uses the browser's local calendar day (not toISOString, which is UTC) so a
+  // member's "today" matches their own clock instead of drifting a day near
+  // midnight for anyone outside UTC.
+  const localDateStr = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const todayStr = () => localDateStr(new Date());
 
   let currentUser = null;   // Supabase auth user
   let currentProfile = null; // { id, name, role } from public.profiles
@@ -531,7 +536,7 @@
   function currentStreak(memberId) {
     const sub = state.submissions[memberId] || {}; let streak = 0, d = new Date();
     while (true) {
-      const key = d.toISOString().slice(0, 10);
+      const key = localDateStr(d);
       if (sub[key] && sub[key].diary && sub[key].shadowing) { streak++; d.setDate(d.getDate() - 1); } else break;
     }
     return streak;
@@ -661,7 +666,8 @@
     authError = null; authMessage = null; authLoading = true; renderAuth();
     try {
       if (authMode === 'signup') {
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, timezone }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
         if (error) throw error;
         if (!data.session) {
           authMessage = 'Check your email to confirm your account, then log in.';
@@ -718,8 +724,8 @@
       if (!dates.length) { await saveWeeklyFeedbackByDate(memberId, weekKey, { general: text }); state.classifyLoading[loadKey] = false; renderApp(); return; }
       const exampleKey = dates[0];
       const prompt = `Below is feedback a leader wrote summarizing a member's whole week (${weekKeyToLabel(weekKey)}). It may mix comments tied to specific dates with general comments not tied to any date.\n\nFeedback text:\n"""${text}"""\n\nDates in this week (use these exact strings as keys, do not reformat them): ${dates.join(', ')}\n\nTask: extract the comment relevant to each date, and put any general (non-date-specific) comment under the key "general". Omit dates with no relevant comment.\n\nOutput ONLY a JSON object, no preamble, no code fences. Example shape (dates are illustrative only — use the real dates listed above):\n{"${exampleKey}": "comment for this date", "general": "general comment"}`;
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(CLAUDE_PROXY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }] })
       });
       const data = await response.json();
@@ -744,8 +750,8 @@
       statsText += `Suggest what the leader should focus on this week, in two parts: 1) language/content feedback, 2) motivation/habit feedback. Keep it to 3-5 concise sentences.`;
       const content = [{ type: 'text', text: statsText }];
       realImages.forEach(img => { const match = img.dataUrl.match(/^data:(image\/\w+);base64,(.+)$/); if (match) content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }); });
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(CLAUDE_PROXY_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content }] })
       });
       const data = await response.json();
