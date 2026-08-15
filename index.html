@@ -11,7 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
-    --primary: #C96A2B; --primary-hover: #B15F26; --primary-tint: #F3DCC9;
+    --primary: #F2924E; --primary-hover: #D58045; --primary-tint: #FCE5D5;
+    --btn-primary: #C96A2B; --btn-primary-hover: #B15F26;
     --canvas: #FFFFFF; --background: #FAF8F5; --surface: #FFF9F3; --surface-alt: #F2E9DE;
     --foreground: #2E2E2E; --muted: #8A8478; --hairline: #EAE3D8;
     --error: #D64545; --info: #3A7CA5; --success: #4C8C6B;
@@ -80,8 +81,8 @@
   .hero h1 .accent { color: var(--primary); }
   .hero p.sub { margin-top: 16px; font-size: 16px; line-height: 1.6; color: var(--muted); max-width: 480px; }
   .hero-ctas { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
-  .btn-primary { background: var(--primary); color: #fff; height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
-  .btn-primary:hover { background: var(--primary-hover); transform: scale(1.02); }
+  .btn-primary { background: var(--btn-primary); color: #fff; height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+  .btn-primary:hover { background: var(--btn-primary-hover); transform: scale(1.02); }
   .btn-secondary { background: var(--surface-alt); border: none; color: var(--foreground); height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
   .btn-secondary:hover { transform: scale(1.02); }
   .hero-stats { display: flex; gap: 26px; margin-top: 34px; }
@@ -129,7 +130,7 @@
   .step-card p { font-size: 13px; line-height: 1.55; color: var(--muted); }
 
   .price-card { max-width: 360px; margin: 0 auto; background: var(--surface); border: 2px solid var(--primary); border-radius: 16px; padding: 32px 28px; text-align: center; position: relative; box-shadow: var(--shadow-soft); }
-  .price-card .badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 800; padding: 5px 14px; border-radius: 9999px; }
+  .price-card .badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--btn-primary); color: #fff; font-size: 10.5px; font-weight: 800; padding: 5px 14px; border-radius: 9999px; }
   .price-card .amount { font-family: "Space Grotesk", sans-serif; font-size: 36px; font-weight: 800; margin: 16px 0 2px; }
   .price-card .amount span { font-size: 13px; font-weight: 600; color: var(--muted); }
   .price-card .strike { color: var(--muted); text-decoration: line-through; font-size: 13px; font-weight: 600; }
@@ -192,7 +193,7 @@
   .dz-header p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
   .dz-body { padding: 18px 24px 24px; }
   .dz-tag { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 3px 10px; border-radius: 9999px; background: var(--primary-tint); color: var(--primary-hover); letter-spacing: 0.02em; }
-  .dz-tag.leader { background: var(--primary); color: #fff; }
+  .dz-tag.leader { background: var(--btn-primary); color: #fff; }
   .dz-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
   @media (max-width: 520px) { .dz-cards { grid-template-columns: 1fr; } }
   .dz-task-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-soft); }
@@ -243,9 +244,9 @@
   .dz-shared-note { font-size: 10.5px; color: var(--muted); background: var(--surface-alt); border-radius: 8px; padding: 8px 10px; margin-top: 14px; line-height: 1.5; }
   .dz-member-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .dz-member-chip { font-size: 12px; padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--hairline); background: var(--surface); cursor: pointer; color: var(--foreground); }
-  .dz-member-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 800; }
-  .dz-btn { background: var(--primary); color: #fff; padding: 8px 16px; font-size: 12.5px; border-radius: 9999px; }
-  .dz-btn:hover { background: var(--primary-hover); }
+  .dz-member-chip.active { background: var(--btn-primary); color: #fff; border-color: var(--btn-primary); font-weight: 800; }
+  .dz-btn { background: var(--btn-primary); color: #fff; padding: 8px 16px; font-size: 12.5px; border-radius: 9999px; }
+  .dz-btn:hover { background: var(--btn-primary-hover); }
   .dz-btn.blue { background: var(--surface-alt); color: var(--foreground); }
   .dz-btn.blue:hover { background: var(--hairline); }
   .dz-btn.ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 5px 12px; }
@@ -259,7 +260,7 @@
 <!-- ============ NAV ============ -->
 <nav>
   <div class="logo" id="nav-logo" role="link" tabindex="0" aria-label="EngKor home">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C96A2B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.6-9.5-9C1 8 2 4.5 5.5 3.6 8 3 10.3 4.4 12 7c1.7-2.6 4-4 6.5-3.4C22 4.5 23 8 21.5 11c-2.5 4.4-9.5 9-9.5 9Z"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2924E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.6-9.5-9C1 8 2 4.5 5.5 3.6 8 3 10.3 4.4 12 7c1.7-2.6 4-4 6.5-3.4C22 4.5 23 8 21.5 11c-2.5 4.4-9.5 9-9.5 9Z"/></svg>
     EngKor
   </div>
   <div class="nav-links">
