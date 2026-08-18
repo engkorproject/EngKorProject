@@ -643,6 +643,7 @@
         ${isSignup ? `<div class="auth-field"><label>Name</label><input type="text" id="auth-name" required /></div>` : ''}
         <div class="auth-field"><label>Email</label><input type="email" id="auth-email" required /></div>
         <div class="auth-field"><label>Password</label><input type="password" id="auth-password" minlength="6" required /></div>
+        ${isSignup ? `<div class="auth-field"><label>Access code</label><input type="text" id="auth-access-code" required /></div>` : ''}
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${authLoading ? 'disabled' : ''}>${authLoading ? '...' : (isSignup ? 'Sign up' : 'Log in')}</button>
         ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
         ${authMessage ? `<p class="auth-success">${escapeHtml(authMessage)}</p>` : ''}
@@ -650,6 +651,7 @@
       <div class="auth-switch">
         ${isSignup ? `Already have an account? <button type="button" id="auth-toggle">Log in</button>` : `No account yet? <button type="button" id="auth-toggle">Sign up</button>`}
       </div>
+      <p class="sub" style="text-align:center; margin-top:16px;">EngKor is currently in private beta, sign-in isn't open to the public yet.</p>
     `;
     document.getElementById('auth-toggle').addEventListener('click', () => {
       authMode = isSignup ? 'login' : 'signup'; authError = null; authMessage = null; renderAuth();
@@ -663,11 +665,13 @@
     const password = document.getElementById('auth-password').value;
     const nameField = document.getElementById('auth-name');
     const name = nameField ? nameField.value.trim() : '';
+    const accessCodeField = document.getElementById('auth-access-code');
+    const accessCode = accessCodeField ? accessCodeField.value.trim() : '';
     authError = null; authMessage = null; authLoading = true; renderAuth();
     try {
       if (authMode === 'signup') {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, timezone }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, timezone, access_code: accessCode }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
         if (error) throw error;
         if (!data.session) {
           authMessage = 'Check your email to confirm your account, then log in.';

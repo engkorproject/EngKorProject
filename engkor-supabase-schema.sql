@@ -43,9 +43,14 @@ create policy "leader_select_all_profiles" on public.profiles
 
 -- 회원가입하면 자동으로 프로필 행을 만들어줌 (기본 역할: member)
 -- email은 auth.users에서, timezone은 가입 시 프론트에서 넘겨준 값(없으면 Asia/Seoul)으로 채움
+-- 베타 기간에는 access_code가 정답과 일치하지 않으면 가입 자체를 막음(트랜잭션 전체 롤백)
 create function public.handle_new_user()
 returns trigger as $$
 begin
+  if coalesce(new.raw_user_meta_data->>'access_code', '') <> 'ENGKORCODE' then
+    raise exception 'Invalid access code';
+  end if;
+
   insert into public.profiles (id, name, role, email, timezone)
   values (
     new.id,
