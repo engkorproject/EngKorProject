@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://engkorproject.github.io/EngKorProject/sitemap.xml
