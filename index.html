@@ -701,7 +701,10 @@
         if (error) throw error;
       }
     } catch (err) {
-      authError = err.message || 'Something went wrong. Please try again.';
+      const msg = err.message || '';
+      authError = msg.includes('Database error saving new user')
+        ? '잘못된 코드입니다. 접근이 불가합니다.'
+        : (msg || 'Something went wrong. Please try again.');
     }
     authLoading = false; renderAuth();
   }
