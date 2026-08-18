@@ -703,7 +703,7 @@
     } catch (err) {
       const msg = err.message || '';
       authError = msg.includes('Database error saving new user')
-        ? '잘못된 코드입니다. 접근이 불가합니다.'
+        ? 'Invalid access code. Access denied.'
         : (msg || 'Something went wrong. Please try again.');
     }
     authLoading = false; renderAuth();
