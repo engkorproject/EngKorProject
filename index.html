@@ -642,7 +642,7 @@
   function renderNav() {
     const el = document.getElementById('nav-actions');
     if (!currentProfile) {
-      el.innerHTML = `<button class="btn-sm" id="nav-login-btn">로그인</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-login-btn">Log in</button>`;
       document.getElementById('nav-login-btn').addEventListener('click', showAuth);
     } else {
       const label = currentProfile.role === 'leader' ? '🛠 Admin Dashboard' : '📊 My Dashboard';
