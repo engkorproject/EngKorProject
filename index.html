@@ -450,7 +450,7 @@
   const appView = document.getElementById('app-view');
   const authView = document.getElementById('auth-view');
   const dzRoot = document.getElementById('dz-root');
-  const MAX_REC_SECONDS = 20;
+  const MAX_REC_SECONDS = 120;
 
   const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
@@ -553,24 +553,34 @@
     return Math.round((done / totalDaysInMonth) * 100);
   }
   function currentStreak(memberId) {
-    const sub = state.submissions[memberId] || {}; let streak = 0, d = new Date();
-    while (true) {
-      const key = localDateStr(d);
-      if (sub[key] && sub[key].diary && sub[key].shadowing) { streak++; d.setDate(d.getDate() - 1); } else break;
-    }
+    const sub = state.submissions[memberId] || {};
+    const isDone = (d) => { const day = sub[localDateStr(d)]; return !!(day && day.diary && day.shadowing); };
+    let d = new Date();
+    // Don't zero out the streak just because today isn't finished yet —
+    // only start counting backwards from yesterday in that case.
+    if (!isDone(d)) d.setDate(d.getDate() - 1);
+    let streak = 0;
+    while (isDone(d)) { streak++; d.setDate(d.getDate() - 1); }
     return streak;
   }
+  // Week key = the local date (YYYY-MM-DD) of the Sunday that starts that
+  // calendar week — matches the calendar grid below, which also starts on
+  // Sunday. Using a real date (instead of "day-of-month / 7") means weeks
+  // always run Sun–Sat regardless of which weekday the 1st falls on, and
+  // weeks that span a month boundary aren't split into two.
   function weekKeyOf(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
-    return `${y}-${pad2(m)}-W${Math.ceil(d / 7)}`;
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() - date.getDay());
+    return localDateStr(date);
   }
   function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
   function weekKeyToLabel(weekKey) {
-    const match = weekKey.match(/^(\d+)-(\d+)-W(\d+)$/); if (!match) return weekKey;
-    const y = parseInt(match[1]), mo = parseInt(match[2]), wn = parseInt(match[3]);
-    const dim = daysInMonth(y, mo - 1);
-    const startDay = (wn - 1) * 7 + 1, endDay = Math.min(wn * 7, dim);
-    return `Week ${wn} of Month ${mo} (day ${startDay}–${endDay})`;
+    const [y, m, d] = weekKey.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    const fmt = (dt) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `Week of ${fmt(start)} – ${fmt(end)}`;
   }
 
   function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
@@ -619,10 +629,16 @@
     state.recError = null;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recChunks = []; mediaRecorder = new MediaRecorder(stream);
+      recChunks = [];
+      // Safari doesn't support 'audio/webm' at all — picking a type it actually
+      // supports (and using THAT type on the resulting Blob, not a hardcoded one)
+      // fixes recordings that played back broken or failed to save.
+      const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg'];
+      const supportedType = preferredTypes.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
+      mediaRecorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
       mediaRecorder.ondataavailable = (e) => recChunks.push(e.data);
       mediaRecorder.onstop = async () => {
-        const blob = new Blob(recChunks, { type: 'audio/webm' });
+        const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
         const dataUrl = await blobToDataURL(blob);
         setDay(memberId, todayStr(), { shadowing: dataUrl }); state.recording = false; renderApp(); await saveSub(memberId);
@@ -928,7 +944,7 @@
               </div>
               <p class="dz-muted" style="margin:2px 0;">or</p>
               <div class="dz-drop" id="shadow-drop">Select an audio file (2MB max)</div>
-              <input type="file" id="shadow-file" accept="audio/*" style="display:none;" />
+              <input type="file" id="shadow-file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" style="display:none;" />
               ${state.recError ? `<p class="dz-muted" style="color:#B4443A;">${state.recError}</p>` : ''}
             `}
           </div>
