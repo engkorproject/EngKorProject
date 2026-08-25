@@ -472,11 +472,12 @@
     members: [], submissions: {}, weeklyFeedback: {}, weeklyFeedbackByDate: {}, classifyLoading: {},
     leaderboard: [],
     leaderFocusId: null, loaded: false,
-    recording: false, recError: null,
+    recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     aiLoading: false, aiSuggestion: null, aiError: null
   };
-  let mediaRecorder = null, recChunks = [], recTimer = null;
+  let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
+  const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
 
   async function loadAll() {
     state.submissions = {}; state.weeklyFeedback = {}; state.weeklyFeedbackByDate = {}; state.leaderboard = [];
@@ -622,7 +623,7 @@
   }
   async function handleShadowUploadFile(memberId, file) {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert('File too large (2MB max recommended).'); return; }
+    if (file.size > 10 * 1024 * 1024) { alert('File too large (10MB max recommended).'); return; }
     const dataUrl = await blobToDataURL(file); setDay(memberId, todayStr(), { shadowing: dataUrl }); renderApp(); await saveSub(memberId);
   }
   async function startRecording(memberId) {
@@ -638,12 +639,14 @@
       mediaRecorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
       mediaRecorder.ondataavailable = (e) => recChunks.push(e.data);
       mediaRecorder.onstop = async () => {
+        if (recInterval) { clearInterval(recInterval); recInterval = null; }
         const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
         const dataUrl = await blobToDataURL(blob);
         setDay(memberId, todayStr(), { shadowing: dataUrl }); state.recording = false; renderApp(); await saveSub(memberId);
       };
-      mediaRecorder.start(); state.recording = true; renderApp();
+      mediaRecorder.start(); state.recording = true; state.recSeconds = 0; renderApp();
+      recInterval = setInterval(() => { state.recSeconds++; renderApp(); }, 1000);
       recTimer = setTimeout(() => { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); }, MAX_REC_SECONDS * 1000);
     } catch (e) { state.recError = 'Mic access blocked. Please upload a file instead.'; renderApp(); }
   }
@@ -940,10 +943,10 @@
             ${today.shadowing ? mediaBlock(today.shadowing, 'shadowing') + '<button class="dz-btn danger" data-remove-shadow="1">Remove</button>' : `
               <div style="display:flex; gap:8px; align-items:center;">
                 <button class="dz-btn" id="rec-btn">${state.recording ? 'Stop recording' : 'Start recording'}</button>
-                ${state.recording ? '<span class="dz-muted">Max ' + MAX_REC_SECONDS + 's</span>' : ''}
+                ${state.recording ? '<span class="dz-muted">' + fmtRecTime(state.recSeconds) + ' / ' + fmtRecTime(MAX_REC_SECONDS) + '</span>' : ''}
               </div>
               <p class="dz-muted" style="margin:2px 0;">or</p>
-              <div class="dz-drop" id="shadow-drop">Select an audio file (2MB max)</div>
+              <div class="dz-drop" id="shadow-drop">Select an audio file (10MB max)</div>
               <input type="file" id="shadow-file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" style="display:none;" />
               ${state.recError ? `<p class="dz-muted" style="color:#B4443A;">${state.recError}</p>` : ''}
             `}
