@@ -27,6 +27,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <style>
   :root {
     --primary: #F2924E; --primary-hover: #D58045; --primary-tint: #FCE5D5;
@@ -399,7 +400,7 @@
         <div class="item">Personal streak & completion dashboard</div>
         <div class="item">Community leaderboard</div>
       </div>
-      <a class="btn btn-primary" href="#" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
+      <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
     </div>
   </section>
 
@@ -456,6 +457,22 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const CLAUDE_PROXY_URL = SUPABASE_URL + '/functions/v1/claude-proxy';
+
+  const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
+  const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
+  Paddle.Environment.set('production');
+  Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN });
+
+  function openCheckout() {
+    const checkoutOptions = { items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }] };
+    if (currentUser && currentUser.email) {
+      checkoutOptions.customer = { email: currentUser.email };
+    }
+    if (currentProfile && currentProfile.id) {
+      checkoutOptions.customData = { supabase_user_id: currentProfile.id };
+    }
+    Paddle.Checkout.open(checkoutOptions);
+  }
 
   const pad2 = (n) => String(n).padStart(2, '0');
   // Uses the browser's local calendar day (not toISOString, which is UTC) so a
@@ -1040,6 +1057,7 @@
 
   document.getElementById('back-link').addEventListener('click', showLanding);
   document.getElementById('auth-back-link').addEventListener('click', showLanding);
+  document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openCheckout(); });
   const navLogo = document.getElementById('nav-logo');
   navLogo.addEventListener('click', showLanding);
   navLogo.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showLanding(); } });
