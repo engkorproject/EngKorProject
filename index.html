@@ -561,7 +561,7 @@
   }
   function currentStreak(memberId) {
     const sub = state.submissions[memberId] || {};
-    const isDone = (d) => { const day = sub[localDateStr(d)]; return !!(day && day.diary && day.shadowing); };
+    const isDone = (d) => { const day = sub[localDateStr(d)]; return !!(day && (day.diary || day.shadowing)); };
     let d = new Date();
     // Don't zero out the streak just because today isn't finished yet —
     // only start counting backwards from yesterday in that case.
