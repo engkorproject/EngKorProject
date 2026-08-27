@@ -246,10 +246,10 @@
   .dz-cal-btn { width: 100%; height: 100%; border-radius: 8px; border: 1px solid var(--hairline); background: var(--surface); font-size: 11px; color: var(--foreground); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
   .dz-cal-btn.selected { border: 2px solid var(--primary); }
   .dz-cal-btn.future { color: var(--muted); opacity: 0.5; }
-  .dz-cdot { width: 6px; height: 6px; border-radius: 50%; }
-  .dz-cdot.full { background: var(--primary); }
-  .dz-cdot.partial { background: var(--primary); opacity: 0.45; }
-  .dz-cdot.none { background: var(--hairline); }
+  .dz-cdot { display: inline-block; }
+  .dz-cdot.full { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+  .dz-cdot.partial { width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; border: 1px solid var(--primary); background: linear-gradient(to right, var(--primary) 50%, transparent 50%); }
+  .dz-cdot.none { font-size: 9px; line-height: 1; font-weight: 700; color: var(--muted); }
   .dz-cal-empty { visibility: hidden; }
   .dz-detail-panel { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 14px; margin-top: 12px; box-shadow: var(--shadow-soft); }
   .dz-day-block { border-bottom: 1px dashed var(--hairline); padding: 10px 0; }
@@ -772,7 +772,7 @@
       const day = getDay(memberId, dateStr);
       const dotClass = (day.diary && day.shadowing) ? 'full' : (day.diary || day.shadowing) ? 'partial' : 'none';
       const selected = dateStr === state.selectedDate ? 'selected' : '';
-      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${isFuture ? 'future' : ''}" data-date="${dateStr}" ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}"></span>` : ''}</button></div>`);
+      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${isFuture ? 'future' : ''}" data-date="${dateStr}" ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}">${dotClass === 'none' ? '×' : ''}</span>` : ''}</button></div>`);
     }
     const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return `
