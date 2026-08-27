@@ -498,8 +498,7 @@
     leaderboard: [],
     leaderFocusId: null, loaded: false,
     recording: false, recError: null, recSeconds: 0,
-    calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
-    aiLoading: false, aiSuggestion: null, aiError: null
+    calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr()
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
@@ -805,32 +804,6 @@
     } catch (e) { await saveWeeklyFeedbackByDate(memberId, weekKey, { general: text }); }
     state.classifyLoading[loadKey] = false; renderApp();
   }
-  async function requestAISuggestion(memberId) {
-    state.aiLoading = true; state.aiError = null; state.aiSuggestion = null; renderApp();
-    try {
-      const sub = state.submissions[memberId] || {};
-      const dates = Object.keys(sub).sort();
-      const rate = completionRate(memberId), streak = currentStreak(memberId), totalDays = dates.length;
-      const missed = dates.filter(d => !(sub[d].diary && sub[d].shadowing)).length;
-      const realImages = dates.filter(d => sub[d].diary && sub[d].diary !== 'seed').slice(-4).map(d => ({ date: d, dataUrl: sub[d].diary }));
-      let statsText = `Progress summary for this member.\n- Total days tracked: ${totalDays}\n- Completion rate (both writing+shadowing): ${rate}%\n- Current streak: ${streak} days\n- Partial/missed days: ${missed}\n\n`;
-      statsText += realImages.length
-        ? `Below are the member's actual submitted writing images. Read the English/Korean text and note recurring grammar/expression patterns.\n\n`
-        : `No real writing images have been uploaded yet, so base your advice only on the completion pattern (streaks, missed days).\n\n`;
-      statsText += `Suggest what the leader should focus on this week, in two parts: 1) language/content feedback, 2) motivation/habit feedback. Keep it to 3-5 concise sentences.`;
-      const content = [{ type: 'text', text: statsText }];
-      realImages.forEach(img => { const match = img.dataUrl.match(/^data:(image\/\w+);base64,(.+)$/); if (match) content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }); });
-      const response = await fetch(CLAUDE_PROXY_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content }] })
-      });
-      const data = await response.json();
-      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-      state.aiSuggestion = text || 'Could not generate a suggestion. Please try again.';
-    } catch (e) { state.aiError = 'Could not load AI suggestion. Please try again later.'; }
-    state.aiLoading = false; renderApp();
-  }
-
   // ---- calendar ----
   function fmtDate(y, m, d) { return y + '-' + pad2(m + 1) + '-' + pad2(d); }
   function renderCalendar(memberId) {
@@ -925,12 +898,6 @@
         <span class="dz-tag leader">Leader Mode</span>
         <h2 class="dz-section">Select a member</h2>
         <div class="dz-member-picker">${chips}</div>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <button class="dz-btn blue" id="ai-suggest-btn" ${state.aiLoading ? 'disabled' : ''}>${state.aiLoading ? 'AI analyzing...' : '✨ Get AI Suggestion'}</button>
-          <span class="dz-muted">Based on real uploaded writing images + completion pattern (audio isn't analyzed)</span>
-        </div>
-        ${state.aiSuggestion ? `<div class="dz-ai-box"><b>AI Suggestion</b><br/>${escapeHtml(state.aiSuggestion)}</div>` : ''}
-        ${state.aiError ? `<p class="dz-muted" style="color:#B4443A;">${state.aiError}</p>` : ''}
         <h2 class="dz-section">${escapeHtml(focusMember.name)}'s full history (grouped by week)</h2>
         <div class="dz-detail-panel">${allHistory}</div>
       `;
@@ -1042,7 +1009,7 @@
 
     if (isLeader && state.members.length) {
       document.querySelectorAll('[data-focus]').forEach(chip => {
-        chip.addEventListener('click', () => { state.leaderFocusId = chip.getAttribute('data-focus'); state.aiSuggestion = null; state.aiError = null; renderApp(); });
+        chip.addEventListener('click', () => { state.leaderFocusId = chip.getAttribute('data-focus'); renderApp(); });
       });
       document.querySelectorAll('[data-save-wfb]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1058,8 +1025,6 @@
           classifyWeeklyFeedback(mid, wk, ta.value);
         });
       });
-      const aiBtn = document.getElementById('ai-suggest-btn');
-      if (aiBtn) aiBtn.addEventListener('click', () => requestAISuggestion(state.leaderFocusId || state.members[0].id));
     }
   }
 
