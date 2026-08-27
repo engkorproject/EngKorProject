@@ -257,8 +257,6 @@
   .dz-day-block .day-label { font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
   .dz-week-header { font-size: 12px; font-weight: 800; color: var(--primary-hover); background: var(--primary-tint); padding: 6px 10px; border-radius: 8px; margin: 14px 0 6px; }
   .dz-feedback-note { background: var(--primary-tint); color: var(--primary-hover); font-size: 12px; border-radius: 8px; padding: 8px; margin-top: 6px; }
-  .dz-ai-box { background: var(--surface-alt); border: 1px dashed var(--primary); border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-  .dz-ai-box b { color: var(--primary-hover); }
   textarea.dz-ta { width: 100%; resize: vertical; min-height: 44px; font-family: inherit; font-size: 12px; border: 1px solid var(--hairline); border-radius: 8px; padding: 8px; background: var(--surface); color: var(--foreground); }
   .dz-muted { color: var(--muted); font-size: 12px; }
   .dz-shared-note { font-size: 10.5px; color: var(--muted); background: var(--surface-alt); border-radius: 8px; padding: 8px 10px; margin-top: 14px; line-height: 1.5; }
@@ -456,7 +454,6 @@
   const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const CLAUDE_PROXY_URL = SUPABASE_URL + '/functions/v1/claude-proxy';
 
   const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
   const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
@@ -494,7 +491,7 @@
 
   let state = {
     view: 'landing', // 'landing' | 'auth' | 'member' | 'leader'
-    members: [], submissions: {}, weeklyFeedback: {}, weeklyFeedbackByDate: {}, classifyLoading: {},
+    members: [], submissions: {}, weeklyFeedback: {},
     leaderboard: [],
     leaderFocusId: null, loaded: false,
     recording: false, recError: null, recSeconds: 0,
@@ -504,34 +501,28 @@
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
 
   async function loadAll() {
-    state.submissions = {}; state.weeklyFeedback = {}; state.weeklyFeedbackByDate = {}; state.leaderboard = [];
+    state.submissions = {}; state.weeklyFeedback = {}; state.leaderboard = [];
 
     if (currentProfile.role === 'leader') {
       const { data: members, error: membersErr } = await sb.from('profiles').select('id,name').eq('role', 'member').order('name');
       if (membersErr) console.error(membersErr);
       state.members = members || [];
       const memberIds = state.members.map(m => m.id);
-      state.members.forEach(m => { state.submissions[m.id] = {}; state.weeklyFeedback[m.id] = {}; state.weeklyFeedbackByDate[m.id] = {}; });
+      state.members.forEach(m => { state.submissions[m.id] = {}; state.weeklyFeedback[m.id] = {}; });
       if (memberIds.length) {
         const { data: subs } = await sb.from('submissions').select('*').in('member_id', memberIds);
         (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
         const { data: wfbRows } = await sb.from('weekly_feedback').select('*').in('member_id', memberIds);
-        (wfbRows || []).forEach(r => {
-          state.weeklyFeedback[r.member_id][r.week_key] = r.text || '';
-          state.weeklyFeedbackByDate[r.member_id][r.week_key] = r.by_date || null;
-        });
+        (wfbRows || []).forEach(r => { state.weeklyFeedback[r.member_id][r.week_key] = r.text || ''; });
       }
     } else {
       const memberId = currentProfile.id;
       state.members = [{ id: memberId, name: currentProfile.name }];
-      state.submissions[memberId] = {}; state.weeklyFeedback[memberId] = {}; state.weeklyFeedbackByDate[memberId] = {};
+      state.submissions[memberId] = {}; state.weeklyFeedback[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
       (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
       const { data: wfbRows } = await sb.from('weekly_feedback').select('*').eq('member_id', memberId);
-      (wfbRows || []).forEach(r => {
-        state.weeklyFeedback[memberId][r.week_key] = r.text || '';
-        state.weeklyFeedbackByDate[memberId][r.week_key] = r.by_date || null;
-      });
+      (wfbRows || []).forEach(r => { state.weeklyFeedback[memberId][r.week_key] = r.text || ''; });
       const { data: lb } = await sb.from('leaderboard').select('*');
       state.leaderboard = lb || [];
     }
@@ -551,17 +542,8 @@
     const { error } = await sb.from('weekly_feedback').upsert({ member_id: memberId, week_key: weekKey, text }, { onConflict: 'member_id,week_key' });
     if (error) console.error(error);
     renderApp();
-    await classifyWeeklyFeedback(memberId, weekKey, text);
   }
   function getWeeklyFeedback(memberId, weekKey) { return (state.weeklyFeedback[memberId] || {})[weekKey] || ''; }
-  async function saveWeeklyFeedbackByDate(memberId, weekKey, parsed) {
-    if (!state.weeklyFeedbackByDate[memberId]) state.weeklyFeedbackByDate[memberId] = {};
-    state.weeklyFeedbackByDate[memberId][weekKey] = parsed;
-    const { error } = await sb.from('weekly_feedback').upsert({ member_id: memberId, week_key: weekKey, by_date: parsed }, { onConflict: 'member_id,week_key' });
-    if (error) console.error(error);
-  }
-  function getWeeklyFeedbackByDate(memberId, weekKey) { return (state.weeklyFeedbackByDate[memberId] || {})[weekKey] || null; }
-
   function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null }; }
   function setDay(memberId, date, patch) {
     if (!state.submissions[memberId]) state.submissions[memberId] = {};
@@ -775,35 +757,6 @@
     }
   }
 
-  // ---- AI classification ----
-  function extractJsonObject(raw) {
-    if (!raw) return null;
-    let candidate = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const first = candidate.indexOf('{'), last = candidate.lastIndexOf('}');
-    if (first !== -1 && last !== -1 && last > first) candidate = candidate.slice(first, last + 1);
-    try { return JSON.parse(candidate); } catch (e) {}
-    try { return JSON.parse(candidate.replace(/,\s*}/g, '}')); } catch (e) { return null; }
-  }
-  async function classifyWeeklyFeedback(memberId, weekKey, text) {
-    const loadKey = memberId + '::' + weekKey;
-    if (!text || !text.trim()) { await saveWeeklyFeedbackByDate(memberId, weekKey, null); renderApp(); return; }
-    state.classifyLoading[loadKey] = true; renderApp();
-    try {
-      const dates = Object.keys(state.submissions[memberId] || {}).filter(d => weekKeyOf(d) === weekKey).sort();
-      if (!dates.length) { await saveWeeklyFeedbackByDate(memberId, weekKey, { general: text }); state.classifyLoading[loadKey] = false; renderApp(); return; }
-      const exampleKey = dates[0];
-      const prompt = `Below is feedback a leader wrote summarizing a member's whole week (${weekKeyToLabel(weekKey)}). It may mix comments tied to specific dates with general comments not tied to any date.\n\nFeedback text:\n"""${text}"""\n\nDates in this week (use these exact strings as keys, do not reformat them): ${dates.join(', ')}\n\nTask: extract the comment relevant to each date, and put any general (non-date-specific) comment under the key "general". Omit dates with no relevant comment.\n\nOutput ONLY a JSON object, no preamble, no code fences. Example shape (dates are illustrative only — use the real dates listed above):\n{"${exampleKey}": "comment for this date", "general": "general comment"}`;
-      const response = await fetch(CLAUDE_PROXY_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }] })
-      });
-      const data = await response.json();
-      const raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      const parsed = extractJsonObject(raw);
-      await saveWeeklyFeedbackByDate(memberId, weekKey, parsed || { general: text });
-    } catch (e) { await saveWeeklyFeedbackByDate(memberId, weekKey, { general: text }); }
-    state.classifyLoading[loadKey] = false; renderApp();
-  }
   // ---- calendar ----
   function fmtDate(y, m, d) { return y + '-' + pad2(m + 1) + '-' + pad2(d); }
   function renderCalendar(memberId) {
@@ -875,22 +828,16 @@
           return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;"><div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}</div><div><p class="dz-muted" style="margin:0 0 4px;">Shadowing</p>${mediaBlock(day.shadowing, 'shadowing')}</div></div></div>`;
         }).join('');
         const existingFb = getWeeklyFeedback(focusId, wk);
-        const classified = getWeeklyFeedbackByDate(focusId, wk);
-        const loadKey = focusId + '::' + wk;
-        const isClassifying = !!state.classifyLoading[loadKey];
-        const classifiedHtml = isClassifying ? '<p class="dz-muted">Classifying by date...</p>' : classified ? `<div class="dz-ai-box" style="margin-top:8px;"><b>📅 Auto-classified by date</b><br/>${Object.keys(classified).filter(k => k !== 'general').sort().map(d => `<div style="margin-top:6px;"><b>${d}</b>: ${escapeHtml(classified[d])}</div>`).join('')}${classified.general ? `<div style="margin-top:6px;"><b>General</b>: ${escapeHtml(classified.general)}</div>` : ''}</div>` : '';
         return `
           <div class="dz-week-header">${weekKeyToLabel(wk)}</div>
           ${dayItems}
           <div style="margin-top:8px;">
-            <p class="dz-muted" style="margin:0 0 4px;">This week's combined feedback — mention dates and write it all in one go</p>
-            <textarea class="dz-ta" placeholder='e.g. On 7/6 you wrote "this morning" — try adding a comma after it...' data-fb-week-member="${focusId}" data-fb-week-key="${wk}">${existingFb ? escapeHtml(existingFb) : ''}</textarea>
+            <p class="dz-muted" style="margin:0 0 4px;">This week's feedback (one combined note for the whole week)</p>
+            <textarea class="dz-ta" placeholder="e.g. Great progress this week, watch your spacing before particles." data-fb-week-member="${focusId}" data-fb-week-key="${wk}">${existingFb ? escapeHtml(existingFb) : ''}</textarea>
             <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
-              <button class="dz-btn ghost" data-reclassify="${focusId}" data-reclassify-week="${wk}" ${isClassifying ? 'disabled' : ''}>Re-classify</button>
               <button class="dz-btn ghost" data-save-wfb="${focusId}" data-save-wfb-key="${wk}">Save this week's feedback</button>
             </div>
             ${existingFb ? `<div class="dz-feedback-note">${escapeHtml(existingFb)}</div>` : ''}
-            ${classifiedHtml}
           </div>`;
       }).join('');
 
@@ -915,10 +862,8 @@
       }).join('');
 
       const wk = weekKeyOf(state.selectedDate);
-      const classified = getWeeklyFeedbackByDate(me.id, wk);
-      const dateSnippet = classified ? classified[state.selectedDate] : null;
-      const generalSnippet = classified ? classified.general : null;
-      const feedbackHtml = dateSnippet ? `<div class="dz-feedback-note">Feedback for this date: ${escapeHtml(dateSnippet)}</div>` : generalSnippet ? `<div class="dz-feedback-note">This week's general feedback: ${escapeHtml(generalSnippet)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No leader feedback for this date yet.</p>`;
+      const weekFeedback = getWeeklyFeedback(me.id, wk);
+      const feedbackHtml = weekFeedback ? `<div class="dz-feedback-note">This week's feedback: ${escapeHtml(weekFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No leader feedback for this week yet.</p>`;
 
       body = `
         <span class="dz-tag">Member Mode</span>
@@ -1016,13 +961,6 @@
           const mid = btn.getAttribute('data-save-wfb'), wk = btn.getAttribute('data-save-wfb-key');
           const ta = document.querySelector(`textarea[data-fb-week-member="${mid}"][data-fb-week-key="${wk}"]`);
           saveWeeklyFeedback(mid, wk, ta.value);
-        });
-      });
-      document.querySelectorAll('[data-reclassify]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const mid = btn.getAttribute('data-reclassify'), wk = btn.getAttribute('data-reclassify-week');
-          const ta = document.querySelector(`textarea[data-fb-week-member="${mid}"][data-fb-week-key="${wk}"]`);
-          classifyWeeklyFeedback(mid, wk, ta.value);
         });
       });
     }
