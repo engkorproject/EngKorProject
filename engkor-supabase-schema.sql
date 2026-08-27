@@ -13,6 +13,13 @@ create table public.profiles (
   email text unique,       -- auth.users의 이메일을 캐시(클라이언트에서 auth.users 직접 조회 불가)
   timezone text not null default 'Asia/Seoul',  -- IANA 타임존 문자열, 예: 'Asia/Seoul'
   cohort_id uuid,          -- 현재 소속 기수 (아래 cohorts 테이블 생성 후 FK 연결)
+  -- Paddle 구독 상태. paddle-webhook Edge Function만 이 값들을 씀, 클라이언트는 절대 직접 수정 안 함
+  -- (그래서 별도 RLS write 정책 없음, service_role만 통과하는 구조).
+  subscription_status text not null default 'inactive'
+    check (subscription_status in ('inactive', 'active', 'past_due', 'canceled')),
+  paddle_customer_id text,
+  paddle_subscription_id text,
+  current_period_end timestamptz,  -- 이번 결제 주기가 언제까지인지, 이 시점 지나면 접근 재확인 필요
   created_at timestamptz not null default now()
 );
 

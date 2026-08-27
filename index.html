@@ -463,14 +463,22 @@
   Paddle.Environment.set('production');
   Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN });
 
+  // Checkout requires a logged-in account. Since signup itself is gated behind
+  // the beta access code, this means only people we've actually let in can ever
+  // reach the payment form -- not just people who happen to find the button.
   function openCheckout() {
-    const checkoutOptions = { items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }] };
-    if (currentUser && currentUser.email) {
-      checkoutOptions.customer = { email: currentUser.email };
+    if (!currentUser) {
+      showAuth();
+      authMode = 'signup';
+      authMessage = 'Create an account first, then come back to start your challenge.';
+      renderAuth();
+      return;
     }
-    if (currentProfile && currentProfile.id) {
-      checkoutOptions.customData = { supabase_user_id: currentProfile.id };
-    }
+    const checkoutOptions = {
+      items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+      customer: { email: currentUser.email },
+      customData: { supabase_user_id: currentProfile ? currentProfile.id : currentUser.id }
+    };
     Paddle.Checkout.open(checkoutOptions);
   }
 
