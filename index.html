@@ -215,6 +215,7 @@
   .dz-back:hover { color: var(--primary); }
   .dz-header { padding: 8px 4px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   .dz-header h1 { font-size: 27px; font-weight: 900; margin: 0; letter-spacing: -0.03em; }
+  .dz-header h1 .dz-name { text-transform: capitalize; }
   .dz-header p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
   .dz-body { padding: 28px 4px 32px; }
   .dz-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 8px; background: var(--primary-tint); color: var(--primary-hover); }
@@ -924,7 +925,7 @@
     dzRoot.innerHTML = `
       <div class="dz-header">
         <div>
-          <h1>${isLeader ? 'EngKor Dashboard' : 'Welcome back, ' + escapeHtml(displayName)}</h1>
+          <h1>${isLeader ? 'EngKor Dashboard' : 'Welcome back, <span class="dz-name">' + escapeHtml(displayName) + '</span>'}</h1>
           <p>${todayLabel}</p>
         </div>
         ${isLeader ? '<span class="dz-tag leader">Leader</span>' : ''}
