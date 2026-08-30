@@ -200,11 +200,16 @@ alter table public.submissions
 -- 멤버 본인이 이 두 피드백 컬럼도 기술적으로 직접 쓸 수 있음(앱 UI에서는 절대
 -- 안 하지만). 더 엄격하게 막으려면 별도 트리거나 컬럼 단위 정책이 필요함 — 필요시 추가.
 
--- 리더가 다른 멤버의 submissions 행에 피드백을 저장할 수 있도록 UPDATE 권한 추가.
+-- 리더가 다른 멤버의 submissions 행에 피드백을 저장할 수 있도록 권한 추가.
 -- (기존 leader_select_all_submissions는 조회만 허용하고 쓰기는 막고 있었음 — 이게 없으면
 --  리더 대시보드의 "날짜별 피드백 저장" 기능이 RLS에 막혀 조용히 실패함)
+--
+-- 처음엔 for update로만 만들었다가 실패함: saveDayFeedback이 쓰는 upsert()는
+-- 내부적으로 "INSERT ... ON CONFLICT DO UPDATE"라서, 실제로는 기존 행을 갱신하는
+-- 상황이어도 PostgreSQL RLS가 INSERT 권한까지 같이 확인함. 리더는 INSERT 정책이
+-- 없어서 계속 막혔음 — for all로 바꿔서 해결.
 create policy "leader_manage_all_submissions_feedback" on public.submissions
-  for update using (public.is_leader()) with check (public.is_leader());
+  for all using (public.is_leader()) with check (public.is_leader());
 
 -- 일회성 데이터 이관: 예전에 리더가 "[M/D Writing Feedback]" / "[M/D Shadowing Feedback]"
 -- 태그를 붙여 작성했던 weekly_feedback.text를 파싱해서 날짜별 컬럼으로 옮김.
