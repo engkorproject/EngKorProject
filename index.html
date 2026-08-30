@@ -304,7 +304,7 @@
     <div class="hero-text">
       <div class="hero-tag">🔥 Challenge-based Korean conversation community</div>
       <h1>Want to improve your Korean speaking? Struggling to stay <span class="accent">consistent</span> on your own?</h1>
-      <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Shadowing + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together — while having fun!</p>
+      <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Speaking + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together — while having fun!</p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href="#pricing">Start the Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
@@ -384,7 +384,7 @@
     </div>
     <div class="steps">
       <div class="step-card reveal"><div class="step-num">1</div><h4>Join for free</h4><p>Hop into the Discord community and start chatting freely.</p></div>
-      <div class="step-card reveal"><div class="step-num">2</div><h4>Apply for the challenge</h4><p>Cohorts open monthly. Check in daily with Shadowing + Writing.</p></div>
+      <div class="step-card reveal"><div class="step-num">2</div><h4>Apply for the challenge</h4><p>Cohorts open monthly. Check in daily with Speaking + Writing.</p></div>
       <div class="step-card reveal"><div class="step-num">3</div><h4>Weekly correction</h4><p>A real Korean staff member reviews your writing and pronunciation every week.</p></div>
       <div class="step-card reveal"><div class="step-num">4</div><h4>Keep your streak</h4><p>Track your progress and see the community leaderboard on your dashboard.</p></div>
     </div>
@@ -401,7 +401,7 @@
       <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
       <p class="price-note">Pilot test participants get 50% off the regular price.</p>
       <div class="price-list">
-        <div class="item">Shadowing + Writing challenge</div>
+        <div class="item">Speaking + Writing challenge</div>
         <div class="item">Weekly correction from a real staff member</div>
         <div class="item">Personal streak & completion dashboard</div>
         <div class="item">Community leaderboard</div>
@@ -417,14 +417,14 @@
     </div>
     <div class="trust-grid">
       <div class="trust-card reveal"><div class="quote">"Finally someone actually corrects my writing every single week."</div><div class="trust-person"><div class="avatar"></div><div><div class="name">Sarah</div><div class="role">Learning Korean · 3 months</div></div></div></div>
-      <div class="trust-card reveal"><div class="quote">"Shadowing fixed my pronunciation, writing feedback fixed my grammar."</div><div class="trust-person"><div class="avatar"></div><div><div class="name">Daniel</div><div class="role">Learning Korean · 6 weeks</div></div></div></div>
+      <div class="trust-card reveal"><div class="quote">"Speaking fixed my pronunciation, writing feedback fixed my grammar."</div><div class="trust-person"><div class="avatar"></div><div><div class="name">Daniel</div><div class="role">Learning Korean · 6 weeks</div></div></div></div>
       <div class="trust-card reveal"><div class="quote">"My streak keeps me coming back, but the feedback is why I stay."</div><div class="trust-person"><div class="avatar"></div><div><div class="name">Yuki</div><div class="role">Learning Korean · 2 months</div></div></div></div>
     </div>
   </section>
 
   <div class="cta-band">
     <h2>For those who already know some Korean</h2>
-    <p>Build the fundamentals of real conversation through Shadowing + Writing correction — in a small community that meets fresh every month.</p>
+    <p>Build the fundamentals of real conversation through Speaking + Writing correction — in a small community that meets fresh every month.</p>
     <div class="hero-ctas">
       <a class="btn btn-primary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join the Discord →</a>
     </div>
@@ -601,7 +601,7 @@
   function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
   function mediaBlock(value, kind) {
     if (!value) return '<p class="dz-muted">No submission</p>';
-    if (value === 'seed') return kind === 'diary' ? '<div class="dz-placeholder">📝 Writing submitted (demo)</div>' : '<div class="dz-placeholder">🎙 Shadowing submitted (demo)</div>';
+    if (value === 'seed') return kind === 'diary' ? '<div class="dz-placeholder">📝 Writing submitted (demo)</div>' : '<div class="dz-placeholder">🎙 Speaking submitted (demo)</div>';
     return kind === 'diary' ? `<img class="dz-thumb" src="${value}" />` : `<audio controls src="${value}"></audio>`;
   }
 
@@ -833,7 +833,7 @@
       const allHistory = weekKeysDesc.map(wk => {
         const dayItems = groups[wk].map(d => {
           const day = sub[d];
-          return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;"><div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}</div><div><p class="dz-muted" style="margin:0 0 4px;">Shadowing</p>${mediaBlock(day.shadowing, 'shadowing')}</div></div></div>`;
+          return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;"><div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}</div><div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}</div></div></div>`;
         }).join('');
         const existingFb = getWeeklyFeedback(focusId, wk);
         return `
@@ -880,7 +880,7 @@
             ${today.diary ? mediaBlock(today.diary, 'diary') + '<button class="dz-btn danger" data-remove-diary="1">Remove</button>' : `<div class="dz-drop" id="diary-drop">Click to select a screenshot</div><input type="file" id="diary-file" accept="image/*" style="display:none;" />`}
           </div>
           <div class="dz-task-card">
-            <div class="title"><b>Shadowing</b><span class="dz-status-dot ${today.shadowing ? 'done' : ''}"></span></div>
+            <div class="title"><b>Speaking</b><span class="dz-status-dot ${today.shadowing ? 'done' : ''}"></span></div>
             ${today.shadowing ? mediaBlock(today.shadowing, 'shadowing') + '<button class="dz-btn danger" data-remove-shadow="1">Remove</button>' : `
               <div style="display:flex; gap:8px; align-items:center;">
                 <button class="dz-btn" id="rec-btn">${state.recording ? 'Stop recording' : 'Start recording'}</button>
@@ -906,7 +906,7 @@
           <b style="font-size:13px;">${state.selectedDate} submission</b>
           <div class="dz-cards" style="margin:8px 0 0;">
             <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(selDay.diary, 'diary')}</div>
-            <div><p class="dz-muted" style="margin:0 0 4px;">Shadowing</p>${mediaBlock(selDay.shadowing, 'shadowing')}</div>
+            <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(selDay.shadowing, 'shadowing')}</div>
           </div>
           ${feedbackHtml}
         </div>
