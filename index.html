@@ -228,7 +228,13 @@
   .dz-task-card .title b { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
   .dz-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hairline); display: inline-block; }
   .dz-status-dot.done { background: var(--primary); }
-  .dz-thumb { width: 100%; max-height: 150px; object-fit: contain; border-radius: 12px; border: 1px solid var(--hairline); background: #fff; }
+  .dz-thumb { width: 100%; max-height: 150px; object-fit: contain; border-radius: 12px; border: 1px solid var(--hairline); background: #fff; cursor: zoom-in; transition: opacity 150ms var(--ease-standard); }
+  .dz-thumb:hover { opacity: 0.85; }
+  .dz-lightbox { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.85); z-index: 999; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out; }
+  .dz-lightbox.open { display: flex; }
+  .dz-lightbox img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: zoom-out; }
+  .dz-lightbox-close { position: fixed; top: 20px; right: 24px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
+  .dz-lightbox-close:hover { background: rgba(255,255,255,0.28); }
   .dz-placeholder { border: 1px dashed var(--hairline); border-radius: 12px; padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
   .dz-drop { border: 1.5px dashed var(--hairline); border-radius: 12px; padding: 14px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; transition: border-color 150ms var(--ease-standard), color 150ms var(--ease-standard), background 150ms var(--ease-standard); }
   .dz-drop:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-tint); }
@@ -444,6 +450,12 @@
 <div id="app-view">
   <div class="dz-back" id="back-link">← Back to website</div>
   <div class="dz-app" id="dz-root"><div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div></div>
+</div>
+
+<!-- ============ IMAGE LIGHTBOX (zoom in on submitted writing screenshots) ============ -->
+<div class="dz-lightbox" id="dz-lightbox">
+  <button class="dz-lightbox-close" id="dz-lightbox-close" aria-label="Close">✕</button>
+  <img id="dz-lightbox-img" src="" alt="Submitted writing screenshot, enlarged">
 </div>
 
 <!-- ============ LOGIN / SIGNUP VIEW ============ -->
@@ -1004,6 +1016,18 @@
   const navLogo = document.getElementById('nav-logo');
   navLogo.addEventListener('click', showLanding);
   navLogo.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showLanding(); } });
+
+  // ---- image lightbox (click a submitted writing screenshot to zoom in) ----
+  const dzLightbox = document.getElementById('dz-lightbox');
+  const dzLightboxImg = document.getElementById('dz-lightbox-img');
+  function openLightbox(src) { dzLightboxImg.src = src; dzLightbox.classList.add('open'); }
+  function closeLightbox() { dzLightbox.classList.remove('open'); dzLightboxImg.src = ''; }
+  document.addEventListener('click', (e) => {
+    const thumb = e.target.closest('.dz-thumb');
+    if (thumb) { openLightbox(thumb.src); return; }
+    if (e.target.closest('#dz-lightbox')) closeLightbox();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
 
   // ---- click ripple effect (brand motion: warm, subtle press feedback) ----
   // Uses the CAPTURE phase and appends to <body> (not the clicked element) because many
