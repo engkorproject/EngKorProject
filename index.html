@@ -235,6 +235,9 @@
   .dz-lightbox img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: zoom-out; }
   .dz-lightbox-close { position: fixed; top: 20px; right: 24px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
   .dz-lightbox-close:hover { background: rgba(255,255,255,0.28); }
+  .dz-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--foreground); color: #fff; font-size: 13px; font-weight: 700; padding: 12px 22px; border-radius: 9999px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-standard), transform 200ms var(--ease-standard); }
+  .dz-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .dz-toast.error { background: var(--error); }
   .dz-placeholder { border: 1px dashed var(--hairline); border-radius: 12px; padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
   .dz-drop { border: 1.5px dashed var(--hairline); border-radius: 12px; padding: 14px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; transition: border-color 150ms var(--ease-standard), color 150ms var(--ease-standard), background 150ms var(--ease-standard); }
   .dz-drop:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-tint); }
@@ -457,6 +460,7 @@
   <button class="dz-lightbox-close" id="dz-lightbox-close" aria-label="Close">✕</button>
   <img id="dz-lightbox-img" src="" alt="Submitted writing screenshot, enlarged">
 </div>
+<div class="dz-toast" id="dz-toast"></div>
 
 <!-- ============ LOGIN / SIGNUP VIEW ============ -->
 <div id="auth-view">
@@ -557,7 +561,8 @@
     setDay(memberId, date, { [field]: text });
     const column = field === 'diaryFeedback' ? 'diary_feedback' : 'shadowing_feedback';
     const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text }, { onConflict: 'member_id,date' });
-    if (error) console.error(error);
+    if (error) { console.error(error); showToast('Failed to save. Try again.', true); }
+    else showToast('Feedback saved!');
     renderApp();
   }
   function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' }; }
@@ -1022,6 +1027,17 @@
   const dzLightboxImg = document.getElementById('dz-lightbox-img');
   function openLightbox(src) { dzLightboxImg.src = src; dzLightbox.classList.add('open'); }
   function closeLightbox() { dzLightbox.classList.remove('open'); dzLightboxImg.src = ''; }
+
+  // ---- toast (brief confirmation popup, e.g. "Feedback saved!") ----
+  let toastTimer = null;
+  function showToast(message, isError) {
+    const toast = document.getElementById('dz-toast');
+    toast.textContent = message;
+    toast.classList.toggle('error', !!isError);
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
   document.addEventListener('click', (e) => {
     const thumb = e.target.closest('.dz-thumb');
     if (thumb) { openLightbox(thumb.src); return; }
