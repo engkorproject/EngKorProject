@@ -185,8 +185,7 @@ grant select on public.leaderboard to authenticated;
 
 
 -- ============================================================
--- [미적용] 마이그레이션: 날짜별 Writing/Speaking 개별 피드백
--- 아직 라이브 Supabase에 실행 안 함 — 사용자 승인 후 SQL Editor에서 실행할 것.
+-- [적용 완료] 마이그레이션: 날짜별 Writing/Speaking 개별 피드백
 --
 -- 기존 weekly_feedback 테이블(주 단위로 하나의 텍스트 블록)을 대체하여,
 -- 리더가 각 날짜의 Writing/Speaking 제출물에 개별적으로 피드백을 남기고,
@@ -200,3 +199,43 @@ alter table public.submissions
 -- 참고: submissions의 기존 RLS 정책(member_manage_own_submissions)은 행 단위라
 -- 멤버 본인이 이 두 피드백 컬럼도 기술적으로 직접 쓸 수 있음(앱 UI에서는 절대
 -- 안 하지만). 더 엄격하게 막으려면 별도 트리거나 컬럼 단위 정책이 필요함 — 필요시 추가.
+
+-- 리더가 다른 멤버의 submissions 행에 피드백을 저장할 수 있도록 UPDATE 권한 추가.
+-- (기존 leader_select_all_submissions는 조회만 허용하고 쓰기는 막고 있었음 — 이게 없으면
+--  리더 대시보드의 "날짜별 피드백 저장" 기능이 RLS에 막혀 조용히 실패함)
+create policy "leader_manage_all_submissions_feedback" on public.submissions
+  for update using (public.is_leader()) with check (public.is_leader());
+
+-- 일회성 데이터 이관: 예전에 리더가 "[M/D Writing Feedback]" / "[M/D Shadowing Feedback]"
+-- 태그를 붙여 작성했던 weekly_feedback.text를 파싱해서 날짜별 컬럼으로 옮김.
+-- week_key가 예전 형식("YYYY-MM-Wn")과 새 형식("YYYY-MM-DD")이 섞여 있어서
+-- 문자열 앞 4자리로 연도만 뽑아 씀(date로 통째로 캐스팅하지 않음).
+-- 이미 실행 완료 — 재실행해도 안전(diary_feedback/shadowing_feedback이 비어있는 행만 채움).
+do $$
+declare
+  wf record;
+  segs text[];
+  tag record;
+  idx int;
+  target_date date;
+  yr int;
+begin
+  for wf in select * from public.weekly_feedback where text is not null and text <> '' loop
+    yr := substring(wf.week_key from '^\d{4}')::int;
+    segs := regexp_split_to_array(wf.text, '\[(\d{1,2})/(\d{1,2}) (Writing|Shadowing) Feedback\]');
+    idx := 1;
+    for tag in
+      select regexp_matches(wf.text, '\[(\d{1,2})/(\d{1,2}) (Writing|Shadowing) Feedback\]', 'g') as m
+    loop
+      idx := idx + 1;
+      target_date := make_date(yr, tag.m[1]::int, tag.m[2]::int);
+      if tag.m[3] = 'Writing' then
+        update public.submissions set diary_feedback = trim(segs[idx])
+          where member_id = wf.member_id and date = target_date and (diary_feedback is null or diary_feedback = '');
+      else
+        update public.submissions set shadowing_feedback = trim(segs[idx])
+          where member_id = wf.member_id and date = target_date and (shadowing_feedback is null or shadowing_feedback = '');
+      end if;
+    end loop;
+  end loop;
+end $$;
