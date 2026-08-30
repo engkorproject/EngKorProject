@@ -258,6 +258,7 @@
   .dz-cdot.full { width: 13px; height: 13px; border-radius: 50%; background: var(--primary); }
   .dz-cdot.partial { width: 13px; height: 13px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--primary); background: linear-gradient(to right, var(--primary) 50%, transparent 50%); }
   .dz-cdot.none { font-size: 14px; line-height: 1; font-weight: 700; color: var(--muted); }
+  .dz-fb-arrived { font-size: 7px; font-weight: 800; color: var(--primary-hover); line-height: 1.15; text-align: center; }
   .dz-cal-empty { visibility: hidden; }
   .dz-detail-panel { background: var(--canvas); border-radius: 24px; padding: 24px; margin-top: 20px; box-shadow: var(--shadow-soft); }
   .dz-day-block { border-bottom: 1px dashed var(--hairline); padding: 10px 0; }
@@ -499,9 +500,9 @@
 
   let state = {
     view: 'landing', // 'landing' | 'auth' | 'member' | 'leader'
-    members: [], submissions: {}, weeklyFeedback: {},
+    members: [], submissions: {},
     leaderboard: [],
-    leaderFocusId: null, loaded: false,
+    leaderFocusId: null, loaded: false, showFeedbackHistory: false,
     recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr()
   };
@@ -509,28 +510,24 @@
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
 
   async function loadAll() {
-    state.submissions = {}; state.weeklyFeedback = {}; state.leaderboard = [];
+    state.submissions = {}; state.leaderboard = [];
 
     if (currentProfile.role === 'leader') {
       const { data: members, error: membersErr } = await sb.from('profiles').select('id,name').eq('role', 'member').order('name');
       if (membersErr) console.error(membersErr);
       state.members = members || [];
       const memberIds = state.members.map(m => m.id);
-      state.members.forEach(m => { state.submissions[m.id] = {}; state.weeklyFeedback[m.id] = {}; });
+      state.members.forEach(m => { state.submissions[m.id] = {}; });
       if (memberIds.length) {
         const { data: subs } = await sb.from('submissions').select('*').in('member_id', memberIds);
-        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
-        const { data: wfbRows } = await sb.from('weekly_feedback').select('*').in('member_id', memberIds);
-        (wfbRows || []).forEach(r => { state.weeklyFeedback[r.member_id][r.week_key] = r.text || ''; });
+        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '' }; });
       }
     } else {
       const memberId = currentProfile.id;
       state.members = [{ id: memberId, name: currentProfile.name }];
-      state.submissions[memberId] = {}; state.weeklyFeedback[memberId] = {};
+      state.submissions[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
-      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url }; });
-      const { data: wfbRows } = await sb.from('weekly_feedback').select('*').eq('member_id', memberId);
-      (wfbRows || []).forEach(r => { state.weeklyFeedback[memberId][r.week_key] = r.text || ''; });
+      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '' }; });
       const { data: lb } = await sb.from('leaderboard').select('*');
       state.leaderboard = lb || [];
     }
@@ -544,18 +541,17 @@
     }, { onConflict: 'member_id,date' });
     if (error) { console.error(error); alert('Failed to save. Try a smaller file.'); }
   }
-  async function saveWeeklyFeedback(memberId, weekKey, text) {
-    if (!state.weeklyFeedback[memberId]) state.weeklyFeedback[memberId] = {};
-    state.weeklyFeedback[memberId][weekKey] = text;
-    const { error } = await sb.from('weekly_feedback').upsert({ member_id: memberId, week_key: weekKey, text }, { onConflict: 'member_id,week_key' });
+  async function saveDayFeedback(memberId, date, field, text) {
+    setDay(memberId, date, { [field]: text });
+    const column = field === 'diaryFeedback' ? 'diary_feedback' : 'shadowing_feedback';
+    const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text }, { onConflict: 'member_id,date' });
     if (error) console.error(error);
     renderApp();
   }
-  function getWeeklyFeedback(memberId, weekKey) { return (state.weeklyFeedback[memberId] || {})[weekKey] || ''; }
-  function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null }; }
+  function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' }; }
   function setDay(memberId, date, patch) {
     if (!state.submissions[memberId]) state.submissions[memberId] = {};
-    const cur = state.submissions[memberId][date] || { diary: null, shadowing: null };
+    const cur = state.submissions[memberId][date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' };
     state.submissions[memberId][date] = Object.assign({}, cur, patch);
   }
   function completionRate(memberId) {
@@ -779,8 +775,9 @@
       const isFuture = dateStr > todayD;
       const day = getDay(memberId, dateStr);
       const dotClass = (day.diary && day.shadowing) ? 'full' : (day.diary || day.shadowing) ? 'partial' : 'none';
+      const hasFeedback = !!(day.diaryFeedback || day.shadowingFeedback);
       const selected = dateStr === state.selectedDate ? 'selected' : '';
-      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${isFuture ? 'future' : ''}" data-date="${dateStr}" ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}">${dotClass === 'none' ? '×' : ''}</span>` : ''}</button></div>`);
+      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${isFuture ? 'future' : ''}" data-date="${dateStr}" ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}">${dotClass === 'none' ? '×' : ''}</span>` : ''}${hasFeedback ? '<span class="dz-fb-arrived">Feedback has arrived!</span>' : ''}</button></div>`);
     }
     const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return `
@@ -791,10 +788,22 @@
       </div>`;
   }
   function groupedFeedbackList(memberId) {
-    const wfb = state.weeklyFeedback[memberId] || {};
-    const weeks = Object.keys(wfb).filter(k => wfb[k]).sort();
-    if (!weeks.length) return '<p class="dz-muted">No leader feedback yet.</p>';
-    return weeks.map(wk => `<div class="dz-week-header">${weekKeyToLabel(wk)}</div><div class="dz-feedback-note">${escapeHtml(wfb[wk])}</div>`).join('');
+    const sub = state.submissions[memberId] || {};
+    const dates = Object.keys(sub).filter(d => sub[d].diaryFeedback || sub[d].shadowingFeedback).sort().reverse();
+    if (!dates.length) return '<p class="dz-muted">No leader feedback yet.</p>';
+    const groups = {};
+    dates.forEach(d => { const wk = weekKeyOf(d); if (!groups[wk]) groups[wk] = []; groups[wk].push(d); });
+    const weekKeysDesc = Object.keys(groups).sort().reverse();
+    return weekKeysDesc.map(wk => {
+      const items = groups[wk].map(d => {
+        const day = sub[d];
+        const parts = [];
+        if (day.diaryFeedback) parts.push(`<div class="dz-day-block"><div class="day-label">${d} · Writing</div><div class="dz-feedback-note">${escapeHtml(day.diaryFeedback)}</div></div>`);
+        if (day.shadowingFeedback) parts.push(`<div class="dz-day-block"><div class="day-label">${d} · Speaking</div><div class="dz-feedback-note">${escapeHtml(day.shadowingFeedback)}</div></div>`);
+        return parts.join('');
+      }).join('');
+      return `<div class="dz-week-header">${weekKeyToLabel(wk)}</div>${items}`;
+    }).join('');
   }
 
   function showLanding() {
@@ -830,23 +839,28 @@
       const groups = {};
       dates.forEach(d => { const wk = weekKeyOf(d); if (!groups[wk]) groups[wk] = []; groups[wk].push(d); });
       const weekKeysDesc = Object.keys(groups).sort().reverse();
+      const feedbackField = (date, kind, label) => {
+        const field = kind === 'diary' ? 'diaryFeedback' : 'shadowingFeedback';
+        const day = sub[date];
+        const existing = day[field] || '';
+        return `
+          <p class="dz-muted" style="margin:10px 0 4px;">${label} feedback</p>
+          <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${existing ? escapeHtml(existing) : ''}</textarea>
+          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+            <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save</button>
+          </div>`;
+      };
       const allHistory = weekKeysDesc.map(wk => {
         const dayItems = groups[wk].map(d => {
           const day = sub[d];
-          return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;"><div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}</div><div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}</div></div></div>`;
+          return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;">
+            <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
+            <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
+          </div></div>`;
         }).join('');
-        const existingFb = getWeeklyFeedback(focusId, wk);
         return `
           <div class="dz-week-header">${weekKeyToLabel(wk)}</div>
-          ${dayItems}
-          <div style="margin-top:8px;">
-            <p class="dz-muted" style="margin:0 0 4px;">This week's feedback (one combined note for the whole week)</p>
-            <textarea class="dz-ta" placeholder="e.g. Great progress this week, watch your spacing before particles." data-fb-week-member="${focusId}" data-fb-week-key="${wk}">${existingFb ? escapeHtml(existingFb) : ''}</textarea>
-            <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
-              <button class="dz-btn ghost" data-save-wfb="${focusId}" data-save-wfb-key="${wk}">Save this week's feedback</button>
-            </div>
-            ${existingFb ? `<div class="dz-feedback-note">${escapeHtml(existingFb)}</div>` : ''}
-          </div>`;
+          ${dayItems}`;
       }).join('');
 
       body = `
@@ -867,10 +881,6 @@
         const isMe = m.member_id === me.id;
         return `<div class="dz-board-row ${isMe ? 'me' : ''}"><span class="name">${escapeHtml(m.name)}${isMe ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r}%"></div></div><span class="dz-pct">${r}%</span></div>`;
       }).join('');
-
-      const wk = weekKeyOf(state.selectedDate);
-      const weekFeedback = getWeeklyFeedback(me.id, wk);
-      const feedbackHtml = weekFeedback ? `<div class="dz-feedback-note">This week's feedback: ${escapeHtml(weekFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No leader feedback for this week yet.</p>`;
 
       body = `
         <h2 class="dz-section" style="margin-top:0;">Today's Check-in</h2>
@@ -905,17 +915,23 @@
         <div class="dz-detail-panel">
           <b style="font-size:13px;">${state.selectedDate} submission</b>
           <div class="dz-cards" style="margin:8px 0 0;">
-            <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(selDay.diary, 'diary')}</div>
-            <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(selDay.shadowing, 'shadowing')}</div>
+            <div>
+              <p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(selDay.diary, 'diary')}
+              ${selDay.diaryFeedback ? `<div class="dz-feedback-note">${escapeHtml(selDay.diaryFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No feedback yet.</p>`}
+            </div>
+            <div>
+              <p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(selDay.shadowing, 'shadowing')}
+              ${selDay.shadowingFeedback ? `<div class="dz-feedback-note">${escapeHtml(selDay.shadowingFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No feedback yet.</p>`}
+            </div>
           </div>
-          ${feedbackHtml}
         </div>
 
         <h2 class="dz-section">Community Leaderboard</h2>
         ${board}
 
         <h2 class="dz-section">Feedback History (by week)</h2>
-        ${groupedFeedbackList(me.id)}
+        <button class="dz-btn ghost" id="toggle-fb-history" style="margin-top:8px;">${state.showFeedbackHistory ? 'Hide weekly feedback ▴' : 'View weekly feedback ▾'}</button>
+        ${state.showFeedbackHistory ? `<div class="dz-detail-panel" style="margin-top:12px;">${groupedFeedbackList(me.id)}</div>` : ''}
       `;
     }
 
@@ -961,17 +977,22 @@
       const calNext = document.getElementById('cal-next');
       if (calNext) calNext.addEventListener('click', () => { state.calMonth++; if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; } renderApp(); });
       document.querySelectorAll('.dz-cal-btn').forEach(btn => { if (!btn.disabled) btn.addEventListener('click', () => { state.selectedDate = btn.getAttribute('data-date'); renderApp(); }); });
+
+      const toggleFbHistory = document.getElementById('toggle-fb-history');
+      if (toggleFbHistory) toggleFbHistory.addEventListener('click', () => { state.showFeedbackHistory = !state.showFeedbackHistory; renderApp(); });
     }
 
     if (isLeader && state.members.length) {
       document.querySelectorAll('[data-focus]').forEach(chip => {
         chip.addEventListener('click', () => { state.leaderFocusId = chip.getAttribute('data-focus'); renderApp(); });
       });
-      document.querySelectorAll('[data-save-wfb]').forEach(btn => {
+      document.querySelectorAll('[data-save-day-fb]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const mid = btn.getAttribute('data-save-wfb'), wk = btn.getAttribute('data-save-wfb-key');
-          const ta = document.querySelector(`textarea[data-fb-week-member="${mid}"][data-fb-week-key="${wk}"]`);
-          saveWeeklyFeedback(mid, wk, ta.value);
+          const mid = btn.getAttribute('data-save-day-fb');
+          const date = btn.getAttribute('data-save-day-fb-date');
+          const field = btn.getAttribute('data-save-day-fb-field');
+          const ta = document.querySelector(`textarea[data-fb-day-member="${mid}"][data-fb-day-date="${date}"][data-fb-day-field="${field}"]`);
+          saveDayFeedback(mid, date, field, ta.value);
         });
       });
     }

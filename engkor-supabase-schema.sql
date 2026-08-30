@@ -182,3 +182,21 @@ grant select on public.leaderboard to authenticated;
 --   cohort_memberships(member_id, cohort_id, joined_at) 같은 이력 테이블이
 --   나중에 필요할 수 있음. 지금은 요청받은 필수 필드 범위로 최소화.
 -- ============================================================
+
+
+-- ============================================================
+-- [미적용] 마이그레이션: 날짜별 Writing/Speaking 개별 피드백
+-- 아직 라이브 Supabase에 실행 안 함 — 사용자 승인 후 SQL Editor에서 실행할 것.
+--
+-- 기존 weekly_feedback 테이블(주 단위로 하나의 텍스트 블록)을 대체하여,
+-- 리더가 각 날짜의 Writing/Speaking 제출물에 개별적으로 피드백을 남기고,
+-- 멤버는 본인 대시보드에서 날짜별로 정확히 어떤 피드백인지 확인할 수 있도록 함.
+-- weekly_feedback 테이블 자체는 데이터 보존을 위해 삭제하지 않고 그대로 둠(앱에서는 더 이상 사용 안 함).
+-- ============================================================
+alter table public.submissions
+  add column diary_feedback text,
+  add column shadowing_feedback text;
+
+-- 참고: submissions의 기존 RLS 정책(member_manage_own_submissions)은 행 단위라
+-- 멤버 본인이 이 두 피드백 컬럼도 기술적으로 직접 쓸 수 있음(앱 UI에서는 절대
+-- 안 하지만). 더 엄격하게 막으려면 별도 트리거나 컬럼 단위 정책이 필요함 — 필요시 추가.
