@@ -558,16 +558,23 @@
     }, { onConflict: 'member_id,date' });
     if (error) { console.error(error); alert('Failed to save. Try a smaller file.'); }
   }
+  // Save just persists a draft, no email. Submit persists AND notifies the
+  // member, so editing/re-saving while drafting doesn't spam their inbox.
   async function saveDayFeedback(memberId, date, field, text) {
     setDay(memberId, date, { [field]: text });
     const column = field === 'diaryFeedback' ? 'diary_feedback' : 'shadowing_feedback';
     const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text }, { onConflict: 'member_id,date' });
-    if (error) { console.error(error); showToast('Failed to save. Try again.', true); }
-    else showToast('Feedback saved!');
+    if (error) { console.error(error); showToast('Failed to save. Try again.', true); return false; }
+    showToast('Draft saved.');
     renderApp();
-    if (!error && text && text.trim()) {
+    return true;
+  }
+  async function submitDayFeedback(memberId, date, field, text) {
+    const ok = await saveDayFeedback(memberId, date, field, text);
+    if (ok && text && text.trim()) {
       const taskLabel = field === 'diaryFeedback' ? 'Writing' : 'Speaking';
       notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
+      showToast('Feedback submitted, member notified!');
     }
   }
   // Fire-and-forget: a failed notification email should never block saving
@@ -881,8 +888,9 @@
         return `
           <p class="dz-muted" style="margin:10px 0 4px;">${label} feedback</p>
           <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${existing ? escapeHtml(existing) : ''}</textarea>
-          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+          <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
             <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save</button>
+            <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Submit</button>
           </div>`;
       };
       const allHistory = weekKeysDesc.map(wk => {
@@ -1028,6 +1036,15 @@
           const field = btn.getAttribute('data-save-day-fb-field');
           const ta = document.querySelector(`textarea[data-fb-day-member="${mid}"][data-fb-day-date="${date}"][data-fb-day-field="${field}"]`);
           saveDayFeedback(mid, date, field, ta.value);
+        });
+      });
+      document.querySelectorAll('[data-submit-day-fb]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mid = btn.getAttribute('data-submit-day-fb');
+          const date = btn.getAttribute('data-submit-day-fb-date');
+          const field = btn.getAttribute('data-submit-day-fb-field');
+          const ta = document.querySelector(`textarea[data-fb-day-member="${mid}"][data-fb-day-date="${date}"][data-fb-day-field="${field}"]`);
+          submitDayFeedback(mid, date, field, ta.value);
         });
       });
     }
