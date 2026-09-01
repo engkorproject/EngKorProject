@@ -574,7 +574,7 @@
     if (ok && text && text.trim()) {
       const taskLabel = field === 'diaryFeedback' ? 'Writing' : 'Speaking';
       notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
-      showToast('Feedback submitted, member notified!');
+      showToast('Feedback sent!');
     }
   }
   // Fire-and-forget: a failed notification email should never block saving
@@ -889,8 +889,8 @@
           <p class="dz-muted" style="margin:10px 0 4px;">${label} feedback</p>
           <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${existing ? escapeHtml(existing) : ''}</textarea>
           <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
-            <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save</button>
-            <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Submit</button>
+            <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save draft</button>
+            <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Send feedback</button>
           </div>`;
       };
       const allHistory = weekKeysDesc.map(wk => {
