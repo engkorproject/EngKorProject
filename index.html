@@ -479,6 +479,7 @@
   const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const NOTIFY_FEEDBACK_URL = SUPABASE_URL + '/functions/v1/notify-feedback';
 
   const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
   const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
@@ -529,7 +530,7 @@
     state.submissions = {}; state.leaderboard = [];
 
     if (currentProfile.role === 'leader') {
-      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name').eq('role', 'member').order('name');
+      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email').eq('role', 'member').order('name');
       if (membersErr) console.error(membersErr);
       state.members = members || [];
       const memberIds = state.members.map(m => m.id);
@@ -564,6 +565,23 @@
     if (error) { console.error(error); showToast('Failed to save. Try again.', true); }
     else showToast('Feedback saved!');
     renderApp();
+    if (!error && text && text.trim()) {
+      const taskLabel = field === 'diaryFeedback' ? 'Writing' : 'Speaking';
+      notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
+    }
+  }
+  // Fire-and-forget: a failed notification email should never block saving
+  // the feedback itself, so errors here are only logged, not surfaced.
+  async function notifyFeedback(memberId, text) {
+    const member = state.members.find(m => m.id === memberId);
+    if (!member || !member.email) return;
+    try {
+      await fetch(NOTIFY_FEEDBACK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ to: member.email, memberName: member.name, feedbackText: text })
+      });
+    } catch (e) { console.error('notifyFeedback failed', e); }
   }
   function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' }; }
   function setDay(memberId, date, patch) {
