@@ -120,6 +120,18 @@
   .mini-row .bar-fill { height: 100%; background: var(--primary); }
   .mini-row .pct { font-size: 10.5px; color: var(--muted); width: 28px; text-align: right; }
 
+  /* ===== APPLY PROMO BANNER (event-style strip below the hero) ===== */
+  /* The empty space under this card is the hero's own 96px top padding, which has
+     to stay untouched -- so the card grows down into it with a negative bottom
+     margin. Everything below stays exactly where it was, while the visible gap
+     above the card (margin-top) and below it (margin-bottom + hero's 96px) match. */
+  .apply-banner { max-width: 1180px; margin: 30px auto -66px; border-radius: 18px; background: linear-gradient(135deg, var(--btn-primary), var(--primary)); color: #fff; padding: 21px 36px; display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; box-shadow: 0 18px 44px -22px rgba(201,106,43,0.5); }
+  .apply-banner h2 { font-size: 22px; font-weight: 800; line-height: 1.3; }
+  .apply-banner p { font-size: 13.5px; margin-top: 6px; color: rgba(255,255,255,0.85); max-width: 460px; }
+  .apply-banner .btn-white { background: #fff; color: var(--btn-primary); height: 46px; padding: 0 26px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; flex-shrink: 0; }
+  .apply-banner .btn-white:hover { background: #FFF6EF; transform: scale(1.02); }
+  @media (max-width: 900px) { .apply-banner { margin: 28px 24px -60px; padding: 26px 24px; } }
+
   section.block { padding: 88px 40px; max-width: 1180px; margin: 0 auto; }
   .block.alt-bg { background: var(--surface-alt); box-shadow: 0 0 0 100vmax var(--surface-alt); clip-path: inset(0 -100vmax); }
   .section-head { text-align: center; max-width: 600px; margin: 0 auto 44px; }
@@ -202,6 +214,18 @@
   .auth-success { color: var(--success); font-size: 12.5px; margin-top: 10px; }
   .auth-switch { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 18px; }
   .auth-switch button { background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; padding: 0; font-size: inherit; }
+
+  /* ===== APPLY (challenge application form) ===== */
+  #apply-view { display: none; padding: 60px 20px; }
+
+  /* ===== generic modal (welcome popup, cohort-full notice) ===== */
+  .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+  .ek-modal.open { display: flex; }
+  .ek-modal-card { max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+
+  /* ===== dashboard banners (renewal reminder, read-only reapply prompt) ===== */
+  .dz-banner { text-align: center; }
+  .dz-banner.renewal { background: var(--primary-tint); }
 
   /* ===== APP / DASHBOARD ZONE ===== */
   #app-view { display: none; padding: 30px 20px 60px; }
@@ -310,13 +334,21 @@
 <!-- ============ LANDING VIEW ============ -->
 <div id="landing-view">
 
+  <div class="apply-banner">
+    <div>
+      <h2>🔥 Apply for the <span id="apply-banner-month">September</span> Challenge</h2>
+      <p>Real Korean staff review your Speaking + Writing every week. 39 spots/month.</p>
+    </div>
+    <a class="btn btn-white" href="#" id="apply-btn-banner">Apply Now →</a>
+  </div>
+
   <section class="hero">
     <div class="hero-text">
       <div class="hero-tag">🔥 Challenge-based Korean conversation community</div>
       <h1>Want to improve your Korean speaking? Struggling to stay <span class="accent">consistent</span> on your own?</h1>
       <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Speaking + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together — while having fun!</p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="#pricing">Start the Challenge →</a>
+        <a class="btn btn-primary" href="#" id="apply-btn-hero">Start the Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
       </div>
       <div class="hero-stats">
@@ -462,10 +494,21 @@
 </div>
 <div class="dz-toast" id="dz-toast"></div>
 
+<!-- ============ GENERIC MODAL (welcome popup, cohort-full notice) ============ -->
+<div class="ek-modal" id="ek-modal">
+  <div class="ek-modal-card" id="ek-modal-body"></div>
+</div>
+
 <!-- ============ LOGIN / SIGNUP VIEW ============ -->
 <div id="auth-view">
   <div class="dz-back" id="auth-back-link">← Back to website</div>
   <div class="auth-card" id="auth-card"></div>
+</div>
+
+<!-- ============ CHALLENGE APPLICATION VIEW ============ -->
+<div id="apply-view">
+  <div class="dz-back" id="apply-back-link">← Back to website</div>
+  <div class="auth-card" id="apply-card"></div>
 </div>
 
 <script>
@@ -473,6 +516,7 @@
   const landingView = document.getElementById('landing-view');
   const appView = document.getElementById('app-view');
   const authView = document.getElementById('auth-view');
+  const applyView = document.getElementById('apply-view');
   const dzRoot = document.getElementById('dz-root');
   const MAX_REC_SECONDS = 120;
 
@@ -516,12 +560,19 @@
   let currentProfile = null; // { id, name, role } from public.profiles
 
   let state = {
-    view: 'landing', // 'landing' | 'auth' | 'member' | 'leader'
+    view: 'landing', // 'landing' | 'auth' | 'apply' | 'member' | 'leader'
     members: [], submissions: {},
     leaderboard: [],
     leaderFocusId: null, loaded: false, showFeedbackHistory: false,
     recording: false, recError: null, recSeconds: 0,
-    calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr()
+    calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
+    // ---- challenge application gate ----
+    cohort: null,             // current month's cohort row ({id,label,end_date,capacity}), from get_or_create_cohort RPC
+    applications: [],         // this member's application rows across all cohorts
+    hasEverApplied: false,    // has at least one application ever -> dashboard button visible, past history viewable
+    hasCurrentApplication: false, // applied for THIS month's cohort -> full read/write dashboard
+    readOnly: false,          // true = dashboard shown but check-in form replaced by a reapply prompt
+    showRenewalBanner: false, nextCohort: null
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
@@ -715,10 +766,20 @@
     if (!currentProfile) {
       el.innerHTML = `<button class="btn-sm" id="nav-login-btn">Log in</button>`;
       document.getElementById('nav-login-btn').addEventListener('click', showAuth);
+    } else if (currentProfile.role === 'leader') {
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">🛠 Admin Dashboard</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('leader'));
+      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
+    } else if (state.hasEverApplied) {
+      // Applied at least once (this month or a past one) -> dashboard is visible,
+      // even if this month's application is missing (renderApp shows a read-only/reapply state then).
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">📊 My Dashboard</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('member'));
+      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     } else {
-      const label = currentProfile.role === 'leader' ? '🛠 Admin Dashboard' : '📊 My Dashboard';
-      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">${label}</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
-      document.getElementById('nav-dash-btn').addEventListener('click', () => showApp(currentProfile.role));
+      // Never applied -> no dashboard button at all. Applying is the only door in.
+      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      document.getElementById('nav-apply-btn').addEventListener('click', openApply);
       document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     }
   }
@@ -762,6 +823,8 @@
         if (!data.session) {
           authMessage = 'Check your email to confirm your account, then log in.';
           authMode = 'login';
+        } else {
+          justSignedUp = true;
         }
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -784,16 +847,78 @@
   async function handleSession(session) {
     if (session && session.user) {
       currentUser = session.user;
-      const { data: profile, error } = await sb.from('profiles').select('id,name,role').eq('id', currentUser.id).single();
+      const { data: profile, error } = await sb.from('profiles').select('id,name,role,timezone,birthdate,cohort_id').eq('id', currentUser.id).single();
       if (error || !profile) { console.error(error); currentProfile = null; renderNav(); return; }
       currentProfile = profile;
+
+      if (profile.role === 'leader') {
+        renderNav();
+        if (state.view === 'landing' || state.view === 'auth') showApp('leader');
+        return;
+      }
+
+      // Figure out where this member stands re: the challenge gate. get_or_create_cohort
+      // is idempotent (finds this month's row or creates it), so calling it on every
+      // login is what makes cohorts "just appear" each month with no manual leader step.
+      const [{ data: cohort }, { data: applications }] = await Promise.all([
+        sb.rpc('get_or_create_cohort', { p_month_offset: 0 }),
+        sb.from('applications').select('cohort_id,status').eq('member_id', currentUser.id)
+      ]);
+      state.cohort = cohort || null;
+      state.applications = applications || [];
+      state.hasEverApplied = state.applications.length > 0;
+      state.hasCurrentApplication = !!(cohort && state.applications.some(a => a.cohort_id === cohort.id && a.status === 'active'));
+      state.readOnly = state.hasEverApplied && !state.hasCurrentApplication;
+
+      // Renewal banner: only relevant once someone is actually inside this month's
+      // challenge and its end is within a week -- and only if they haven't already
+      // locked in next month (avoids nagging someone who already renewed).
+      state.showRenewalBanner = false;
+      state.nextCohort = null;
+      if (state.hasCurrentApplication && cohort && cohort.end_date) {
+        const daysLeft = Math.ceil((new Date(cohort.end_date + 'T00:00:00') - new Date()) / 86400000);
+        if (daysLeft >= 0 && daysLeft <= 7) {
+          const { data: nextCohort } = await sb.rpc('get_or_create_cohort', { p_month_offset: 1 });
+          state.nextCohort = nextCohort || null;
+          state.showRenewalBanner = !!(nextCohort && !state.applications.some(a => a.cohort_id === nextCohort.id && a.status === 'active'));
+        }
+      }
+
       renderNav();
-      if (state.view === 'landing' || state.view === 'auth') showApp(currentProfile.role);
+      updateApplyButtonLabel();
+
+      if (state.view === 'landing' || state.view === 'auth') {
+        if (state.hasEverApplied) {
+          showApp('member');
+        } else {
+          showLanding();
+          maybeShowWelcomePopup();
+        }
+      }
     } else {
       currentUser = null; currentProfile = null;
+      state.cohort = null; state.applications = []; state.hasEverApplied = false;
+      state.hasCurrentApplication = false; state.readOnly = false; state.showRenewalBanner = false;
       renderNav();
-      if (state.view === 'member' || state.view === 'leader') showLanding();
+      updateApplyButtonLabel();
+      if (state.view === 'member' || state.view === 'leader' || state.view === 'apply') showLanding();
     }
+  }
+
+  // One-time nudge right after a fresh signup (not on every login) — set by
+  // handleAuthSubmit's signup branch, consumed and cleared here the first time
+  // we land back on the landing view with no application yet.
+  let justSignedUp = false;
+  function maybeShowWelcomePopup() {
+    if (!justSignedUp) return;
+    justSignedUp = false;
+    showModal(`
+      <h2 style="font-size:19px;">Welcome to EngKor! 🎉</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">Your account is ready. Apply for the ${cohortMonthLabel(state.cohort)} challenge to get your dashboard and start your streak.</p>
+      <button class="btn btn-primary" id="welcome-apply-btn" style="width:100%; justify-content:center; display:flex;">Apply for the Challenge</button>
+    `);
+    const btn = document.getElementById('welcome-apply-btn');
+    if (btn) btn.addEventListener('click', () => { closeModal(); openApply(); });
   }
 
   // ---- calendar ----
@@ -843,16 +968,169 @@
 
   function showLanding() {
     state.view = 'landing';
-    landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none';
+    landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none';
     window.scrollTo(0,0);
   }
   function showApp(view) {
     state.view = view;
-    landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none';
+    landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none'; applyView.style.display = 'none';
     window.scrollTo(0,0);
     state.loaded = false;
     renderApp();
     loadAll();
+  }
+
+  // ---- challenge application ----
+  let applyError = null, applyLoading = false;
+
+  function cohortMonthLabel(cohort) {
+    if (cohort && cohort.label) {
+      const [y, m] = cohort.label.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long' });
+    }
+    return new Date().toLocaleString('en-US', { month: 'long' });
+  }
+  // The landing page's hero CTA advertises the current month by name even to
+  // signed-out visitors, using the browser's own date until the real cohort
+  // (with its exact label from the DB) is fetched after login.
+  function updateApplyButtonLabel() {
+    const label = cohortMonthLabel(state.cohort);
+    const heroBtn = document.getElementById('apply-btn-hero');
+    if (heroBtn) heroBtn.textContent = `Apply for ${label} Challenge →`;
+    const bannerMonth = document.getElementById('apply-banner-month');
+    if (bannerMonth) bannerMonth.textContent = label;
+  }
+
+  // Mirrors openCheckout()'s gating: signed out -> push into signup, signed in
+  // and already enrolled this month -> just go to the dashboard, otherwise show
+  // the application form.
+  function openApply() {
+    if (!currentUser) {
+      showAuth();
+      authMode = 'signup';
+      authMessage = 'Create an account first, then come back to apply for the challenge.';
+      renderAuth();
+      return;
+    }
+    if (state.hasCurrentApplication) { showApp('member'); return; }
+    showApplyView();
+  }
+
+  function showApplyView() {
+    state.view = 'apply';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block';
+    window.scrollTo(0,0);
+    applyError = null; applyLoading = false;
+    renderApplyForm();
+  }
+
+  function renderApplyForm() {
+    const card = document.getElementById('apply-card');
+    const monthLabel = cohortMonthLabel(state.cohort);
+    card.innerHTML = `
+      <h2>Apply for the ${monthLabel} Challenge</h2>
+      <p class="sub">Fill this out once and our staff will start reviewing your daily check-ins.</p>
+      <form id="apply-form">
+        <div class="auth-field"><label>Name</label><input type="text" id="apply-name" required value="${escapeHtml(currentProfile.name || '')}" /></div>
+        <div class="auth-field"><label>Birthdate</label><input type="date" id="apply-birthdate" lang="en-US" required value="${currentProfile.birthdate || ''}" /></div>
+        <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml(currentProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
+        ${applyError ? `<p class="auth-error">${escapeHtml(applyError)}</p>` : ''}
+      </form>
+    `;
+    document.getElementById('apply-form').addEventListener('submit', handleApplySubmit);
+  }
+
+  function handleApplySubmit(e) {
+    e.preventDefault();
+    submitApplication(0);
+  }
+
+  // p_month_offset 0 = this month (the normal apply-form path), 1 = next month
+  // (used both by the "apply for next month instead" cohort-full fallback and
+  // by the dashboard's "Continue Next Month" renewal banner).
+  async function submitApplication(monthOffset) {
+    const name = document.getElementById('apply-name').value.trim();
+    const birthdate = document.getElementById('apply-birthdate').value;
+    const timezone = document.getElementById('apply-timezone').value.trim();
+    applyError = null; applyLoading = true; renderApplyForm();
+
+    const { data, error } = await sb.rpc('apply_for_challenge', {
+      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: monthOffset
+    });
+    applyLoading = false;
+
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('COHORT_FULL')) { showCohortFullModal(monthOffset); return; }
+      if (msg.includes('DUPLICATE_PERSON')) {
+        applyError = "We couldn't process this application — this name and birthdate already look registered. Contact us if that's a mistake.";
+      } else {
+        applyError = 'Something went wrong. Please try again.';
+      }
+      renderApplyForm();
+      return;
+    }
+
+    currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
+    state.hasEverApplied = true;
+    if (monthOffset === 0) {
+      currentProfile.cohort_id = data.id;
+      state.hasCurrentApplication = true;
+      state.readOnly = false;
+      renderNav();
+      showApp('member');
+      showToast('Application submitted! Welcome to the challenge 🎉');
+    } else {
+      closeModal();
+      showModal(`
+        <h2 style="font-size:19px;">You're locked in! 🎉</h2>
+        <p class="dz-muted" style="margin:10px 0 0;">See you when the ${cohortMonthLabel(data)} challenge opens.</p>
+      `);
+      renderNav();
+      showLanding();
+    }
+  }
+
+  function showCohortFullModal(monthOffset) {
+    const monthLabel = cohortMonthLabel(state.cohort);
+    showModal(`
+      <h2 style="font-size:19px;">${monthLabel} is full</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">All spots for this month are taken.</p>
+      <button class="btn btn-primary" id="apply-next-month-btn" style="width:100%; justify-content:center; display:flex;">Apply for next month instead</button>
+    `);
+    const btn = document.getElementById('apply-next-month-btn');
+    if (btn) btn.addEventListener('click', () => submitApplication(1));
+  }
+
+  // Used by the dashboard's renewal banner, where there's no application form on
+  // screen to read from — it just re-submits the member's existing profile info.
+  async function applyForNextMonth() {
+    if (!currentProfile.birthdate) {
+      showToast('Please apply from the form once first (we need your birthdate on file).', true);
+      return;
+    }
+    const { data, error } = await sb.rpc('apply_for_challenge', {
+      p_name: currentProfile.name, p_timezone: currentProfile.timezone,
+      p_birthdate: currentProfile.birthdate, p_month_offset: 1
+    });
+    if (error) {
+      const msg = error.message || '';
+      showToast(msg.includes('COHORT_FULL') ? "Next month is already full — we'll see about a spot." : 'Could not renew — please try again.', true);
+      return;
+    }
+    state.showRenewalBanner = false;
+    showToast(`You're locked in for ${cohortMonthLabel(data)}! 🎉`);
+    renderApp();
+  }
+
+  // ---- generic modal (welcome popup, cohort-full notice) ----
+  function showModal(html) {
+    document.getElementById('ek-modal-body').innerHTML = html;
+    document.getElementById('ek-modal').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('ek-modal').classList.remove('open');
   }
 
   function renderApp() {
@@ -918,7 +1196,21 @@
         return `<div class="dz-board-row ${isMe ? 'me' : ''}"><span class="name">${escapeHtml(m.name)}${isMe ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r}%"></div></div><span class="dz-pct">${r}%</span></div>`;
       }).join('');
 
-      body = `
+      const renewalBanner = state.showRenewalBanner ? `
+        <div class="dz-detail-panel dz-banner renewal" style="margin-bottom:20px;">
+          <p style="font-weight:800; margin-bottom:4px;">Your challenge wraps up soon</p>
+          <p class="dz-muted" style="margin-bottom:12px;">Keep your streak going into ${cohortMonthLabel(state.nextCohort)}?</p>
+          <button class="btn btn-primary" id="continue-next-month-btn" style="justify-content:center; display:inline-flex;">Continue Next Month</button>
+        </div>
+      ` : '';
+
+      const checkinBlock = state.readOnly ? `
+        <div class="dz-detail-panel dz-banner" style="margin:0 0 20px;">
+          <p style="font-weight:800; margin-bottom:6px;">You're not enrolled in this month's challenge</p>
+          <p class="dz-muted" style="margin-bottom:14px;">Your past check-ins and feedback are still here below. Apply again to start submitting new ones.</p>
+          <button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>
+        </div>
+      ` : `
         <h2 class="dz-section" style="margin-top:0;">Today's Check-in</h2>
         <div class="dz-cards">
           <div class="dz-task-card">
@@ -939,6 +1231,11 @@
             `}
           </div>
         </div>
+      `;
+
+      body = `
+        ${renewalBanner}
+        ${checkinBlock}
 
         <div class="dz-stat-row">
           <div class="dz-stat"><div class="num">${streak}</div><div class="label">Day streak</div></div>
@@ -991,6 +1288,11 @@
     `;
 
     if (!isLeader) {
+      const reapplyBtn = document.getElementById('reapply-btn');
+      if (reapplyBtn) reapplyBtn.addEventListener('click', openApply);
+      const continueNextMonthBtn = document.getElementById('continue-next-month-btn');
+      if (continueNextMonthBtn) continueNextMonthBtn.addEventListener('click', applyForNextMonth);
+
       const diaryDrop = document.getElementById('diary-drop');
       const diaryFile = document.getElementById('diary-file');
       if (diaryDrop) diaryDrop.addEventListener('click', () => diaryFile.click());
@@ -1045,7 +1347,12 @@
 
   document.getElementById('back-link').addEventListener('click', showLanding);
   document.getElementById('auth-back-link').addEventListener('click', showLanding);
+  document.getElementById('apply-back-link').addEventListener('click', showLanding);
   document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openCheckout(); });
+  document.getElementById('apply-btn-hero').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
+  document.getElementById('apply-btn-banner').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
+  document.addEventListener('click', (e) => { if (e.target.id === 'ek-modal') closeModal(); });
+  updateApplyButtonLabel();
   const navLogo = document.getElementById('nav-logo');
   navLogo.addEventListener('click', showLanding);
   navLogo.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showLanding(); } });
