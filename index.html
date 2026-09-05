@@ -527,6 +527,19 @@
 
   const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
   const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
+  // TEMP: Paddle checkout is blocked until our domain approval clears. Flip this
+  // back to true (and remove showPaymentUnavailableModal's callers) once payment
+  // actually works again.
+  const PAYMENT_ENABLED = false;
+  function showPaymentUnavailableModal() {
+    showModal(`
+      <h2 style="font-size:19px;">Payment temporarily unavailable</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">현재 결제 시스템 오류 수정 중입니다. 추후 결제가 가능해질 때 이메일로 알림을 보내드리겠습니다.</p>
+      <button class="btn btn-primary" id="payment-notice-ok-btn" style="width:100%; justify-content:center; display:flex;">확인</button>
+    `);
+    const btn = document.getElementById('payment-notice-ok-btn');
+    if (btn) btn.addEventListener('click', closeModal);
+  }
   Paddle.Environment.set('production');
   // eventCallback is how "renewal" checkouts (see applyForNextMonth) actually
   // enroll someone -- we don't call apply_for_challenge until Paddle confirms
@@ -544,6 +557,7 @@
   // the beta access code, this means only people we've actually let in can ever
   // reach the payment form -- not just people who happen to find the button.
   function openCheckout() {
+    if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     if (!currentUser) {
       showAuth();
       authMode = 'signup';
@@ -1124,6 +1138,7 @@
   // completeRenewal() actually call apply_for_challenge -- so a member can't end
   // up enrolled without having paid, and can't pay without getting enrolled.
   function applyForNextMonth() {
+    if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     if (!currentProfile.birthdate) {
       showToast('Please apply from the form once first (we need your birthdate on file).', true);
       return;
