@@ -943,6 +943,7 @@
     window.scrollTo(0, 0);
     authMode = 'login'; authError = null; authMessage = null;
     renderAuth();
+    if (location.hash !== '#/login') location.hash = '#/login';
   }
 
   async function handleSession(session) {
@@ -1075,6 +1076,7 @@
     state.view = 'landing';
     landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none';
     window.scrollTo(0,0);
+    if (location.hash !== '' && location.hash !== '#/') location.hash = '#/';
   }
   function showApp(view) {
     state.view = view;
@@ -1083,6 +1085,7 @@
     state.loaded = false;
     renderApp();
     loadAll();
+    if (location.hash !== '#/dashboard') location.hash = '#/dashboard';
   }
 
   // ---- challenge application ----
@@ -1127,6 +1130,7 @@
     window.scrollTo(0,0);
     applyError = null; applyLoading = false;
     renderApplyForm();
+    if (location.hash !== '#/apply') location.hash = '#/apply';
   }
 
   function renderApplyForm() {
@@ -1553,6 +1557,35 @@
   })();
 
   renderNav();
+  // ---- lightweight hash-based routing ----
+  // Gives each screen its own URL (#/login, #/apply, #/dashboard, or no hash
+  // for the landing page) so the address bar reflects what's on screen and the
+  // browser's back/forward buttons move between them, instead of every screen
+  // living under the one bare site URL.
+  function routeFromHash() {
+    const hash = window.location.hash;
+    if (hash === '#/login') { if (state.view !== 'auth') showAuth(); return; }
+    if (hash === '#/apply') { if (state.view !== 'apply') openApply(); return; }
+    if (hash === '#/dashboard') {
+      if (state.view === 'member' || state.view === 'leader') return;
+      if (currentProfile) showApp(currentProfile.role === 'leader' ? 'leader' : 'member');
+      else if (!currentUser) showAuth();
+      // else: session confirmed but the profile row hasn't loaded yet --
+      // handleSession() will route to the dashboard itself once it has.
+      return;
+    }
+    if (hash === '' || hash === '#/') { if (state.view !== 'landing') showLanding(); }
+    // Any other hash (e.g. a password-recovery token) is handled separately
+    // below -- leave it alone here.
+  }
+  window.addEventListener('hashchange', routeFromHash);
+  // Handle a bookmarked/shared #/login link immediately on a cold load -- the
+  // other routes depend on auth data that isn't available synchronously yet,
+  // so those are left to handleSession()'s own routing once the session check
+  // resolves (see routeFromHash's '#/dashboard' and '#/apply' branches, which
+  // do run once that happens via a manual hashchange-less path if needed).
+  if (window.location.hash === '#/login') routeFromHash();
+
   // Clicking the password-reset email link redirects back here with
   // `type=recovery` in the URL hash and logs the browser into a temporary
   // recovery session. We check the URL directly instead of relying solely on
