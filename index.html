@@ -534,8 +534,8 @@
   function showPaymentUnavailableModal() {
     showModal(`
       <h2 style="font-size:19px;">Payment temporarily unavailable</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">현재 결제 시스템 오류 수정 중입니다. 추후 결제가 가능해질 때 이메일로 알림을 보내드리겠습니다.</p>
-      <button class="btn btn-primary" id="payment-notice-ok-btn" style="width:100%; justify-content:center; display:flex;">확인</button>
+      <p class="dz-muted" style="margin:10px 0 20px;">We're currently fixing a payment system issue. We'll notify you by email once payment becomes available again.</p>
+      <button class="btn btn-primary" id="payment-notice-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
     `);
     const btn = document.getElementById('payment-notice-ok-btn');
     if (btn) btn.addEventListener('click', closeModal);
