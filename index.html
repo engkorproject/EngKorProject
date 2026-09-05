@@ -1561,6 +1561,12 @@
   // silently logs the member in normally (landing/dashboard) instead of
   // showing the "set new password" form.
   const isRecoveryLink = window.location.hash.includes('type=recovery');
+  // Recovery links are single-use and can expire (or get silently consumed by
+  // an email provider's link-safety prescan before the member ever clicks
+  // them) -- Supabase then redirects here with an error in the hash instead
+  // of a valid session. Surface that clearly instead of silently landing on
+  // the normal homepage.
+  const recoveryError = window.location.hash.includes('error=') && window.location.hash.includes('otp_expired');
   function routeToUpdatePassword() {
     showAuth(); // resets authMode to 'login' as a side effect, so set ours after
     authMode = 'update-password'; authError = null; authMessage = null;
@@ -1569,12 +1575,20 @@
     // or re-trigger this branch after the password's already been changed.
     history.replaceState(null, '', window.location.pathname + window.location.search);
   }
+  function routeToExpiredRecoveryLink() {
+    showAuth();
+    authMode = 'reset'; authError = "That reset link has expired or was already used — enter your email and we'll send a new one."; authMessage = null;
+    renderAuth();
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
 
   sb.auth.getSession().then(({ data: { session } }) => {
+    if (recoveryError) { routeToExpiredRecoveryLink(); return; }
     if (isRecoveryLink) { routeToUpdatePassword(); return; }
     handleSession(session);
   });
   sb.auth.onAuthStateChange((event, session) => {
+    if (recoveryError) { routeToExpiredRecoveryLink(); return; }
     if (event === 'PASSWORD_RECOVERY' || isRecoveryLink) { routeToUpdatePassword(); return; }
     handleSession(session);
   });
