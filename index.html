@@ -877,10 +877,18 @@
 
   async function handleAuthSubmit(e) {
     e.preventDefault();
+    // Read every field BEFORE the loading-state renderAuth() call below -- it
+    // replaces card.innerHTML wholesale, which wipes whatever the user typed.
+    const emailField = document.getElementById('auth-email');
+    const passwordField = document.getElementById('auth-password');
+    const nameField = document.getElementById('auth-name');
+    const email = emailField ? emailField.value.trim() : '';
+    const password = passwordField ? passwordField.value : '';
+    const name = nameField ? nameField.value.trim() : '';
+
     authError = null; authMessage = null; authLoading = true; renderAuth();
 
     if (authMode === 'reset') {
-      const email = document.getElementById('auth-email').value.trim();
       try {
         const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://engkorproject.github.io/EngKorProject/' });
         if (error) throw error;
@@ -894,7 +902,6 @@
     }
 
     if (authMode === 'update-password') {
-      const password = document.getElementById('auth-password').value;
       try {
         const { error } = await sb.auth.updateUser({ password });
         if (error) throw error;
@@ -909,10 +916,6 @@
       return;
     }
 
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-    const nameField = document.getElementById('auth-name');
-    const name = nameField ? nameField.value.trim() : '';
     try {
       if (authMode === 'signup') {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
