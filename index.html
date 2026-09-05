@@ -567,7 +567,7 @@
     recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     // ---- challenge application gate ----
-    cohort: null,             // current month's cohort row ({id,label,end_date,capacity}), from get_or_create_cohort RPC
+    cohort: null,             // the cohort currently open for applications (cohorts.is_open = true)
     applications: [],         // this member's application rows across all cohorts
     hasEverApplied: false,    // has at least one application ever -> dashboard button visible, past history viewable
     hasCurrentApplication: false, // applied for THIS month's cohort -> full read/write dashboard
@@ -857,11 +857,11 @@
         return;
       }
 
-      // Figure out where this member stands re: the challenge gate. get_or_create_cohort
-      // is idempotent (finds this month's row or creates it), so calling it on every
-      // login is what makes cohorts "just appear" each month with no manual leader step.
+      // Figure out where this member stands re: the challenge gate. Which cohort is
+      // "open" is a manual leader decision (cohorts.is_open), not derived from
+      // today's calendar date -- see engkor-supabase-schema.sql for why.
       const [{ data: cohort }, { data: applications }] = await Promise.all([
-        sb.rpc('get_or_create_cohort', { p_month_offset: 0 }),
+        sb.from('cohorts').select('*').eq('is_open', true).maybeSingle(),
         sb.from('applications').select('cohort_id,status').eq('member_id', currentUser.id)
       ]);
       state.cohort = cohort || null;
@@ -878,7 +878,7 @@
       if (state.hasCurrentApplication && cohort && cohort.end_date) {
         const daysLeft = Math.ceil((new Date(cohort.end_date + 'T00:00:00') - new Date()) / 86400000);
         if (daysLeft >= 0 && daysLeft <= 7) {
-          const { data: nextCohort } = await sb.rpc('get_or_create_cohort', { p_month_offset: 1 });
+          const { data: nextCohort } = await sb.rpc('get_next_cohort', { p_after_cohort_id: cohort.id });
           state.nextCohort = nextCohort || null;
           state.showRenewalBanner = !!(nextCohort && !state.applications.some(a => a.cohort_id === nextCohort.id && a.status === 'active'));
         }

@@ -240,3 +240,223 @@ begin
     end loop;
   end loop;
 end $$;
+
+
+-- ============================================================
+-- [적용 완료] 마이그레이션 11: 챌린지 신청 게이트 (Hyunho, applications_gate)
+--
+-- 가입만 한 사람과 "이번 달 챌린지를 실제로 신청한 사람"을 구분해서, 신청자만
+-- 대시보드(체크인)를 쓸 수 있게 함. 기수는 자동으로 열리고, 정원은 기수당 39명,
+-- 이름+생년월일로 중복 신청을 간단히 걸러냄.
+-- ============================================================
+alter table public.profiles
+  add column birthdate date;
+
+alter table public.cohorts
+  add column capacity integer not null default 39;
+
+create table public.applications (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references public.profiles(id) on delete cascade,
+  cohort_id uuid not null references public.cohorts(id) on delete cascade,
+  status text not null default 'active' check (status in ('active', 'cancelled')),
+  created_at timestamptz not null default now(),
+  unique (member_id, cohort_id)
+);
+
+alter table public.applications enable row level security;
+
+create policy "member_select_own_applications" on public.applications
+  for select using (auth.uid() = member_id);
+
+create policy "leader_select_all_applications" on public.applications
+  for select using (public.is_leader());
+
+-- 의도적으로 insert/update 정책을 안 만듦. 신청 기록은 apply_for_challenge()를
+-- 통해서만 생겨야 함(정원 초과/중복 체크를 원자적으로 보장하기 위해). 클라이언트가
+-- applications에 직접 insert를 시도하면 RLS에 막혀서 실패함.
+
+-- 기수를 찾아서 반환하되 없으면 새로 만듦 (달력 기준 month_offset).
+-- [주의] 마이그레이션 13 이후로 화면 코드에서는 더 이상 이 함수를 호출하지 않음 —
+-- "지금 열려있는 기수"는 cohorts.is_open 플래그로 판단함 (아래 참고). 이 함수는
+-- 다른 자동화(예: 연장 안내 이메일 cron)가 아직 쓰고 있을 수 있어 남겨둠.
+create or replace function public.get_or_create_cohort(p_month_offset int default 0)
+returns public.cohorts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target_month date;
+  v_label text;
+  v_cohort public.cohorts;
+begin
+  v_target_month := date_trunc('month', current_date + (p_month_offset || ' month')::interval)::date;
+  v_label := to_char(v_target_month, 'YYYY-MM');
+
+  select * into v_cohort from public.cohorts where label = v_label;
+  if found then
+    return v_cohort;
+  end if;
+
+  insert into public.cohorts (label, start_date, end_date, capacity)
+  values (
+    v_label,
+    v_target_month,
+    (v_target_month + interval '1 month' - interval '1 day')::date,
+    39
+  )
+  returning * into v_cohort;
+
+  return v_cohort;
+end;
+$$;
+
+grant execute on function public.get_or_create_cohort(int) to authenticated;
+
+
+-- ============================================================
+-- [적용 완료] 마이그레이션 13: 기수 오픈을 리더가 수동으로 켜고 끄기 (cohort_open_flag)
+--
+-- 배경: 런칭 첫 달(9월)은 한 달 내내 신청받았지만, 10월부터는 "매월 3주차에 다음
+-- 달 신청을 받는다"는 정확한 날짜 규칙이 아직 확정 전이라, 달력을 보고 자동으로
+-- "이번 달"을 계산하던 방식(get_or_create_cohort의 month_offset=0) 대신, 리더가
+-- Supabase Table Editor에서 cohorts.is_open 체크박스를 직접 켜고 끄는 방식으로
+-- 전환함. apply_for_challenge도 화면에 보여주는 기수랑 실제로 등록되는 기수가
+-- 어긋나지 않도록 같이 is_open 기준으로 수정함.
+-- ============================================================
+alter table public.cohorts
+  add column is_open boolean not null default false;
+
+-- 지금 열려있는 기수를 반환 (자동 생성 안 함 — 리더가 직접 켜야 함)
+create or replace function public.get_open_cohort()
+returns public.cohorts
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select * from public.cohorts where is_open = true order by start_date desc limit 1;
+$$;
+grant execute on function public.get_open_cohort() to authenticated;
+
+-- 특정 기수(기본값: 지금 열려있는 기수) 바로 다음 달 기수를 반환, 없으면 생성.
+-- month_offset이 아니라 "그 기수가 끝나는 날 + 1일"을 기준으로 계산해서, 리더가
+-- is_open을 아무 때나 켜고 꺼도(달력상 "이번 달"과 무관하게) 항상 정확히 그
+-- 다음 달을 가리킴.
+create or replace function public.get_next_cohort(p_after_cohort_id uuid default null)
+returns public.cohorts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_after public.cohorts;
+  v_target_month date;
+  v_label text;
+  v_cohort public.cohorts;
+begin
+  if p_after_cohort_id is null then
+    select * into v_after from public.cohorts where is_open = true order by start_date desc limit 1;
+  else
+    select * into v_after from public.cohorts where id = p_after_cohort_id;
+  end if;
+  if not found then
+    raise exception 'NO_OPEN_COHORT';
+  end if;
+
+  v_target_month := date_trunc('month', v_after.end_date + interval '1 day')::date;
+  v_label := to_char(v_target_month, 'YYYY-MM');
+
+  select * into v_cohort from public.cohorts where label = v_label;
+  if found then
+    return v_cohort;
+  end if;
+
+  insert into public.cohorts (label, start_date, end_date, capacity, is_open)
+  values (
+    v_label,
+    v_target_month,
+    (v_target_month + interval '1 month' - interval '1 day')::date,
+    39,
+    false
+  )
+  returning * into v_cohort;
+
+  return v_cohort;
+end;
+$$;
+grant execute on function public.get_next_cohort(uuid) to authenticated;
+
+-- apply_for_challenge: 달력이 아니라 is_open 플래그 기준으로 등록 대상 기수를 정함.
+create or replace function public.apply_for_challenge(
+  p_name text,
+  p_timezone text,
+  p_birthdate date,
+  p_month_offset int default 0
+)
+returns public.cohorts
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_open_cohort public.cohorts;
+  v_cohort public.cohorts;
+  v_active_count int;
+  v_dup_exists boolean;
+  v_application public.applications;
+begin
+  select * into v_open_cohort from public.cohorts where is_open = true order by start_date desc limit 1;
+  if not found then
+    raise exception 'NO_OPEN_COHORT';
+  end if;
+
+  if p_month_offset = 0 then
+    v_cohort := v_open_cohort;
+  else
+    v_cohort := public.get_next_cohort(v_open_cohort.id);
+  end if;
+
+  select exists (
+    select 1 from public.profiles
+    where id <> auth.uid()
+      and birthdate = p_birthdate
+      and lower(trim(name)) = lower(trim(p_name))
+  ) into v_dup_exists;
+
+  if v_dup_exists then
+    raise exception 'DUPLICATE_PERSON';
+  end if;
+
+  select * into v_application from public.applications
+    where member_id = auth.uid() and cohort_id = v_cohort.id;
+
+  if not found then
+    select count(*) into v_active_count
+      from public.applications
+      where cohort_id = v_cohort.id and status = 'active';
+
+    if v_active_count >= v_cohort.capacity then
+      raise exception 'COHORT_FULL';
+    end if;
+  end if;
+
+  update public.profiles
+    set name = p_name, timezone = p_timezone, birthdate = p_birthdate, cohort_id = v_cohort.id
+    where id = auth.uid();
+
+  insert into public.applications (member_id, cohort_id, status)
+    values (auth.uid(), v_cohort.id, 'active')
+    on conflict (member_id, cohort_id) do update set status = 'active'
+    returning * into v_application;
+
+  return v_cohort;
+end;
+$$;
+
+grant execute on function public.apply_for_challenge(text, text, date, int) to authenticated;
+
+-- 런칭 첫 전환: 9월(런칭 달)을 닫고 10월을 오픈
+update public.cohorts set is_open = false where label = '2026-09';
+update public.cohorts set is_open = true where label = '2026-10';
