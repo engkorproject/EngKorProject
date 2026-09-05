@@ -528,7 +528,17 @@
   const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
   const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
   Paddle.Environment.set('production');
-  Paddle.Initialize({ token: PADDLE_CLIENT_TOKEN });
+  // eventCallback is how "renewal" checkouts (see applyForNextMonth) actually
+  // enroll someone -- we don't call apply_for_challenge until Paddle confirms
+  // the payment went through, so no one occupies a cohort seat without paying.
+  Paddle.Initialize({
+    token: PADDLE_CLIENT_TOKEN,
+    eventCallback: function (event) {
+      if (event.name === 'checkout.completed' && event.data && event.data.custom_data && event.data.custom_data.intent === 'renewal') {
+        completeRenewal();
+      }
+    }
+  });
 
   // Checkout requires a logged-in account. Since signup itself is gated behind
   // the beta access code, this means only people we've actually let in can ever
@@ -1108,20 +1118,33 @@
     if (btn) btn.addEventListener('click', () => submitApplication(1));
   }
 
-  // Used by the dashboard's renewal banner, where there's no application form on
-  // screen to read from — it just re-submits the member's existing profile info.
-  async function applyForNextMonth() {
+  // Used by the dashboard's renewal banner. Application and payment now happen
+  // together: this opens the Paddle checkout, and only once Paddle confirms the
+  // charge (see the 'checkout.completed' eventCallback above) does
+  // completeRenewal() actually call apply_for_challenge -- so a member can't end
+  // up enrolled without having paid, and can't pay without getting enrolled.
+  function applyForNextMonth() {
     if (!currentProfile.birthdate) {
       showToast('Please apply from the form once first (we need your birthdate on file).', true);
       return;
     }
+    Paddle.Checkout.open({
+      items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
+      customer: { email: currentUser.email },
+      customData: { supabase_user_id: currentProfile.id, intent: 'renewal' }
+    });
+  }
+
+  async function completeRenewal() {
     const { data, error } = await sb.rpc('apply_for_challenge', {
       p_name: currentProfile.name, p_timezone: currentProfile.timezone,
       p_birthdate: currentProfile.birthdate, p_month_offset: 1
     });
     if (error) {
       const msg = error.message || '';
-      showToast(msg.includes('COHORT_FULL') ? "Next month is already full — we'll see about a spot." : 'Could not renew — please try again.', true);
+      showToast(msg.includes('COHORT_FULL')
+        ? "Payment went through, but next month is already full — contact us at engkorproject@gmail.com for a refund."
+        : 'Payment went through, but we could not renew your enrollment — contact us at engkorproject@gmail.com.', true);
       return;
     }
     state.showRenewalBanner = false;
