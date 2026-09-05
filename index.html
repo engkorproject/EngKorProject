@@ -811,6 +811,43 @@
 
   function renderAuth() {
     const card = document.getElementById('auth-card');
+
+    if (authMode === 'reset') {
+      card.innerHTML = `
+        <h2>Reset your password</h2>
+        <p class="sub">Enter your email and we'll send you a link to set a new password.</p>
+        <form id="auth-form">
+          <div class="auth-field"><label>Email</label><input type="email" id="auth-email" required /></div>
+          <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${authLoading ? 'disabled' : ''}>${authLoading ? '...' : 'Send reset link'}</button>
+          ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
+          ${authMessage ? `<p class="auth-success">${escapeHtml(authMessage)}</p>` : ''}
+        </form>
+        <div class="auth-switch">
+          <button type="button" id="auth-toggle">Back to log in</button>
+        </div>
+      `;
+      document.getElementById('auth-toggle').addEventListener('click', () => {
+        authMode = 'login'; authError = null; authMessage = null; renderAuth();
+      });
+      document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+      return;
+    }
+
+    if (authMode === 'update-password') {
+      card.innerHTML = `
+        <h2>Set a new password</h2>
+        <p class="sub">Choose a new password for your account.</p>
+        <form id="auth-form">
+          <div class="auth-field"><label>New password</label><input type="password" id="auth-password" minlength="6" required /></div>
+          <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${authLoading ? 'disabled' : ''}>${authLoading ? '...' : 'Save new password'}</button>
+          ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
+          ${authMessage ? `<p class="auth-success">${escapeHtml(authMessage)}</p>` : ''}
+        </form>
+      `;
+      document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
+      return;
+    }
+
     const isSignup = authMode === 'signup';
     card.innerHTML = `
       <h2>${isSignup ? 'Create your account' : 'Welcome back'}</h2>
@@ -823,6 +860,7 @@
         ${authError ? `<p class="auth-error">${escapeHtml(authError)}</p>` : ''}
         ${authMessage ? `<p class="auth-success">${escapeHtml(authMessage)}</p>` : ''}
       </form>
+      ${!isSignup ? `<div class="auth-switch"><button type="button" id="auth-forgot">Forgot password?</button></div>` : ''}
       <div class="auth-switch">
         ${isSignup ? `Already have an account? <button type="button" id="auth-toggle">Log in</button>` : `No account yet? <button type="button" id="auth-toggle">Sign up</button>`}
       </div>
@@ -830,16 +868,51 @@
     document.getElementById('auth-toggle').addEventListener('click', () => {
       authMode = isSignup ? 'login' : 'signup'; authError = null; authMessage = null; renderAuth();
     });
+    const forgotBtn = document.getElementById('auth-forgot');
+    if (forgotBtn) forgotBtn.addEventListener('click', () => {
+      authMode = 'reset'; authError = null; authMessage = null; renderAuth();
+    });
     document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
   }
 
   async function handleAuthSubmit(e) {
     e.preventDefault();
+    authError = null; authMessage = null; authLoading = true; renderAuth();
+
+    if (authMode === 'reset') {
+      const email = document.getElementById('auth-email').value.trim();
+      try {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://engkorproject.github.io/EngKorProject/' });
+        if (error) throw error;
+        authMode = 'login';
+        authMessage = 'Check your email for a link to reset your password.';
+      } catch (err) {
+        authError = err.message || 'Something went wrong. Please try again.';
+      }
+      authLoading = false; renderAuth();
+      return;
+    }
+
+    if (authMode === 'update-password') {
+      const password = document.getElementById('auth-password').value;
+      try {
+        const { error } = await sb.auth.updateUser({ password });
+        if (error) throw error;
+        authMessage = 'Password updated! Redirecting...';
+        renderAuth();
+        setTimeout(() => { authMode = 'login'; showLanding(); }, 1200);
+        return;
+      } catch (err) {
+        authError = err.message || 'Something went wrong. Please try again.';
+      }
+      authLoading = false; renderAuth();
+      return;
+    }
+
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const nameField = document.getElementById('auth-name');
     const name = nameField ? nameField.value.trim() : '';
-    authError = null; authMessage = null; authLoading = true; renderAuth();
     try {
       if (authMode === 'signup') {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
@@ -1478,7 +1551,19 @@
 
   renderNav();
   sb.auth.getSession().then(({ data: { session } }) => handleSession(session));
-  sb.auth.onAuthStateChange((_event, session) => { handleSession(session); });
+  sb.auth.onAuthStateChange((event, session) => {
+    // Clicking the password-reset email link logs the browser into a temporary
+    // recovery session -- route straight to the "set new password" form instead
+    // of treating them as a normal login (which would otherwise land them on
+    // the dashboard with their OLD password still active).
+    if (event === 'PASSWORD_RECOVERY') {
+      showAuth(); // resets authMode to 'login' as a side effect, so set ours after
+      authMode = 'update-password'; authError = null; authMessage = null;
+      renderAuth();
+      return;
+    }
+    handleSession(session);
+  });
 })();
 </script>
 </body>
