@@ -1202,7 +1202,12 @@
       const today = getDay(me.id, todayStr());
       const selDay = getDay(me.id, state.selectedDate);
 
-      const totalDays = daysInMonth(new Date().getFullYear(), new Date().getMonth());
+      // Use the open cohort's own month, not the viewer's real "today" -- someone
+      // in read-only mode viewing a past cohort shouldn't get today's day count.
+      const [cohortYear, cohortMonth] = state.cohort
+        ? state.cohort.start_date.split('-').map(Number)
+        : [new Date().getFullYear(), new Date().getMonth() + 1];
+      const totalDays = daysInMonth(cohortYear, cohortMonth - 1);
       const board = [...state.leaderboard].sort((a, b) => b.completed_days - a.completed_days).map(m => {
         const r = Math.round((m.completed_days / totalDays) * 100);
         const isMe = m.member_id === me.id;

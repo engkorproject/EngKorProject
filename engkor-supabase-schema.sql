@@ -165,6 +165,33 @@ grant select on public.leaderboard to authenticated;
 
 
 -- ============================================================
+-- [적용 완료] 마이그레이션 14: 리더보드를 현재 기수 참여자로만 제한
+--
+-- 위 leaderboard 뷰는 "이번 달 전체"를 달력 기준으로 잡아서, 신청 여부와
+-- 무관하게 role='member'인 모든 사람을 다 보여줬음. applications 테이블이
+-- 생긴 이후로는 지금 is_open인 기수에 실제로(status='active') 신청한
+-- 사람만 남도록 조인 조건을 바꾸고, 완료 횟수도 "이번 달"이 아니라 그
+-- 기수의 실제 start_date~end_date 범위로 셈.
+-- ============================================================
+create or replace view public.leaderboard as
+select
+  p.id as member_id,
+  p.name,
+  count(s.id) filter (
+    where s.diary_url is not null
+      and s.shadowing_url is not null
+      and s.date >= oc.start_date
+      and s.date <= oc.end_date
+  ) as completed_days
+from public.profiles p
+join public.applications a on a.member_id = p.id and a.status = 'active'
+join public.cohorts oc on oc.id = a.cohort_id and oc.is_open = true
+left join public.submissions s on s.member_id = p.id
+where p.role = 'member'
+group by p.id, p.name;
+
+
+-- ============================================================
 -- 참고: 첫 리더 계정 만드는 법
 -- 1. 웹사이트에서 평소처럼 이메일로 회원가입을 한 번 합니다.
 --    (자동으로 profiles 테이블에 role='member'로 등록됩니다)
