@@ -1553,18 +1553,29 @@
   })();
 
   renderNav();
-  sb.auth.getSession().then(({ data: { session } }) => handleSession(session));
+  // Clicking the password-reset email link redirects back here with
+  // `type=recovery` in the URL hash and logs the browser into a temporary
+  // recovery session. We check the URL directly instead of relying solely on
+  // the 'PASSWORD_RECOVERY' auth event, which supabase-js has fired
+  // inconsistently across versions -- without this, the recovery link just
+  // silently logs the member in normally (landing/dashboard) instead of
+  // showing the "set new password" form.
+  const isRecoveryLink = window.location.hash.includes('type=recovery');
+  function routeToUpdatePassword() {
+    showAuth(); // resets authMode to 'login' as a side effect, so set ours after
+    authMode = 'update-password'; authError = null; authMessage = null;
+    renderAuth();
+    // Clean the token out of the address bar so a refresh/share doesn't leak it
+    // or re-trigger this branch after the password's already been changed.
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (isRecoveryLink) { routeToUpdatePassword(); return; }
+    handleSession(session);
+  });
   sb.auth.onAuthStateChange((event, session) => {
-    // Clicking the password-reset email link logs the browser into a temporary
-    // recovery session -- route straight to the "set new password" form instead
-    // of treating them as a normal login (which would otherwise land them on
-    // the dashboard with their OLD password still active).
-    if (event === 'PASSWORD_RECOVERY') {
-      showAuth(); // resets authMode to 'login' as a side effect, so set ours after
-      authMode = 'update-password'; authError = null; authMessage = null;
-      renderAuth();
-      return;
-    }
+    if (event === 'PASSWORD_RECOVERY' || isRecoveryLink) { routeToUpdatePassword(); return; }
     handleSession(session);
   });
 })();
