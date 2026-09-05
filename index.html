@@ -572,6 +572,7 @@
     hasEverApplied: false,    // has at least one application ever -> dashboard button visible, past history viewable
     hasCurrentApplication: false, // applied for THIS month's cohort -> full read/write dashboard
     readOnly: false,          // true = dashboard shown but check-in form replaced by a reapply prompt
+    notYetStarted: false,     // applied for the current cohort, but its start_date hasn't arrived yet
     showRenewalBanner: false, nextCohort: null
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
@@ -869,6 +870,10 @@
       state.hasEverApplied = state.applications.length > 0;
       state.hasCurrentApplication = !!(cohort && state.applications.some(a => a.cohort_id === cohort.id && a.status === 'active'));
       state.readOnly = state.hasEverApplied && !state.hasCurrentApplication;
+      // Applications open ahead of time, but the check-in dashboard itself only
+      // unlocks once the cohort's month actually begins (start_date is always the
+      // 1st, so this is exactly "from the 1st at local midnight").
+      state.notYetStarted = !!(state.hasCurrentApplication && cohort && cohort.start_date && new Date() < new Date(cohort.start_date + 'T00:00:00'));
 
       // Renewal banner: only relevant once someone is actually inside this month's
       // challenge and its end is within a week -- and only if they haven't already
@@ -898,7 +903,7 @@
     } else {
       currentUser = null; currentProfile = null;
       state.cohort = null; state.applications = []; state.hasEverApplied = false;
-      state.hasCurrentApplication = false; state.readOnly = false; state.showRenewalBanner = false;
+      state.hasCurrentApplication = false; state.readOnly = false; state.notYetStarted = false; state.showRenewalBanner = false;
       renderNav();
       updateApplyButtonLabel();
       if (state.view === 'member' || state.view === 'leader' || state.view === 'apply') showLanding();
@@ -1140,7 +1145,15 @@
     const isLeader = state.view === 'leader';
     let body = '';
 
-    if (isLeader && !state.members.length) {
+    if (!isLeader && state.notYetStarted) {
+      const startLabel = new Date(state.cohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      body = `
+        <div class="dz-detail-panel" style="text-align:center; padding:48px 24px;">
+          <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your ${cohortMonthLabel(state.cohort)} Challenge starts soon</p>
+          <p class="dz-muted">You're locked in — come back on ${startLabel} to start your streak.</p>
+        </div>
+      `;
+    } else if (isLeader && !state.members.length) {
       body = `<p class="dz-muted">No members have signed up yet.</p>`;
     } else if (isLeader) {
       const focusId = state.leaderFocusId || state.members[0].id;
