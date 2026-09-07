@@ -336,7 +336,7 @@
 
   <div class="apply-banner">
     <div>
-      <h2>🔥 Apply for the <span id="apply-banner-month">September</span> Challenge</h2>
+      <h2>🔥 Apply for the <span id="apply-banner-month">October</span> Challenge</h2>
       <p>Real Korean staff review your Speaking + Writing every week. 39 spots/month.</p>
     </div>
     <a class="btn btn-white" href="#" id="apply-btn-banner">Apply Now →</a>
@@ -1091,12 +1091,19 @@
   // ---- challenge application ----
   let applyError = null, applyLoading = false;
 
+  // Shown to signed-out visitors (and anyone before their cohort data loads), who
+  // never trigger a query against cohorts.is_open. Previously this fell back to
+  // the browser's current calendar month, which drifted from whatever month the
+  // team actually had open for applications -- update this by hand each time a
+  // new cohort opens (cohorts.is_open in Supabase still controls real enrollment).
+  const CURRENT_CHALLENGE_MONTH = 'October';
+
   function cohortMonthLabel(cohort) {
     if (cohort && cohort.label) {
       const [y, m] = cohort.label.split('-').map(Number);
       return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long' });
     }
-    return new Date().toLocaleString('en-US', { month: 'long' });
+    return CURRENT_CHALLENGE_MONTH;
   }
   // The landing page's hero CTA advertises the current month by name even to
   // signed-out visitors, using the browser's own date until the real cohort
