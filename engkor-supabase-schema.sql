@@ -221,16 +221,16 @@ alter table public.submissions
 
 -- 참고: submissions의 기존 RLS 정책(member_manage_own_submissions)은 행 단위라
 -- 멤버 본인이 이 두 피드백 컬럼도 기술적으로 직접 쓸 수 있음(앱 UI에서는 절대
--- 안 하지만). 더 엄격하게 막으려면 별도 트리거나 컬럼 단위 정책이 필요함 — 필요시 추가.
+-- 안 하지만). 더 엄격하게 막으려면 별도 트리거나 컬럼 단위 정책이 필요함, 필요시 추가.
 
 -- 리더가 다른 멤버의 submissions 행에 피드백을 저장할 수 있도록 권한 추가.
--- (기존 leader_select_all_submissions는 조회만 허용하고 쓰기는 막고 있었음 — 이게 없으면
+-- (기존 leader_select_all_submissions는 조회만 허용하고 쓰기는 막고 있었음: 이게 없으면
 --  리더 대시보드의 "날짜별 피드백 저장" 기능이 RLS에 막혀 조용히 실패함)
 --
 -- 처음엔 for update로만 만들었다가 실패함: saveDayFeedback이 쓰는 upsert()는
 -- 내부적으로 "INSERT ... ON CONFLICT DO UPDATE"라서, 실제로는 기존 행을 갱신하는
 -- 상황이어도 PostgreSQL RLS가 INSERT 권한까지 같이 확인함. 리더는 INSERT 정책이
--- 없어서 계속 막혔음 — for all로 바꿔서 해결.
+-- 없어서 계속 막혔음, for all로 바꿔서 해결.
 create policy "leader_manage_all_submissions_feedback" on public.submissions
   for all using (public.is_leader()) with check (public.is_leader());
 
@@ -238,7 +238,7 @@ create policy "leader_manage_all_submissions_feedback" on public.submissions
 -- 태그를 붙여 작성했던 weekly_feedback.text를 파싱해서 날짜별 컬럼으로 옮김.
 -- week_key가 예전 형식("YYYY-MM-Wn")과 새 형식("YYYY-MM-DD")이 섞여 있어서
 -- 문자열 앞 4자리로 연도만 뽑아 씀(date로 통째로 캐스팅하지 않음).
--- 이미 실행 완료 — 재실행해도 안전(diary_feedback/shadowing_feedback이 비어있는 행만 채움).
+-- 이미 실행 완료: 재실행해도 안전(diary_feedback/shadowing_feedback이 비어있는 행만 채움).
 do $$
 declare
   wf record;
@@ -304,7 +304,7 @@ create policy "leader_select_all_applications" on public.applications
 -- applications에 직접 insert를 시도하면 RLS에 막혀서 실패함.
 
 -- 기수를 찾아서 반환하되 없으면 새로 만듦 (달력 기준 month_offset).
--- [주의] 마이그레이션 13 이후로 화면 코드에서는 더 이상 이 함수를 호출하지 않음 —
+-- [주의] 마이그레이션 13 이후로 화면 코드에서는 더 이상 이 함수를 호출하지 않음:
 -- "지금 열려있는 기수"는 cohorts.is_open 플래그로 판단함 (아래 참고). 이 함수는
 -- 다른 자동화(예: 연장 안내 이메일 cron)가 아직 쓰고 있을 수 있어 남겨둠.
 create or replace function public.get_or_create_cohort(p_month_offset int default 0)
@@ -355,7 +355,7 @@ grant execute on function public.get_or_create_cohort(int) to authenticated;
 alter table public.cohorts
   add column is_open boolean not null default false;
 
--- 지금 열려있는 기수를 반환 (자동 생성 안 함 — 리더가 직접 켜야 함)
+-- 지금 열려있는 기수를 반환 (자동 생성 안 함, 리더가 직접 켜야 함)
 create or replace function public.get_open_cohort()
 returns public.cohorts
 language sql
