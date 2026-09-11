@@ -1620,8 +1620,15 @@
   // of a valid session. Surface that clearly instead of silently landing on
   // the normal homepage.
   const recoveryError = initialUrlHash.includes('error=') && initialUrlHash.includes('otp_expired');
+  // Deliberately not going through showAuth() here -- it ends by writing
+  // location.hash = '#/login', which (even after routeFromHash's own guard
+  // above) queues a hashchange we don't need at all for this path. Setting
+  // the same handful of properties showAuth() would have set, directly, means
+  // there's no hash write for anything to race against.
   function routeToUpdatePassword() {
-    showAuth(); // resets authMode to 'login' as a side effect, so set ours after
+    state.view = 'auth';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    window.scrollTo(0, 0);
     authMode = 'update-password'; authError = null; authMessage = null;
     renderAuth();
     // Clean the token out of the address bar so a refresh/share doesn't leak it
@@ -1629,7 +1636,9 @@
     history.replaceState(null, '', window.location.pathname + window.location.search);
   }
   function routeToExpiredRecoveryLink() {
-    showAuth();
+    state.view = 'auth';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    window.scrollTo(0, 0);
     authMode = 'reset'; authError = "That reset link has expired or was already used — enter your email and we'll send a new one."; authMessage = null;
     renderAuth();
     history.replaceState(null, '', window.location.pathname + window.location.search);
