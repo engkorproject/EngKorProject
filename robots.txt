@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://engkorproject.github.io/EngKorProject/sitemap.xml
+Sitemap: https://engkorkorean.com/sitemap.xml

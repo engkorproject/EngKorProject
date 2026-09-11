@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EngKor — Challenge-based Korean Conversation Community</title>
 <meta name="description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
-<link rel="canonical" href="https://engkorproject.github.io/EngKorProject/">
+<link rel="canonical" href="https://engkorkorean.com/">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://engkorproject.github.io/EngKorProject/">
+<meta property="og:url" content="https://engkorkorean.com/">
 <meta property="og:title" content="EngKor — Challenge-based Korean Conversation Community">
 <meta property="og:description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
 <meta name="twitter:card" content="summary">
@@ -18,7 +18,7 @@
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "EngKor",
-  "url": "https://engkorproject.github.io/EngKorProject/",
+  "url": "https://engkorkorean.com/",
   "description": "Challenge-based Korean conversation community with weekly correction from real Korean staff."
 }
 </script>
@@ -890,7 +890,7 @@
 
     if (authMode === 'reset') {
       try {
-        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://engkorproject.github.io/EngKorProject/' });
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: 'https://engkorkorean.com/' });
         if (error) throw error;
         authMode = 'login';
         authMessage = 'Check your email for a link to reset your password.';
@@ -919,7 +919,7 @@
     try {
       if (authMode === 'signup') {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, timezone }, emailRedirectTo: 'https://engkorproject.github.io/EngKorProject/' } });
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, timezone }, emailRedirectTo: 'https://engkorkorean.com/' } });
         if (error) throw error;
         if (!data.session) {
           authMessage = 'Check your email to confirm your account, then log in.';
