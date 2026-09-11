@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EngKor — Challenge-based Korean Conversation Community</title>
+<title>EngKor: Challenge-based Korean Conversation Community</title>
 <meta name="description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
 <link rel="canonical" href="https://engkorkorean.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://engkorkorean.com/">
-<meta property="og:title" content="EngKor — Challenge-based Korean Conversation Community">
+<meta property="og:title" content="EngKor: Challenge-based Korean Conversation Community">
 <meta property="og:description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="EngKor — Challenge-based Korean Conversation Community">
+<meta name="twitter:title" content="EngKor: Challenge-based Korean Conversation Community">
 <meta name="twitter:description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
 <script type="application/ld+json">
 {
@@ -346,7 +346,7 @@
     <div class="hero-text">
       <div class="hero-tag">🔥 Challenge-based Korean conversation community</div>
       <h1>Want to improve your Korean speaking? Struggling to stay <span class="accent">consistent</span> on your own?</h1>
-      <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Speaking + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together — while having fun!</p>
+      <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Speaking + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together, while having fun!</p>
       <div class="hero-ctas">
         <a class="btn btn-primary" href="#" id="apply-btn-hero">Start the Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
@@ -371,7 +371,7 @@
   <section class="block" id="trust" style="padding-top:0; padding-bottom:40px;">
     <div class="who-band">
       <h2>Who this challenge is for</h2>
-      <p>You already know Hangeul and basic grammar — but you don't have anyone to practice with or correct your mistakes, so your skills just aren't improving.</p>
+      <p>You already know Hangeul and basic grammar, but you don't have anyone to practice with or correct your mistakes, so your skills just aren't improving.</p>
     </div>
   </section>
 
@@ -384,13 +384,13 @@
     <div class="compare-grid">
       <div class="compare-card bad reveal">
         <h3>① Large free Korean-learning communities</h3>
-        <div class="compare-item"><span class="dot"></span>Tens of thousands of members — you're just anonymous</div>
+        <div class="compare-item"><span class="dot"></span>Tens of thousands of members: you're just anonymous</div>
         <div class="compare-item"><span class="dot"></span>No individual feedback to speak of</div>
         <div class="compare-item"><span class="dot"></span>Some reviewers say the "community" is a ghost town</div>
       </div>
       <div class="compare-card good reveal">
         <h3>EngKor's answer</h3>
-        <div class="compare-item"><span class="dot"></span>Small monthly cohorts — you actually get to know each other</div>
+        <div class="compare-item"><span class="dot"></span>Small monthly cohorts: you actually get to know each other</div>
         <div class="compare-item"><span class="dot"></span>Staff can give real, detailed attention at this size</div>
       </div>
 
@@ -402,7 +402,7 @@
       </div>
       <div class="compare-card good reveal">
         <h3>EngKor's answer</h3>
-        <div class="compare-item"><span class="dot"></span>$11/mo — check in whenever you like</div>
+        <div class="compare-item"><span class="dot"></span>$11/mo, check in whenever you like</div>
         <div class="compare-item"><span class="dot"></span>Daily check-ins build the habit automatically</div>
       </div>
 
@@ -414,7 +414,7 @@
       <div class="compare-card good reveal">
         <h3>EngKor's answer</h3>
         <div class="compare-item"><span class="dot"></span>AI helps behind the scenes, but a real Korean makes the final call</div>
-        <div class="compare-item"><span class="dot"></span>Nuance, tone, and context — corrected like a native would</div>
+        <div class="compare-item"><span class="dot"></span>Nuance, tone, and context, corrected like a native would</div>
       </div>
     </div>
   </section>
@@ -466,7 +466,7 @@
 
   <div class="cta-band">
     <h2>For those who already know some Korean</h2>
-    <p>Build the fundamentals of real conversation through Speaking + Writing correction — in a small community that meets fresh every month.</p>
+    <p>Build the fundamentals of real conversation through Speaking + Writing correction, in a small community that meets fresh every month.</p>
     <div class="hero-ctas">
       <a class="btn btn-primary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join the Discord →</a>
     </div>
@@ -1186,7 +1186,7 @@
       const msg = error.message || '';
       if (msg.includes('COHORT_FULL')) { showCohortFullModal(monthOffset); return; }
       if (msg.includes('DUPLICATE_PERSON')) {
-        applyError = "We couldn't process this application — this name and birthdate already look registered. Contact us if that's a mistake.";
+        applyError = "We couldn't process this application: this name and birthdate already look registered. Contact us if that's a mistake.";
       } else {
         applyError = 'Something went wrong. Please try again.';
       }
@@ -1251,8 +1251,8 @@
     if (error) {
       const msg = error.message || '';
       showToast(msg.includes('COHORT_FULL')
-        ? "Payment went through, but next month is already full — contact us at engkorproject@gmail.com for a refund."
-        : 'Payment went through, but we could not renew your enrollment — contact us at engkorproject@gmail.com.', true);
+        ? "Payment went through, but next month is already full. Contact us at engkorproject@gmail.com for a refund."
+        : 'Payment went through, but we could not renew your enrollment. Contact us at engkorproject@gmail.com.', true);
       return;
     }
     state.showRenewalBanner = false;
@@ -1281,7 +1281,7 @@
       body = `
         <div class="dz-detail-panel" style="text-align:center; padding:48px 24px;">
           <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your ${cohortMonthLabel(state.cohort)} Challenge starts soon</p>
-          <p class="dz-muted">You're locked in — come back on ${startLabel} to start your streak.</p>
+          <p class="dz-muted">You're locked in. Come back on ${startLabel} to start your streak.</p>
         </div>
       `;
     } else if (isLeader && !state.members.length) {
@@ -1431,7 +1431,7 @@
       <div class="dz-body">
         ${body}
         <div class="dz-shared-note">
-          ${isLeader ? 'You are viewing this as an admin — only you can see other members\' submissions.' : 'Your check-ins are private — only you and your challenge leader can see them.'}
+          ${isLeader ? 'You are viewing this as an admin: only you can see other members\' submissions.' : 'Your check-ins are private: only you and your challenge leader can see them.'}
         </div>
       </div>
     `;
@@ -1639,7 +1639,7 @@
     state.view = 'auth';
     landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
     window.scrollTo(0, 0);
-    authMode = 'reset'; authError = "That reset link has expired or was already used — enter your email and we'll send a new one."; authMessage = null;
+    authMode = 'reset'; authError = "That reset link has expired or was already used. Enter your email and we'll send a new one."; authMessage = null;
     renderAuth();
     history.replaceState(null, '', window.location.pathname + window.location.search);
   }
