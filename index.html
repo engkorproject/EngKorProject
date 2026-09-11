@@ -513,14 +513,11 @@
 
 <script>
 (function() {
-  // Captured before anything else runs -- in particular, before createClient()
-  // below constructs the Supabase client. That client's own URL-session
-  // detection reads and clears window.location.hash as part of its synchronous
-  // init, which happens before our own recovery-link check further down would
-  // otherwise see it (that check used to read window.location.hash directly
-  // and always found it already emptied, so a real recovery link silently
-  // logged the member in as a normal session instead of prompting for a new
-  // password). Reading the hash first, before the client exists, wins that race.
+  // Snapshot of the hash the page was opened with, taken before anything else
+  // runs -- notably before createClient() below, whose detect-session-in-URL
+  // step may consume the recovery token, and before our own routing writes to
+  // location.hash. The recovery checks near the bottom read this snapshot
+  // rather than the live hash so they can't be affected by either.
   const initialUrlHash = window.location.hash;
   const landingView = document.getElementById('landing-view');
   const appView = document.getElementById('app-view');
@@ -1579,6 +1576,12 @@
   // browser's back/forward buttons move between them, instead of every screen
   // living under the one bare site URL.
   function routeFromHash() {
+    // The recovery screens strip the token out of the address bar right after
+    // showAuth() has already queued a hashchange for '#/login' (see
+    // routeToUpdatePassword). By the time that queued event lands the hash is
+    // empty, which would otherwise match the landing-page branch below and
+    // bounce the member off the "set new password" form the instant it renders.
+    if (state.view === 'auth' && (authMode === 'update-password' || authMode === 'reset')) return;
     const hash = window.location.hash;
     if (hash === '#/login') { if (state.view !== 'auth') showAuth(); return; }
     if (hash === '#/apply') { if (state.view !== 'apply') openApply(); return; }
