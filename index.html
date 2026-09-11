@@ -513,6 +513,15 @@
 
 <script>
 (function() {
+  // Captured before anything else runs -- in particular, before createClient()
+  // below constructs the Supabase client. That client's own URL-session
+  // detection reads and clears window.location.hash as part of its synchronous
+  // init, which happens before our own recovery-link check further down would
+  // otherwise see it (that check used to read window.location.hash directly
+  // and always found it already emptied, so a real recovery link silently
+  // logged the member in as a normal session instead of prompting for a new
+  // password). Reading the hash first, before the client exists, wins that race.
+  const initialUrlHash = window.location.hash;
   const landingView = document.getElementById('landing-view');
   const appView = document.getElementById('app-view');
   const authView = document.getElementById('auth-view');
@@ -1595,18 +1604,19 @@
 
   // Clicking the password-reset email link redirects back here with
   // `type=recovery` in the URL hash and logs the browser into a temporary
-  // recovery session. We check the URL directly instead of relying solely on
-  // the 'PASSWORD_RECOVERY' auth event, which supabase-js has fired
-  // inconsistently across versions -- without this, the recovery link just
-  // silently logs the member in normally (landing/dashboard) instead of
-  // showing the "set new password" form.
-  const isRecoveryLink = window.location.hash.includes('type=recovery');
+  // recovery session. We check initialUrlHash (captured before createClient()
+  // above) instead of the live window.location.hash -- by this point in the
+  // script, Supabase's own client-side session detection has already read
+  // and cleared the live hash, so checking it here would always find it
+  // empty and this recovery link would silently log the member in normally
+  // (landing/dashboard) instead of showing the "set new password" form.
+  const isRecoveryLink = initialUrlHash.includes('type=recovery');
   // Recovery links are single-use and can expire (or get silently consumed by
   // an email provider's link-safety prescan before the member ever clicks
   // them) -- Supabase then redirects here with an error in the hash instead
   // of a valid session. Surface that clearly instead of silently landing on
   // the normal homepage.
-  const recoveryError = window.location.hash.includes('error=') && window.location.hash.includes('otp_expired');
+  const recoveryError = initialUrlHash.includes('error=') && initialUrlHash.includes('otp_expired');
   function routeToUpdatePassword() {
     showAuth(); // resets authMode to 'login' as a side effect, so set ours after
     authMode = 'update-password'; authError = null; authMessage = null;
