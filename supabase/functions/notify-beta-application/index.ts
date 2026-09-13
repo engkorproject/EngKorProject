@@ -54,12 +54,21 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const [{ data: profile }, { data: userData }] = await Promise.all([
-      admin.from("profiles").select("name").eq("id", record.member_id).maybeSingle(),
+      admin.from("profiles").select("name, timezone, birthdate").eq("id", record.member_id).maybeSingle(),
       admin.auth.admin.getUserById(record.member_id),
     ]);
 
     const name = profile?.name || "(name unknown)";
+    const timezone = profile?.timezone || "(timezone unknown)";
+    const birthdate = profile?.birthdate || "(birthdate unknown)";
     const email = userData?.user?.email || "(email unknown)";
+    const appliedAt = new Date(record.created_at).toLocaleString("en-US", {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+
+    const row = (label: string, value: string) =>
+      `<tr><td style="padding:4px 16px 4px 0; color:#666;">${label}</td><td style="padding:4px 0;"><strong>${value}</strong></td></tr>`;
 
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -72,12 +81,17 @@ Deno.serve(async (req) => {
       from: `"EngKor" <${SMTP_USERNAME}>`,
       to: SMTP_USERNAME,
       subject: "New beta tester application",
-      text:
-        `A new application just came in with the beta referral code.\n\n` +
-        `Name: ${name}\n` +
-        `Email: ${email}\n` +
-        `Cohort: ${record.cohort_id}\n` +
-        `Applied at: ${record.created_at}\n`,
+      html:
+        `<div style="font-family:sans-serif; font-size:16px; line-height:1.6; color:#222;">` +
+        `<p style="font-size:18px;">A new application just came in with the beta referral code.</p>` +
+        `<table style="border-collapse:collapse; font-size:16px;">` +
+        row("Name", name) +
+        row("Email", email) +
+        row("Timezone", timezone) +
+        row("Birthdate", birthdate) +
+        row("Applied at", appliedAt) +
+        `</table>` +
+        `</div>`,
     });
 
     return new Response(JSON.stringify({ ok: true }), {
