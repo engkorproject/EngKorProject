@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { orderID, name, timezone, birthdate, monthOffset } = await req.json();
+    const { orderID, name, timezone, birthdate, monthOffset, referralCode } = await req.json();
     if (!orderID || !name || !timezone || !birthdate) {
       return new Response(JSON.stringify({ error: "orderID, name, timezone, and birthdate are all required" }), {
         status: 400,
@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
       p_timezone: timezone,
       p_birthdate: birthdate,
       p_month_offset: monthOffset === 1 ? 1 : 0,
+      p_referral_code: referralCode || null,
     });
 
     // This request reaching us at all means the webhook's fallback is no

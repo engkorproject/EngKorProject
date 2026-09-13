@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     p_timezone: pending.timezone,
     p_birthdate: pending.birthdate,
     p_month_offset: pending.month_offset,
+    p_referral_code: pending.referral_code || null,
   });
 
   // Whether enrollment succeeded or hit e.g. COHORT_FULL, don't leave the row

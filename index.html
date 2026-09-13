@@ -558,17 +558,17 @@
   // after PayPal confirms the charge, so no one occupies a cohort seat without
   // paying, and no one is charged without an enrollment attempt.
   let paypalButtonsInstance = null;
-  function openPaymentModal({ name, timezone, birthdate, monthOffset }) {
+  function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     showModal(`
       <h2 style="font-size:19px;">Confirm & Pay</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
       <div id="paypal-button-container"></div>
     `);
-    renderPaypalButton({ name, timezone, birthdate, monthOffset });
+    renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode });
   }
 
-  function renderPaypalButton({ name, timezone, birthdate, monthOffset }) {
+  function renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode }) {
     const container = document.getElementById('paypal-button-container');
     if (!container || !window.paypal) return;
     if (paypalButtonsInstance) { try { paypalButtonsInstance.close(); } catch (e) {} }
@@ -579,7 +579,7 @@
         const res = await fetch(CREATE_ORDER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
-          body: JSON.stringify({ intent: monthOffset === 1 ? 'renewal' : 'initial', name, timezone, birthdate, monthOffset }),
+          body: JSON.stringify({ intent: monthOffset === 1 ? 'renewal' : 'initial', name, timezone, birthdate, monthOffset, referralCode }),
         });
         const data = await res.json();
         if (!data.id) throw new Error('Could not start checkout.');
@@ -591,7 +591,7 @@
         const res = await fetch(CAPTURE_ORDER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
-          body: JSON.stringify({ orderID: data.orderID, name, timezone, birthdate, monthOffset }),
+          body: JSON.stringify({ orderID: data.orderID, name, timezone, birthdate, monthOffset, referralCode }),
         });
         const result = await res.json();
         closeModal();
@@ -1219,6 +1219,7 @@
         <div class="auth-field"><label>Name</label><input type="text" id="apply-name" required value="${escapeHtml(currentProfile.name || '')}" /></div>
         <div class="auth-field"><label>Birthdate</label><input type="date" id="apply-birthdate" lang="en-US" required min="${minBirthdate}" max="${maxBirthdate}" value="${currentProfile.birthdate || ''}" /></div>
         <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml(currentProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
+        <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" /></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
         ${applyError ? `<p class="auth-error">${escapeHtml(applyError)}</p>` : ''}
       </form>
@@ -1234,7 +1235,8 @@
     const name = document.getElementById('apply-name').value.trim();
     const birthdate = document.getElementById('apply-birthdate').value;
     const timezone = document.getElementById('apply-timezone').value.trim();
-    openPaymentModal({ name, timezone, birthdate, monthOffset: 0 });
+    const referralCode = document.getElementById('apply-referral-code').value.trim();
+    openPaymentModal({ name, timezone, birthdate, monthOffset: 0, referralCode });
   }
 
   // Used by the dashboard's renewal banner. Reuses the member's name/timezone/

@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { name, timezone, birthdate } = body;
+    const { name, timezone, birthdate, referralCode } = body;
     const intent = body.intent === "renewal" ? "renewal" : "initial";
     const monthOffset = body.monthOffset === 1 ? 1 : 0;
 
@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
       timezone,
       birthdate,
       month_offset: monthOffset,
+      referral_code: referralCode || null,
     });
     if (pendingError) {
       // Not fatal to checkout itself, but the webhook safety net won't work
