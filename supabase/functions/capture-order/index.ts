@@ -9,6 +9,11 @@
 // a capacity race), the member has already been charged with no seat --
 // that's surfaced to the frontend as applyError so it can show the same
 // "contact us for a refund" messaging already used for the renewal path.
+//
+// Either way, once this function has handled the order it deletes the
+// matching pending_paypal_orders row (see create-order) so paypal-webhook's
+// safety net leaves it alone -- that row's only job is to cover the case
+// where this request never arrives at all.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -27,6 +32,7 @@ Deno.serve(async (req) => {
   // Auto-injected by Supabase for every Edge Function; not custom secrets.
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!clientId || !secret || !apiBase) {
     return new Response(
@@ -91,6 +97,12 @@ Deno.serve(async (req) => {
       p_birthdate: birthdate,
       p_month_offset: monthOffset === 1 ? 1 : 0,
     });
+
+    // This request reaching us at all means the webhook's fallback is no
+    // longer needed for this order, whether enrollment itself succeeded or not.
+    const adminClient = createClient(supabaseUrl!, serviceRoleKey!);
+    const { error: deleteError } = await adminClient.from("pending_paypal_orders").delete().eq("order_id", orderID);
+    if (deleteError) console.error("Could not clear pending_paypal_orders row:", deleteError.message);
 
     if (applyError) {
       return new Response(
