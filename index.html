@@ -27,7 +27,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<!-- Sandbox Client ID. Swap for the Live one before going live. This ID is meant to be public, unlike the Secret Key (that one only ever goes into Supabase Secrets). -->
+<script src="https://www.paypal.com/sdk/js?client-id=AR72s3XWQsLeJjUPHzGhU&currency=USD"></script>
 <style>
   :root {
     --primary: #F2924E; --primary-hover: #D58045; --primary-tint: #FCE5D5;
@@ -536,12 +537,12 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const NOTIFY_FEEDBACK_URL = SUPABASE_URL + '/functions/v1/notify-feedback';
 
-  const PADDLE_CLIENT_TOKEN = 'live_0dcd037e9b0a9ce7ecd900e0a06';
-  const PADDLE_PRICE_ID = 'pri_01m0wn0ha9mn8twsm2zxjswyj9';
-  // TEMP: Paddle checkout is blocked until our domain approval clears. Flip this
-  // back to true (and remove showPaymentUnavailableModal's callers) once payment
-  // actually works again.
-  const PAYMENT_ENABLED = false;
+  const CREATE_ORDER_URL = SUPABASE_URL + '/functions/v1/create-order';
+  const CAPTURE_ORDER_URL = SUPABASE_URL + '/functions/v1/capture-order';
+  // Flip to true once: (1) the real Sandbox Client ID is in the <script> tag
+  // above, (2) create-order/capture-order are deployed with their secrets set,
+  // and (3) a Sandbox test all the way through checkout has actually passed.
+  const PAYMENT_ENABLED = true;
   function showPaymentUnavailableModal() {
     showModal(`
       <h2 style="font-size:19px;">Payment temporarily unavailable</h2>
@@ -551,37 +552,85 @@
     const btn = document.getElementById('payment-notice-ok-btn');
     if (btn) btn.addEventListener('click', closeModal);
   }
-  Paddle.Environment.set('production');
-  // eventCallback is how "renewal" checkouts (see applyForNextMonth) actually
-  // enroll someone -- we don't call apply_for_challenge until Paddle confirms
-  // the payment went through, so no one occupies a cohort seat without paying.
-  Paddle.Initialize({
-    token: PADDLE_CLIENT_TOKEN,
-    eventCallback: function (event) {
-      if (event.name === 'checkout.completed' && event.data && event.data.custom_data && event.data.custom_data.intent === 'renewal') {
-        completeRenewal();
-      }
-    }
-  });
 
-  // Checkout requires a logged-in account. Since signup itself is gated behind
-  // the beta access code, this means only people we've actually let in can ever
-  // reach the payment form -- not just people who happen to find the button.
-  function openCheckout() {
+  // Opens a modal with a mounted PayPal button for one month's payment. Applying
+  // and paying now happen together: capture-order only calls apply_for_challenge
+  // after PayPal confirms the charge, so no one occupies a cohort seat without
+  // paying, and no one is charged without an enrollment attempt.
+  let paypalButtonsInstance = null;
+  function openPaymentModal({ name, timezone, birthdate, monthOffset }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
-    if (!currentUser) {
-      showAuth();
-      authMode = 'signup';
-      authMessage = 'Create an account first, then come back to start your challenge.';
-      renderAuth();
-      return;
-    }
-    const checkoutOptions = {
-      items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-      customer: { email: currentUser.email },
-      customData: { supabase_user_id: currentProfile ? currentProfile.id : currentUser.id }
-    };
-    Paddle.Checkout.open(checkoutOptions);
+    showModal(`
+      <h2 style="font-size:19px;">Confirm & Pay</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
+      <div id="paypal-button-container"></div>
+    `);
+    renderPaypalButton({ name, timezone, birthdate, monthOffset });
+  }
+
+  function renderPaypalButton({ name, timezone, birthdate, monthOffset }) {
+    const container = document.getElementById('paypal-button-container');
+    if (!container || !window.paypal) return;
+    if (paypalButtonsInstance) { try { paypalButtonsInstance.close(); } catch (e) {} }
+    paypalButtonsInstance = paypal.Buttons({
+      createOrder: async () => {
+        const res = await fetch(CREATE_ORDER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+          body: JSON.stringify({ intent: monthOffset === 1 ? 'renewal' : 'initial' }),
+        });
+        const data = await res.json();
+        if (!data.id) throw new Error('Could not start checkout.');
+        return data.id;
+      },
+      onApprove: async (data) => {
+        const { data: sessionData } = await sb.auth.getSession();
+        const accessToken = sessionData.session ? sessionData.session.access_token : null;
+        const res = await fetch(CAPTURE_ORDER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+          body: JSON.stringify({ orderID: data.orderID, name, timezone, birthdate, monthOffset }),
+        });
+        const result = await res.json();
+        closeModal();
+
+        if (!result.paid) {
+          showToast('Payment could not be completed. Please try again.', true);
+          return;
+        }
+        if (!result.enrolled) {
+          const msg = result.error || '';
+          if (msg.includes('COHORT_FULL')) {
+            showToast('Payment went through, but this month is already full. Contact us at engkorproject@gmail.com for a refund.', true);
+          } else if (msg.includes('DUPLICATE_PERSON')) {
+            showToast("Payment went through, but this name and birthdate already look registered. Contact us at engkorproject@gmail.com.", true);
+          } else {
+            showToast('Payment went through, but we could not process your application. Contact us at engkorproject@gmail.com.', true);
+          }
+          return;
+        }
+
+        currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
+        state.hasEverApplied = true;
+        if (monthOffset === 0) {
+          currentProfile.cohort_id = result.cohort.id;
+          state.hasCurrentApplication = true;
+          state.readOnly = false;
+          renderNav();
+          showApp('member');
+          showToast('Payment complete! Welcome to the challenge 🎉');
+        } else {
+          state.showRenewalBanner = false;
+          renderNav();
+          renderApp();
+          showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
+        }
+      },
+      onError: () => {
+        showToast('Something went wrong with PayPal. Please try again.', true);
+      },
+    });
+    paypalButtonsInstance.render('#paypal-button-container');
   }
 
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -1127,9 +1176,10 @@
     if (bannerMonth) bannerMonth.textContent = label;
   }
 
-  // Mirrors openCheckout()'s gating: signed out -> push into signup, signed in
-  // and already enrolled this month -> just go to the dashboard, otherwise show
-  // the application form.
+  // Signed out -> push into signup, signed in and already enrolled this month
+  // -> just go to the dashboard, otherwise show the application form. This is
+  // also what the landing page's "Start My Streak" pricing-card button routes
+  // into now, since applying and paying happen together (see handleApplySubmit).
   function openApply() {
     if (!currentUser) {
       showAuth();
@@ -1168,101 +1218,30 @@
     document.getElementById('apply-form').addEventListener('submit', handleApplySubmit);
   }
 
+  // Fills the form, then opens the PayPal payment modal for this month
+  // (p_month_offset 0). Enrollment itself happens inside capture-order, only
+  // once PayPal confirms the charge -- see openPaymentModal/renderPaypalButton.
   function handleApplySubmit(e) {
     e.preventDefault();
-    submitApplication(0);
-  }
-
-  // p_month_offset 0 = this month (the normal apply-form path), 1 = next month
-  // (used both by the "apply for next month instead" cohort-full fallback and
-  // by the dashboard's "Continue Next Month" renewal banner).
-  async function submitApplication(monthOffset) {
     const name = document.getElementById('apply-name').value.trim();
     const birthdate = document.getElementById('apply-birthdate').value;
     const timezone = document.getElementById('apply-timezone').value.trim();
-    applyError = null; applyLoading = true; renderApplyForm();
-
-    const { data, error } = await sb.rpc('apply_for_challenge', {
-      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: monthOffset
-    });
-    applyLoading = false;
-
-    if (error) {
-      const msg = error.message || '';
-      if (msg.includes('COHORT_FULL')) { showCohortFullModal(monthOffset); return; }
-      if (msg.includes('DUPLICATE_PERSON')) {
-        applyError = "We couldn't process this application: this name and birthdate already look registered. Contact us if that's a mistake.";
-      } else {
-        applyError = 'Something went wrong. Please try again.';
-      }
-      renderApplyForm();
-      return;
-    }
-
-    currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
-    state.hasEverApplied = true;
-    if (monthOffset === 0) {
-      currentProfile.cohort_id = data.id;
-      state.hasCurrentApplication = true;
-      state.readOnly = false;
-      renderNav();
-      showApp('member');
-      showToast('Application submitted! Welcome to the challenge 🎉');
-    } else {
-      closeModal();
-      showModal(`
-        <h2 style="font-size:19px;">You're locked in! 🎉</h2>
-        <p class="dz-muted" style="margin:10px 0 0;">See you when the ${cohortMonthLabel(data)} challenge opens.</p>
-      `);
-      renderNav();
-      showLanding();
-    }
+    openPaymentModal({ name, timezone, birthdate, monthOffset: 0 });
   }
 
-  function showCohortFullModal(monthOffset) {
-    const monthLabel = cohortMonthLabel(state.cohort);
-    showModal(`
-      <h2 style="font-size:19px;">${monthLabel} is full</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">All spots for this month are taken.</p>
-      <button class="btn btn-primary" id="apply-next-month-btn" style="width:100%; justify-content:center; display:flex;">Apply for next month instead</button>
-    `);
-    const btn = document.getElementById('apply-next-month-btn');
-    if (btn) btn.addEventListener('click', () => submitApplication(1));
-  }
-
-  // Used by the dashboard's renewal banner. Application and payment now happen
-  // together: this opens the Paddle checkout, and only once Paddle confirms the
-  // charge (see the 'checkout.completed' eventCallback above) does
-  // completeRenewal() actually call apply_for_challenge -- so a member can't end
-  // up enrolled without having paid, and can't pay without getting enrolled.
+  // Used by the dashboard's renewal banner. Reuses the member's name/timezone/
+  // birthdate already on file (see openPaymentModal/renderPaypalButton for how
+  // payment and enrollment are tied together).
   function applyForNextMonth() {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     if (!currentProfile.birthdate) {
       showToast('Please apply from the form once first (we need your birthdate on file).', true);
       return;
     }
-    Paddle.Checkout.open({
-      items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
-      customer: { email: currentUser.email },
-      customData: { supabase_user_id: currentProfile.id, intent: 'renewal' }
+    openPaymentModal({
+      name: currentProfile.name, timezone: currentProfile.timezone,
+      birthdate: currentProfile.birthdate, monthOffset: 1
     });
-  }
-
-  async function completeRenewal() {
-    const { data, error } = await sb.rpc('apply_for_challenge', {
-      p_name: currentProfile.name, p_timezone: currentProfile.timezone,
-      p_birthdate: currentProfile.birthdate, p_month_offset: 1
-    });
-    if (error) {
-      const msg = error.message || '';
-      showToast(msg.includes('COHORT_FULL')
-        ? "Payment went through, but next month is already full. Contact us at engkorproject@gmail.com for a refund."
-        : 'Payment went through, but we could not renew your enrollment. Contact us at engkorproject@gmail.com.', true);
-      return;
-    }
-    state.showRenewalBanner = false;
-    showToast(`You're locked in for ${cohortMonthLabel(data)}! 🎉`);
-    renderApp();
   }
 
   // ---- generic modal (welcome popup, cohort-full notice) ----
@@ -1502,7 +1481,7 @@
   document.getElementById('back-link').addEventListener('click', showLanding);
   document.getElementById('auth-back-link').addEventListener('click', showLanding);
   document.getElementById('apply-back-link').addEventListener('click', showLanding);
-  document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openCheckout(); });
+  document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-hero').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-banner').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.addEventListener('click', (e) => { if (e.target.id === 'ek-modal') closeModal(); });
