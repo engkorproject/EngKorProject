@@ -1201,8 +1201,34 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block';
     window.scrollTo(0,0);
     applyError = null; applyLoading = false;
-    renderApplyForm();
+    renderPricingStep();
     if (location.hash !== '#/apply') location.hash = '#/apply';
+  }
+
+  // Shown first, before the application form -- so pricing is visible however
+  // someone got here (hero button, nav, renewal, etc.), not just to people who
+  // happened to scroll down the landing page. Reuses the landing page's own
+  // .price-card styling (see #pricing), with the card chrome stripped since
+  // apply-card (.auth-card) already provides it.
+  function renderPricingStep() {
+    const card = document.getElementById('apply-card');
+    const monthLabel = cohortMonthLabel(state.cohort);
+    card.innerHTML = `
+      <div class="price-card" style="max-width:none; margin:0; background:none; border:none; border-radius:0; padding:0; box-shadow:none;">
+        <div class="badge">Pilot Price</div>
+        <div>Monthly Challenge</div>
+        <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
+        <p class="price-note">Pilot test participants get 50% off the regular price.</p>
+        <div class="price-list">
+          <div class="item">Speaking + Writing challenge</div>
+          <div class="item">Weekly correction from a real staff member</div>
+          <div class="item">Personal streak & completion dashboard</div>
+          <div class="item">Community leaderboard</div>
+        </div>
+        <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Apply for ${monthLabel}</button>
+      </div>
+    `;
+    document.getElementById('pricing-continue-btn').addEventListener('click', renderApplyForm);
   }
 
   function renderApplyForm() {
