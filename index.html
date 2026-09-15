@@ -1207,14 +1207,17 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   // Shown first, before the application form -- so pricing is visible however
   // someone got here (hero button, nav, renewal, etc.), not just to people who
-  // happened to scroll down the landing page. Reuses the landing page's own
-  // .price-card styling (see #pricing), with the card chrome stripped since
-  // apply-card (.auth-card) already provides it.
+  // happened to scroll down the landing page. This reuses the landing page's
+  // .price-card markup completely unmodified (see #pricing) so it looks
+  // identical there; apply-card's own .auth-card card chrome is stripped for
+  // this step instead (via inline style) so the two cards don't stack.
+  // renderApplyForm() below resets that inline style once the form takes over.
   function renderPricingStep() {
     const card = document.getElementById('apply-card');
+    card.style.cssText = 'max-width:none; margin:0; background:none; border:none; box-shadow:none; padding:0;';
     const monthLabel = cohortMonthLabel(state.cohort);
     card.innerHTML = `
-      <div class="price-card" style="max-width:none; margin:0; background:none; border:none; border-radius:0; padding:0; box-shadow:none;">
+      <div class="price-card">
         <div class="badge">Pilot Price</div>
         <div>Monthly Challenge</div>
         <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
@@ -1233,6 +1236,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function renderApplyForm() {
     const card = document.getElementById('apply-card');
+    card.style.cssText = '';
     const monthLabel = cohortMonthLabel(state.cohort);
     // Bounds the native date picker's year field to 4 digits (without min/max
     // it lets you keep typing digits past a normal year, e.g. Chrome), and
