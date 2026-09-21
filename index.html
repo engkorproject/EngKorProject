@@ -1259,6 +1259,11 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     document.getElementById('apply-form').addEventListener('submit', handleApplySubmit);
   }
 
+  // QA-only: lets this one account apply without paying, so the member
+  // dashboard/renewal flow can be checked without running a real PayPal
+  // charge each time. Remove once we no longer need it.
+  const TEST_BYPASS_EMAIL = '2asy.su@gmail.com';
+
   // Fills the form, then opens the PayPal payment modal for this month
   // (p_month_offset 0). Enrollment itself happens inside capture-order, only
   // once PayPal confirms the charge -- see openPaymentModal/renderPaypalButton.
@@ -1268,7 +1273,34 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const birthdate = document.getElementById('apply-birthdate').value;
     const timezone = document.getElementById('apply-timezone').value.trim();
     const referralCode = document.getElementById('apply-referral-code').value.trim();
+    if (currentUser && currentUser.email === TEST_BYPASS_EMAIL) {
+      submitApplicationWithoutPayment({ name, timezone, birthdate });
+      return;
+    }
     openPaymentModal({ name, timezone, birthdate, monthOffset: 0, referralCode });
+  }
+
+  // Mirrors the enrollment half of renderPaypalButton's onApprove, minus the
+  // payment -- calls apply_for_challenge directly as the signed-in test user.
+  async function submitApplicationWithoutPayment({ name, timezone, birthdate }) {
+    applyError = null; applyLoading = true; renderApplyForm();
+    const { data, error } = await sb.rpc('apply_for_challenge', {
+      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0
+    });
+    applyLoading = false;
+    if (error) {
+      applyError = error.message || 'Something went wrong. Please try again.';
+      renderApplyForm();
+      return;
+    }
+    currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
+    state.hasEverApplied = true;
+    currentProfile.cohort_id = data.id;
+    state.hasCurrentApplication = true;
+    state.readOnly = false;
+    renderNav();
+    showApp('member');
+    showToast('Application submitted! Welcome to the challenge 🎉');
   }
 
   // Used by the dashboard's renewal banner. Reuses the member's name/timezone/
