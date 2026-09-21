@@ -1274,7 +1274,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const timezone = document.getElementById('apply-timezone').value.trim();
     const referralCode = document.getElementById('apply-referral-code').value.trim();
     if (currentUser && currentUser.email === TEST_BYPASS_EMAIL) {
-      submitApplicationWithoutPayment({ name, timezone, birthdate });
+      submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode });
       return;
     }
     openPaymentModal({ name, timezone, birthdate, monthOffset: 0, referralCode });
@@ -1282,10 +1282,13 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   // Mirrors the enrollment half of renderPaypalButton's onApprove, minus the
   // payment -- calls apply_for_challenge directly as the signed-in test user.
-  async function submitApplicationWithoutPayment({ name, timezone, birthdate }) {
+  // p_referral_code must be passed (even as null) since the DB now has both a
+  // 4-arg and a 5-arg overload of apply_for_challenge -- omitting it makes
+  // Postgres unable to pick one ("Could not choose the best candidate function").
+  async function submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode }) {
     applyError = null; applyLoading = true; renderApplyForm();
     const { data, error } = await sb.rpc('apply_for_challenge', {
-      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0
+      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0, p_referral_code: referralCode || null
     });
     applyLoading = false;
     if (error) {
