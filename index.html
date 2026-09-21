@@ -1039,6 +1039,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       // unlocks once the cohort's month actually begins (start_date is always the
       // 1st, so this is exactly "from the 1st at local midnight").
       state.notYetStarted = !!(state.hasCurrentApplication && cohort && cohort.start_date && new Date() < new Date(cohort.start_date + 'T00:00:00'));
+      // QA-only: let the test account into the dashboard immediately, without
+      // waiting for the cohort's actual start_date. See TEST_BYPASS_EMAIL below.
+      if (currentUser.email === TEST_BYPASS_EMAIL) state.notYetStarted = false;
 
       // Renewal banner: only relevant once someone is actually inside this month's
       // challenge and its end is within a week -- and only if they haven't already
