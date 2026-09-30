@@ -565,14 +565,14 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   const CREATE_ORDER_URL = SUPABASE_URL + '/functions/v1/create-order';
   const CAPTURE_ORDER_URL = SUPABASE_URL + '/functions/v1/capture-order';
-  // Flip to true once: (1) the real Sandbox Client ID is in the <script> tag
-  // above, (2) create-order/capture-order are deployed with their secrets set,
-  // and (3) a Sandbox test all the way through checkout has actually passed.
-  const PAYMENT_ENABLED = true;
+  // Off while we run beta-only (no paid sign-ups yet): the referral-code path
+  // and the QA test account still enroll without payment. Before turning this
+  // back on, rerun one Sandbox checkout end to end, then switch PayPal to Live.
+  const PAYMENT_ENABLED = false;
   function showPaymentUnavailableModal() {
     showModal(`
-      <h2 style="font-size:19px;">Payment temporarily unavailable</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">We're currently fixing a payment system issue. We'll notify you by email once payment becomes available again.</p>
+      <h2 style="font-size:19px;">Enrollment isn't open yet</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">We're not taking paid sign-ups right now. We'll email you as soon as enrollment opens.</p>
       <button class="btn btn-primary" id="payment-notice-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
     `);
     const btn = document.getElementById('payment-notice-ok-btn');
@@ -653,6 +653,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           renderApp();
           showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
         }
+      },
+      onCancel: () => {
+        showToast("Payment was cancelled. You haven't been charged.");
       },
       onError: () => {
         showToast('Something went wrong with PayPal. Please try again.', true);
