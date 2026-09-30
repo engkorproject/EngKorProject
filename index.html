@@ -1055,7 +1055,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       // today's calendar date -- see engkor-supabase-schema.sql for why.
       const [{ data: cohort }, { data: applications }] = await Promise.all([
         sb.from('cohorts').select('*').eq('is_open', true).maybeSingle(),
-        sb.from('applications').select('cohort_id,status').eq('member_id', currentUser.id)
+        sb.from('applications').select('cohort_id,status,is_beta').eq('member_id', currentUser.id)
       ]);
       state.cohort = cohort || null;
       state.applications = applications || [];
@@ -1069,6 +1069,11 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       // QA-only: let the test account into the dashboard immediately, without
       // waiting for the cohort's actual start_date. See TEST_BYPASS_EMAIL below.
       if (currentUser.email === TEST_BYPASS_EMAIL) state.notYetStarted = false;
+      // Beta testers (joined with a referral code) start checking in right away,
+      // even before the cohort's start_date. Check-ins before then still save and
+      // show on their calendar, but the leaderboard only counts the cohort's dates.
+      const currentApplication = cohort && state.applications.find(a => a.cohort_id === cohort.id && a.status === 'active');
+      if (currentApplication && currentApplication.is_beta) state.notYetStarted = false;
 
       // Renewal banner: only relevant once someone is actually inside this month's
       // challenge and its end is within a week -- and only if they haven't already
