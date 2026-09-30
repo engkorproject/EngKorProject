@@ -1325,20 +1325,14 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   // Mirrors the enrollment half of renderPaypalButton's onApprove, minus the
   // payment. viaReferral uses apply_for_challenge_beta (code checked in the DB);
-  // otherwise it's the QA test account calling apply_for_challenge directly.
-  // p_referral_code must be passed (even as null) to apply_for_challenge since
-  // the DB has both a 4-arg and a 5-arg overload -- omitting it makes Postgres
-  // unable to pick one ("Could not choose the best candidate function").
+  // otherwise it's the QA test account via apply_for_challenge_test, which
+  // checks server-side that the caller really is that account.
   async function submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode, viaReferral }) {
     applyDraft = { name, timezone, birthdate, referralCode };
     applyError = null; applyLoading = true; renderApplyForm();
-    const { data, error } = viaReferral
-      ? await sb.rpc('apply_for_challenge_beta', {
-          p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_referral_code: referralCode
-        })
-      : await sb.rpc('apply_for_challenge', {
-          p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0, p_referral_code: referralCode || null
-        });
+    const { data, error } = await sb.rpc(viaReferral ? 'apply_for_challenge_beta' : 'apply_for_challenge_test', {
+      p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_referral_code: referralCode || null
+    });
     applyLoading = false;
     if (error) {
       console.error('Application failed:', error);

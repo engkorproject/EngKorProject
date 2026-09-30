@@ -1,19 +1,20 @@
-// Captures a PayPal order, and only if that succeeds, enrolls the member by
-// calling apply_for_challenge as *them* (forwarding their own Supabase access
-// token, not the service role) so auth.uid()/RLS inside that function still
-// resolve correctly. This mirrors the existing Paddle "checkout.completed ->
-// completeRenewal() -> apply_for_challenge" pattern in index.html: no one is
-// enrolled without paying, and no one is charged without an enrollment attempt.
+// Captures a PayPal order and, only once PayPal confirms the charge, enrolls
+// the member through _apply_for_challenge_core using the service role. The
+// member is identified from their own access token *before* anything is
+// captured, so a bad or expired session can never end in a charge with no
+// enrollment attempt.
 //
-// If capture succeeds but apply_for_challenge then fails (e.g. COHORT_FULL,
-// a capacity race), the member has already been charged with no seat --
-// that's surfaced to the frontend as applyError so it can show the same
-// "contact us for a refund" messaging already used for the renewal path.
+// Enrollment deliberately goes through the service role rather than
+// apply_for_challenge: that function is being locked down so the only ways
+// into a cohort are a confirmed payment here, a valid beta code
+// (apply_for_challenge_beta), or the QA test account (apply_for_challenge_test).
 //
-// Either way, once this function has handled the order it deletes the
-// matching pending_paypal_orders row (see create-order) so paypal-webhook's
-// safety net leaves it alone -- that row's only job is to cover the case
-// where this request never arrives at all.
+// If enrollment fails for a business reason (cohort full, duplicate person,
+// no open cohort), retrying won't help: the member has been charged with no
+// seat, which is surfaced as applyError so the frontend shows the "contact us
+// for a refund" message, and the pending_paypal_orders row is cleared. For any
+// other failure the pending row is kept, so paypal-webhook can still finish
+// enrollment once PayPal reports the capture.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -22,6 +23,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const BUSINESS_ERRORS = ["COHORT_FULL", "DUPLICATE_PERSON", "NO_OPEN_COHORT"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,6 +61,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Identify the member before capturing, so an invalid session never charges.
+    const accessToken = authHeader.replace(/^Bearer\s+/i, "");
+    const authClient = createClient(supabaseUrl!, supabaseAnonKey!);
+    const { data: userData, error: userError } = await authClient.auth.getUser(accessToken);
+    if (userError || !userData.user) {
+      return new Response(JSON.stringify({ error: "Invalid or expired access token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const auth = btoa(`${clientId}:${secret}`);
     const tokenRes = await fetch(`${apiBase}/v1/oauth2/token`, {
       method: "POST",
@@ -84,14 +98,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Client created with the member's own JWT (not the service role), so this
-    // RPC call runs as them -- required since apply_for_challenge relies on
-    // auth.uid() and is only granted to the "authenticated" role.
-    const sb = createClient(supabaseUrl!, supabaseAnonKey!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: cohort, error: applyError } = await sb.rpc("apply_for_challenge", {
+    const adminClient = createClient(supabaseUrl!, serviceRoleKey!);
+    const { data: cohort, error: applyError } = await adminClient.rpc("_apply_for_challenge_core", {
+      p_member_id: userData.user.id,
       p_name: name,
       p_timezone: timezone,
       p_birthdate: birthdate,
@@ -99,11 +108,16 @@ Deno.serve(async (req) => {
       p_referral_code: referralCode || null,
     });
 
-    // This request reaching us at all means the webhook's fallback is no
-    // longer needed for this order, whether enrollment itself succeeded or not.
-    const adminClient = createClient(supabaseUrl!, serviceRoleKey!);
-    const { error: deleteError } = await adminClient.from("pending_paypal_orders").delete().eq("order_id", orderID);
-    if (deleteError) console.error("Could not clear pending_paypal_orders row:", deleteError.message);
+    const isBusinessError = !!applyError && BUSINESS_ERRORS.some((code) => applyError.message.includes(code));
+    if (!applyError || isBusinessError) {
+      const { error: deleteError } = await adminClient.from("pending_paypal_orders").delete().eq("order_id", orderID);
+      if (deleteError) console.error("Could not clear pending_paypal_orders row:", deleteError.message);
+    } else {
+      console.error(
+        `Enrollment failed after capture for order ${orderID}; keeping pending row for paypal-webhook:`,
+        applyError.message
+      );
+    }
 
     if (applyError) {
       return new Response(
