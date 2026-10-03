@@ -81,6 +81,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     --font-list: "Nunito Sans", "Pretendard", -apple-system, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { overflow-x: hidden; }
   body { font-family: "Geist", "Pretendard", -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; background: var(--background); color: var(--foreground); line-height: 1.5; overflow-x: hidden; }
   a { text-decoration: none; color: inherit; }
   h1, h2, h3, h4 { font-family: var(--font-display); }
@@ -270,30 +271,61 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   /* ===== MOBILE (phones) ===== */
   @media (max-width: 560px) {
-    nav { padding: 12px 16px; gap: 8px; }
+    nav { padding: 12px 20px; gap: 8px; }
     .nav-links { display: none; }
     .nav-actions .btn-sm { padding: 8px 12px; font-size: 11.5px; }
-    .apply-banner { margin: 16px 16px 0; padding: 20px; flex-direction: column; align-items: flex-start; text-align: left; }
+    .apply-banner { margin: 20px 20px 0; padding: 18px; flex-direction: column; align-items: flex-start; text-align: left; }
+    .apply-banner h2 { font-size: 19px; }
     .apply-banner .btn-white { width: 100%; justify-content: center; }
-    .hero { padding: 48px 16px 40px; gap: 32px; }
-    .hero h1 { font-size: 28px; }
+    .hero { padding: 44px 20px 36px; gap: 28px; }
+    .hero-tag { font-size: 11px; padding: 5px 12px; }
+    .hero h1 { font-size: 25px; }
+    .hero p.sub, .hero ul.sub { font-size: 15px; line-height: 1.55; }
     .hero-ctas .btn { width: 100%; }
     .hero-ctas { flex-direction: column; }
-    section.block { padding: 48px 16px; }
-    .section-head h2 { font-size: 28px; }
-    .section-head p { font-size: 15px; }
-    .compare-grid { gap: 36px; }
+
+    /* dashboard preview card: fixed, comfortably small sizing instead of
+       scaling to fill the column — keeps visible side margin on phones */
+    .hero-visual { padding: 18px 20px 22px; gap: 16px; }
+    .hero-visual .visual-head h3 { font-size: 19px; }
+    .hero-visual .visual-head span { font-size: 11.5px; }
+    .checkin-label { font-size: 12.5px; }
+    .checkin-grid { gap: 10px; }
+    .checkin-box { padding: 12px; gap: 7px; }
+    .checkin-box .box-label { font-size: 11.5px; }
+    .checkin-box .box-placeholder { height: 52px; font-size: 10.5px; }
+    .checkin-box .rec-btn { font-size: 10.5px; padding: 7px 12px; }
+    .checkin-box .or-label { font-size: 10px; }
+    .checkin-box .box-placeholder.audio { height: 30px; }
+    .stat-row { gap: 10px; }
+    .stat-box { padding: 12px; gap: 3px; }
+    .stat-box .big { font-size: 19px; }
+    .stat-box .small { font-size: 10.5px; }
+
+    .hero-stats { gap: 14px; margin-top: 22px; }
+    .hero-stats .stat b { font-size: 19px; }
+    .hero-stats .stat span { font-size: 11px; }
+
+    section.block { padding: 44px 20px; }
+    .section-head h2 { font-size: 24px; }
+    .section-head p { font-size: 14px; }
+    .compare-grid { gap: 32px; }
     .compare-pair { gap: 10px; position: relative; }
-    .compare-pair:not(:first-child)::before { content: ""; position: absolute; top: -18px; left: 10%; right: 10%; height: 1px; background: var(--hairline); }
-    .compare-card { padding: 18px; }
+    .compare-pair:not(:first-child)::before { content: ""; position: absolute; top: -16px; left: 10%; right: 10%; height: 1px; background: var(--hairline); }
+    .compare-card { padding: 16px; }
+    .compare-card h3 { font-size: 17px; }
+    .compare-item { font-size: 13px; }
     .steps { gap: 14px; }
-    .step-card { padding: 18px; border-width: 3px; }
-    .price-card { padding: 24px 20px; max-width: 100%; }
-    .cta-band { padding: 40px 16px; }
-    .cta-band h2 { font-size: 26px; }
+    .step-card { padding: 16px; border-width: 3px; }
+    .step-card h4 { font-size: 19px; }
+    .step-card p { font-size: 13.5px; }
+    .price-card { padding: 22px 18px; max-width: 100%; }
+    .cta-band { padding: 36px 20px; }
+    .cta-band h2 { font-size: 23px; }
+    .cta-band p { font-size: 15px; }
     .footer-inner { flex-direction: column; align-items: flex-start; text-align: left; }
     .footer-links { gap: 14px; flex-wrap: wrap; }
-    .footer-business { padding: 18px 16px; }
+    .footer-business { padding: 18px 20px; }
   }
 
   /* ===== AUTH (login / signup) ===== */
