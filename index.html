@@ -97,6 +97,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .nav-links a { position: relative; transition: color 150ms var(--ease-standard); }
   .nav-links a:hover { color: var(--primary); }
   .nav-actions { display: flex; gap: 8px; }
+  /* Keep short buttons on one line; only the long Apply label may wrap on phones */
+  .nav-actions .btn-sm { white-space: nowrap; }
+  .nav-actions #nav-apply-btn { white-space: normal; }
   button, .btn { font-family: inherit; cursor: pointer; border: none; border-radius: 9999px; font-weight: 700; transition: transform 150ms var(--ease-standard), background-color 150ms var(--ease-standard), border-color 150ms var(--ease-standard), color 150ms var(--ease-standard); }
   .btn-sm { padding: 9px 16px; font-size: 12.5px; background: var(--surface); border: 1.5px solid var(--hairline); color: var(--foreground); }
   .btn-sm:hover { border-color: var(--primary); color: var(--primary-hover); }
@@ -285,7 +288,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     .hero-ctas { flex-direction: column; }
 
     /* dashboard preview card: fixed, comfortably small sizing instead of
-       scaling to fill the column — keeps visible side margin on phones */
+       scaling to fill the column: keeps visible side margin on phones */
     .hero-visual { padding: 18px 20px 22px; gap: 16px; }
     .hero-visual .visual-head h3 { font-size: 19px; }
     .hero-visual .visual-head span { font-size: 11.5px; }
@@ -349,6 +352,16 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
   .ek-modal.open { display: flex; }
   .ek-modal-card { max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+  /* Longer, left-aligned dialogs (account deletion) */
+  .ek-modal-card.wide { max-width: 460px; text-align: left; max-height: 88vh; overflow-y: auto; }
+  .ek-modal-card.wide h2 { font-size: 19px; }
+  .ek-modal-card.wide h3 { font-size: 13.5px; margin: 18px 0 6px; }
+  .ek-modal-card.wide p, .ek-modal-card.wide li { font-size: 13px; line-height: 1.55; }
+  .ek-modal-card.wide ul { margin: 0; padding-left: 18px; }
+  .link-danger { background: none; border: none; padding: 0; color: #B4443A; font-size: 12.5px; text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .btn-danger { background: #B4443A; color: #fff; height: 44px; padding: 0 20px; border: none; border-radius: 9999px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
 
   /* ===== dashboard banners (renewal reminder, read-only reapply prompt) ===== */
   .dz-banner { text-align: center; }
@@ -815,7 +828,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     state.submissions = {}; state.leaderboard = [];
 
     if (currentProfile.role === 'leader') {
-      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email').eq('role', 'member').order('name');
+      // Members who requested account deletion are hidden during their 7-day grace period.
+      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email').eq('role', 'member').is('deletion_requested_at', null).order('name');
       if (membersErr) console.error(membersErr);
       state.members = members || [];
       const memberIds = state.members.map(m => m.id);
@@ -1000,6 +1014,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     if (!currentProfile) {
       el.innerHTML = `<button class="btn-sm" id="nav-login-btn">Log in</button>`;
       document.getElementById('nav-login-btn').addEventListener('click', showAuth);
+    } else if (isPendingDeletion()) {
+      el.innerHTML = `<button class="btn-sm" id="nav-restore-btn">Restore account</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      document.getElementById('nav-restore-btn').addEventListener('click', showRestoreModal);
+      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     } else if (currentProfile.role === 'leader') {
       el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">🛠 Admin Dashboard</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
       document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('leader'));
@@ -1007,13 +1025,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     } else if (state.hasEverApplied) {
       // Applied at least once (this month or a past one) -> dashboard is visible,
       // even if this month's application is missing (renderApp shows a read-only/reapply state then).
-      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">📊 My Dashboard</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">📊 My Dashboard</button><button class="btn-sm" id="nav-account-btn">Account</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
       document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('member'));
+      document.getElementById('nav-account-btn').addEventListener('click', openAccountModal);
       document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     } else {
       // Never applied -> no dashboard button at all. Applying is the only door in.
-      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button><button class="btn-sm" id="nav-account-btn">Account</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
       document.getElementById('nav-apply-btn').addEventListener('click', openApply);
+      document.getElementById('nav-account-btn').addEventListener('click', openAccountModal);
       document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     }
   }
@@ -1158,9 +1178,17 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   async function handleSession(session) {
     if (session && session.user) {
       currentUser = session.user;
-      const { data: profile, error } = await sb.from('profiles').select('id,name,role,timezone,birthdate,cohort_id').eq('id', currentUser.id).single();
+      const { data: profile, error } = await sb.from('profiles').select('id,name,role,timezone,birthdate,cohort_id,deletion_requested_at').eq('id', currentUser.id).single();
       if (error || !profile) { console.error(error); currentProfile = null; renderNav(); return; }
       currentProfile = profile;
+
+      // Deletion requested: keep them out of the app and offer a restore instead.
+      if (isPendingDeletion()) {
+        renderNav();
+        if (state.view !== 'landing') showLanding();
+        showRestoreModal();
+        return;
+      }
 
       if (profile.role === 'leader') {
         renderNav();
@@ -1296,6 +1324,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     if (location.hash !== '' && location.hash !== '#/') location.hash = '#/';
   }
   function showApp(view) {
+    if (isPendingDeletion()) { showLanding(); showRestoreModal(); return; }
     state.view = view;
     landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none'; applyView.style.display = 'none';
     window.scrollTo(0,0);
@@ -1347,6 +1376,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       renderAuth();
       return;
     }
+    if (isPendingDeletion()) { showRestoreModal(); return; }
     if (state.hasCurrentApplication) { showApp('member'); return; }
     showApplyView();
   }
@@ -1539,12 +1569,148 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
 
   // ---- generic modal (welcome popup, cohort-full notice) ----
-  function showModal(html) {
-    document.getElementById('ek-modal-body').innerHTML = html;
+  function showModal(html, opts = {}) {
+    const body = document.getElementById('ek-modal-body');
+    body.classList.toggle('wide', !!opts.wide);
+    body.innerHTML = html;
     document.getElementById('ek-modal').classList.add('open');
   }
   function closeModal() {
     document.getElementById('ek-modal').classList.remove('open');
+  }
+
+  // ---- account deletion (7-day grace period) ----
+  // request_account_deletion marks the profile; a daily pg_cron job
+  // (purge_deleted_accounts) permanently deletes it 7 days later. Logging back
+  // in before then shows the restore dialog (cancel_account_deletion).
+  const DELETION_GRACE_DAYS = 7;
+  function isPendingDeletion() {
+    return !!(currentProfile && currentProfile.role !== 'leader' && currentProfile.deletion_requested_at);
+  }
+  function deletionDateLabel(requestedAt) {
+    const when = new Date(new Date(requestedAt).getTime() + DELETION_GRACE_DAYS * 86400000);
+    return when.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  function deletionErrorMessage(msg) {
+    if (msg.includes('EMAIL_MISMATCH')) return "That email doesn't match your account.";
+    if (msg.includes('LEADER_CANNOT_DELETE')) return "Leader accounts can't be deleted from here. Please contact the EngKor team.";
+    return 'Something went wrong. Please try again, or email us at engkorproject@gmail.com.';
+  }
+
+  function openAccountModal() {
+    showModal(`
+      <h2>Account</h2>
+      <p style="margin:8px 0 20px;">Signed in as <b>${escapeHtml(currentUser.email || '')}</b></p>
+      <button type="button" class="link-danger" id="open-delete-account">Delete account</button>
+    `, { wide: true });
+    document.getElementById('open-delete-account').addEventListener('click', openDeleteAccountModal);
+  }
+
+  function openDeleteAccountModal() {
+    const enrolledLine = state.hasCurrentApplication && state.cohort
+      ? `<p style="margin:10px 0 0;"><b>You're enrolled in the ${cohortMonthLabel(state.cohort)} challenge. Deleting your account ends your participation.</b></p>`
+      : '';
+    showModal(`
+      <h2>Delete your account?</h2>
+      ${enrolledLine}
+      <p style="margin:10px 0 0;">Your account will be scheduled for deletion, and you'll be logged out. You have <b>7 days</b> to change your mind: just log back in and choose <b>Restore account</b>. After 7 days, deletion is permanent and can't be undone.</p>
+
+      <h3>What will be deleted</h3>
+      <ul>
+        <li>Your profile: name, email, date of birth, and time zone</li>
+        <li>All your Writing and Speaking check-ins, including screenshots and voice recordings</li>
+        <li>Feedback from your leader, your streak, and your leaderboard history</li>
+        <li>Your challenge applications</li>
+      </ul>
+
+      <h3>What we keep</h3>
+      <ul>
+        <li>Payment records (order number, amount, date, name, and email) for <b>5 years</b>, as required by Korean e-commerce law. They're then deleted.</li>
+        <li>PayPal keeps its own records of your payments under PayPal's policies.</li>
+      </ul>
+
+      <h3>Payments and refunds</h3>
+      <p>Deleting your account doesn't refund a payment. There's no subscription, so you won't be charged again. If you'd like a refund, please email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a> before deleting your account so we can check your eligibility under our <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>.</p>
+
+      <h3>Discord</h3>
+      <p>Your account here isn't linked to our Discord server. If you'd like to leave the server too, you can do that in Discord.</p>
+
+      <form id="delete-account-form" style="margin-top:18px;">
+        <div class="auth-field">
+          <label for="delete-confirm-email">Type your email to confirm</label>
+          <input type="email" id="delete-confirm-email" autocomplete="off" />
+        </div>
+        <p class="auth-error" id="delete-account-error" hidden></p>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm" id="delete-cancel-btn">Cancel</button>
+          <button type="submit" class="btn-danger" id="delete-account-btn" disabled>Delete account</button>
+        </div>
+      </form>
+    `, { wide: true });
+
+    const input = document.getElementById('delete-confirm-email');
+    const btn = document.getElementById('delete-account-btn');
+    const ownEmail = (currentUser.email || '').toLowerCase();
+    input.addEventListener('input', () => { btn.disabled = input.value.trim().toLowerCase() !== ownEmail; });
+    document.getElementById('delete-cancel-btn').addEventListener('click', closeModal);
+    document.getElementById('delete-account-form').addEventListener('submit', handleDeleteAccount);
+  }
+
+  async function handleDeleteAccount(e) {
+    e.preventDefault();
+    const btn = document.getElementById('delete-account-btn');
+    const errEl = document.getElementById('delete-account-error');
+    errEl.hidden = true; btn.disabled = true; btn.textContent = '...';
+    const { error } = await sb.rpc('request_account_deletion', {
+      p_confirm_email: document.getElementById('delete-confirm-email').value.trim()
+    });
+    if (error) {
+      console.error('Account deletion request failed:', error);
+      errEl.textContent = deletionErrorMessage(error.message || '');
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Delete account';
+      return;
+    }
+    const dateLabel = deletionDateLabel(new Date().toISOString());
+    await sb.auth.signOut({ scope: 'global' });
+    showModal(`
+      <h2>Your account is scheduled for deletion</h2>
+      <p style="margin:10px 0 0;">It will be permanently deleted on <b>${dateLabel}</b>. Changed your mind? Log in before then to restore it.</p>
+      <div class="modal-actions"><button type="button" class="btn-sm" id="deleted-ok-btn">OK</button></div>
+    `, { wide: true });
+    document.getElementById('deleted-ok-btn').addEventListener('click', closeModal);
+  }
+
+  function showRestoreModal() {
+    showModal(`
+      <h2>Your account is scheduled for deletion</h2>
+      <p style="margin:10px 0 0;">It will be permanently deleted on <b>${deletionDateLabel(currentProfile.deletion_requested_at)}</b>. Until then, you can restore it and pick up right where you left off.</p>
+      <p class="auth-error" id="restore-error" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-sm" id="restore-logout-btn">Log out</button>
+        <button type="button" class="btn btn-primary" id="restore-account-btn" style="height:44px; font-size:14px;">Restore account</button>
+      </div>
+    `, { wide: true });
+    document.getElementById('restore-logout-btn').addEventListener('click', () => { closeModal(); sb.auth.signOut(); });
+    document.getElementById('restore-account-btn').addEventListener('click', handleRestoreAccount);
+  }
+
+  async function handleRestoreAccount() {
+    const btn = document.getElementById('restore-account-btn');
+    const errEl = document.getElementById('restore-error');
+    errEl.hidden = true; btn.disabled = true; btn.textContent = '...';
+    const { error } = await sb.rpc('cancel_account_deletion');
+    if (error) {
+      console.error('Account restore failed:', error);
+      errEl.textContent = deletionErrorMessage(error.message || '');
+      errEl.hidden = false;
+      btn.disabled = false; btn.textContent = 'Restore account';
+      return;
+    }
+    closeModal();
+    showToast('Welcome back! Your account has been restored.');
+    const { data: { session } } = await sb.auth.getSession();
+    await handleSession(session);
   }
 
   function renderApp() {
