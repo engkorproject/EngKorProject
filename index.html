@@ -206,7 +206,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .compare-card { border-radius: 20px; padding: 24px; border: 1px solid var(--hairline); box-shadow: var(--shadow-soft); }
   .compare-card.bad { background: var(--surface); box-shadow: inset 0 -8px 0 0 rgba(0,0,0,0.25); }
   .compare-card.good { background: var(--gold); border-color: var(--hairline); box-shadow: inset 0 -8px 0 0 var(--gold-shadow); }
-  .compare-card h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 14px; }
+  .compare-card h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.4; letter-spacing: -0.005em; margin-bottom: 14px; }
   .compare-card.bad h3 { color: var(--foreground); }
   .compare-card.good h3 { color: var(--foreground); }
   .compare-item { display: flex; gap: 9px; padding: 8px 0; font-size: 14px; align-items: flex-start; font-family: var(--font-list); }
@@ -223,12 +223,14 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .step-card h4 { font-family: var(--font-accent); font-size: 24px; font-weight: 700; margin-bottom: 6px; }
   .step-card p { font-size: 15px; line-height: 1.55; color: var(--muted); font-family: "Geist", sans-serif; }
 
-  .price-card { max-width: 420px; margin: 0 auto; background: #fff; border: 4px solid var(--border-accent); border-radius: 20px; padding: 32px; text-align: center; position: relative; box-shadow: var(--shadow-raised); }
+  .price-card-wrap { position: relative; max-width: 1180px; margin: 0 auto; }
+  .pricing-mascot { position: absolute; left: clamp(-10px, 8vw, 130px); bottom: -18px; width: clamp(110px, 16vw, 230px); height: auto; pointer-events: none; z-index: 0; }
+  .price-card { max-width: 420px; margin: 0 auto; background: #fff; border: 4px solid var(--border-accent); border-radius: 20px; padding: 32px; text-align: center; position: relative; z-index: 1; box-shadow: var(--shadow-raised); }
   .price-card .badge { background: var(--primary-tint); color: var(--btn-primary); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 9999px; font-family: "Geist", sans-serif; }
   .price-card > div:not(.badge):not(.amount):not(.price-note) { font-family: var(--font-logo); font-size: 20px; font-weight: 600; }
   .price-card .amount { font-family: var(--font-logo); font-size: 36px; font-weight: 800; margin: 16px 0 2px; }
-  .price-card .amount span { font-size: 13px; font-weight: 600; color: var(--muted); }
-  .price-card .strike { color: var(--muted); text-decoration: line-through; font-size: 13px; font-weight: 600; }
+  .price-card .amount span { font-family: "Geist", sans-serif; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .price-card .strike { font-family: "Geist", sans-serif; color: var(--muted); text-decoration: line-through; font-size: 13px; font-weight: 500; }
   .price-card .price-note { font-size: 14px; color: var(--muted); margin-bottom: 4px; font-family: "Geist", sans-serif; }
   .price-list { text-align: left; margin: 20px 0; }
   .price-list .item { display: flex; gap: 9px; padding: 7px 0; font-size: 14px; font-family: "Geist", sans-serif; }
@@ -320,6 +322,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     .step-card h4 { font-size: 19px; }
     .step-card p { font-size: 13.5px; }
     .price-card { padding: 22px 18px; max-width: 100%; }
+    .price-card-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .pricing-mascot { position: static; width: 100px; }
     .cta-band { padding: 36px 20px; }
     .cta-band h2 { font-size: 23px; }
     .cta-band p { font-size: 15px; }
@@ -582,18 +586,21 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       <h2>Start Without The Pressure!</h2>
       <p>One transparent price. No hidden fees, no long-term contracts.</p>
     </div>
-    <div class="price-card reveal">
-      <div class="badge">Launch Special Price</div>
-      <div>Monthly Challenge</div>
-      <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
-      <p class="price-note">1-2 cohort members get 50% off the regular price.</p>
-      <div class="price-list">
-        <div class="item">Speaking + Writing challenge</div>
-        <div class="item">Weekly correction from a real Korean mentor</div>
-        <div class="item">Personal streak &amp; completion dashboard</div>
-        <div class="item">Private unlimited Q&amp;A channel for paid users</div>
+    <div class="price-card-wrap">
+      <img src="mascot-full.png" alt="" class="pricing-mascot">
+      <div class="price-card reveal">
+        <div class="badge">Launch Special Price</div>
+        <div>Monthly Challenge</div>
+        <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
+        <p class="price-note">1-2 cohort members get 50% off the regular price.</p>
+        <div class="price-list">
+          <div class="item">Speaking + Writing challenge</div>
+          <div class="item">Weekly correction from a real Korean mentor</div>
+          <div class="item">Personal streak &amp; completion dashboard</div>
+          <div class="item">Private unlimited Q&amp;A channel for paid users</div>
+        </div>
+        <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
       </div>
-      <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
     </div>
   </section>
 
