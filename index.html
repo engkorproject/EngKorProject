@@ -786,7 +786,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // Week key = the local date (YYYY-MM-DD) of the Sunday that starts that
   // calendar week, matching the calendar grid below, which also starts on
   // Sunday. Using a real date (instead of "day-of-month / 7") means weeks
-  // always run Sun–Sat regardless of which weekday the 1st falls on, and
+  // always run Sun to Sat regardless of which weekday the 1st falls on, and
   // weeks that span a month boundary aren't split into two.
   function weekKeyOf(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -800,7 +800,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const start = new Date(y, m - 1, d);
     const end = new Date(start); end.setDate(start.getDate() + 6);
     const fmt = (dt) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `Week of ${fmt(start)} – ${fmt(end)}`;
+    return `Week of ${fmt(start)} to ${fmt(end)}`;
   }
 
   function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
