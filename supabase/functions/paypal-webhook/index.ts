@@ -88,10 +88,31 @@ Deno.serve(async (req) => {
     .eq("order_id", orderId)
     .maybeSingle();
 
+  // Record the payment whether or not capture-order got to it. ignoreDuplicates
+  // keeps capture-order's row (which has the member's email) if it exists.
+  let email: string | null = null;
+  if (pending) {
+    const { data: userRes } = await sb.auth.admin.getUserById(pending.member_id);
+    email = userRes?.user?.email ?? null;
+  }
+  const { error: recordError } = await sb.from("payment_records").upsert(
+    {
+      paypal_order_id: orderId,
+      paypal_capture_id: event.resource?.id ?? null,
+      member_id: pending?.member_id ?? null,
+      email,
+      name: pending?.name ?? null,
+      amount: event.resource?.amount?.value ? Number(event.resource.amount.value) : null,
+      currency: event.resource?.amount?.currency_code ?? null,
+    },
+    { onConflict: "paypal_order_id", ignoreDuplicates: true }
+  );
+  if (recordError) console.error(`Could not write payment_records for order ${orderId}:`, recordError.message);
+
   // No pending row means capture-order already handled this order normally.
   if (!pending) return new Response("ok");
 
-  const { error } = await sb.rpc("_apply_for_challenge_core", {
+  const { data: cohort, error } = await sb.rpc("_apply_for_challenge_core", {
     p_member_id: pending.member_id,
     p_name: pending.name,
     p_timezone: pending.timezone,
@@ -107,6 +128,11 @@ Deno.serve(async (req) => {
 
   if (error) {
     console.error(`Webhook-driven enrollment failed for order ${orderId}:`, error.message);
+  } else if (cohort?.id) {
+    await sb
+      .from("payment_records")
+      .update({ cohort_id: cohort.id, cohort_label: cohort.label ?? null })
+      .eq("paypal_order_id", orderId);
   }
 
   return new Response("ok");

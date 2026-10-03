@@ -6,7 +6,7 @@ import nodemailer from "npm:nodemailer@^7";
 
 const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
 const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
-const SITE_URL = "https://engkorproject.github.io/EngKorProject/";
+const SITE_URL = "https://engkorkorean.com/";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
