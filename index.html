@@ -48,8 +48,10 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Geist:wght@400;500;600;700&family=Nunito+Sans:wght@400;600;700;800&family=Sour+Gummy:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.1/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/sn-pro@5.0.3/index.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- TEMP: back to Sandbox for the referral code test. Swap client-id back to the
 Live one below (and also flip Supabase Secrets back to Live) once verified.
@@ -62,23 +64,32 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     --canvas: #FFFFFF; --background: #FFFFFF; --surface: #FFF9F3; --surface-alt: #F2E9DE;
     --foreground: #2E2E2E; --muted: #8A8478; --hairline: #EAE3D8;
     --error: #D64545; --info: #3A7CA5; --success: #4C8C6B;
+    --gold: #FFDD88; --gold-shadow: #F4C179;
+    --compare-bg: #FDF0E2;
     --shadow-soft: 0 2px 12px rgba(46,46,46,0.06);
+    --shadow-raised: 0 2px 4px rgba(0,0,0,0.05), 0 10px 24px -4px rgba(0,0,0,0.07);
+    --shadow-subtle: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(0,0,0,0.05);
+    --border-accent: rgba(201,106,43,0.75);
     --ease-standard: cubic-bezier(0.4,0,0.2,1);
     --ease-enter: cubic-bezier(0.16,1,0.3,1);
+    --font-display: "SN Pro", "Pretendard", -apple-system, sans-serif;
+    --font-accent: "Sour Gummy", "Pretendard", -apple-system, sans-serif;
+    --font-logo: "Wanted Sans", "Pretendard", -apple-system, sans-serif;
+    --font-list: "Nunito Sans", "Pretendard", -apple-system, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; background: var(--background); color: var(--foreground); line-height: 1.5; overflow-x: hidden; }
+  body { font-family: "Geist", "Pretendard", -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; background: var(--background); color: var(--foreground); line-height: 1.5; overflow-x: hidden; }
   a { text-decoration: none; color: inherit; }
-  h1, h2, h3, h4 { font-family: "Space Grotesk", "Pretendard", -apple-system, sans-serif; }
+  h1, h2, h3, h4 { font-family: var(--font-display); }
 
   /* ===== NAV ===== */
   nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 40px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(6px); z-index: 20; flex-wrap: wrap; gap: 10px; }
-  .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 19px; font-family: "Space Grotesk", sans-serif; color: var(--btn-primary); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 19px; font-family: var(--font-logo); color: var(--btn-primary); }
   .logo-icon { object-fit: contain; flex-shrink: 0; }
   #nav-logo { cursor: pointer; transition: opacity 150ms var(--ease-standard); border-radius: 8px; }
   #nav-logo:hover { opacity: 0.75; }
   #nav-logo:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
-  .nav-links { display: flex; gap: 26px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .nav-links { display: flex; gap: 26px; font-size: 14px; font-weight: 500; font-family: "Geist", sans-serif; color: var(--muted); }
   .nav-links a { position: relative; transition: color 150ms var(--ease-standard); }
   .nav-links a:hover { color: var(--primary); }
   .nav-actions { display: flex; gap: 8px; }
@@ -121,81 +132,103 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
 
   /* ===== LANDING SECTIONS ===== */
-  .hero { display: flex; align-items: center; justify-content: space-between; padding: 96px 40px 80px; max-width: 1180px; margin: 0 auto; gap: 40px; }
+  .hero { display: flex; align-items: center; justify-content: space-between; padding: 56px 40px 80px; max-width: 1180px; margin: 0 auto; gap: 40px; }
   .hero-text { max-width: 540px; }
-  .hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--primary-tint); color: var(--primary-hover); padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; margin-bottom: 18px; }
-  .hero h1 { font-size: 44px; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; }
+  .hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--primary-tint); color: var(--primary-hover); padding: 6px 14px; border-radius: 5px; font-family: "Geist", sans-serif; font-size: 12px; font-weight: 600; margin-bottom: 18px; }
+  .hero h1 { font-size: 41px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
   .hero h1 .accent { color: var(--primary); }
-  .hero p.sub { margin-top: 16px; font-size: 16px; line-height: 1.6; color: var(--muted); max-width: 480px; }
+  .hero p.sub, .hero ul.sub { margin-top: 16px; font-size: 18px; line-height: 1.6; color: var(--muted); max-width: 480px; font-family: "Geist", sans-serif; }
+  .hero ul.sub { padding-left: 20px; }
   .hero-ctas { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .hero-ctas .btn-primary, .hero-ctas .btn-secondary { font-family: var(--font-accent); font-weight: 600; font-size: 18px; text-transform: uppercase; border-radius: 15px; height: 59px; padding: 0 26px; }
+  .hero-ctas .btn-primary { background: var(--primary); box-shadow: inset 0 -6px 0 0 #CC5500; }
+  .hero-ctas .btn-secondary { background: var(--surface-alt); box-shadow: inset 0 -6px 0 0 rgba(0,0,0,0.25); }
   .btn-primary { background: var(--btn-primary); color: #fff; height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
   .btn-primary:hover { background: var(--btn-primary-hover); transform: scale(1.02); }
   .btn-secondary { background: var(--surface-alt); border: none; color: var(--foreground); height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
   .btn-secondary:hover { transform: scale(1.02); }
-  .hero-stats { display: flex; gap: 26px; margin-top: 34px; }
-  .hero-stats .stat b { font-family: "Space Grotesk", sans-serif; font-size: 20px; color: var(--primary); display: block; }
-  .hero-stats .stat span { font-size: 11.5px; color: var(--muted); }
-  .hero-visual { width: 340px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 20px; box-shadow: 0 20px 50px -24px rgba(46,46,46,0.2); }
-  .streak-badge { display: flex; align-items: center; justify-content: space-between; background: var(--primary-tint); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
-  .streak-badge .num { font-family: "Space Grotesk", sans-serif; font-size: 26px; font-weight: 800; color: var(--primary); }
-  .streak-badge .label { font-size: 11px; color: var(--muted); }
-  .mini-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--hairline); }
-  .mini-row:last-child { border-bottom: none; }
-  .mini-row .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-alt); border: 1px solid var(--hairline); flex-shrink: 0; }
-  .mini-row .name { font-size: 12.5px; font-weight: 700; flex: 1; }
-  .mini-row .bar-track { width: 64px; height: 5px; background: var(--hairline); border-radius: 9999px; overflow: hidden; }
-  .mini-row .bar-fill { height: 100%; background: var(--primary); }
-  .mini-row .pct { font-size: 10.5px; color: var(--muted); width: 28px; text-align: right; }
+  .hero-stats { display: flex; gap: 26px; margin-top: 34px; flex-wrap: wrap; }
+  .hero-stats .stat b { font-family: var(--font-display); font-size: 36px; line-height: 1.1; font-weight: 700; color: #CC5500; letter-spacing: -0.01em; display: block; }
+  .hero-stats .stat b::before { content: "✔ "; color: var(--foreground); }
+  .hero-stats .stat span { font-size: 18px; color: var(--muted); font-family: "Geist", sans-serif; }
+  .hero-visual { width: 340px; flex-shrink: 0; background: var(--surface); border: 1.5px solid var(--btn-primary); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-raised); }
+  .hero-visual .visual-head { margin-bottom: 14px; }
+  .hero-visual .visual-head h3 { font-family: var(--font-display); font-size: 26px; font-weight: 700; }
+  .hero-visual .visual-head span { font-size: 13.5px; color: var(--muted); font-family: var(--font-list); }
+  .checkin-label { font-size: 15px; font-weight: 700; margin-bottom: 10px; font-family: var(--font-list); }
+  .checkin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .checkin-box { background: #fff; border: 1px solid var(--hairline); border-radius: 12px; padding: 12px; }
+  .checkin-box .box-label { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; font-family: "Geist", sans-serif; }
+  .checkin-box .box-placeholder { border: 1px dashed var(--hairline); border-radius: 8px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted); text-align: center; padding: 0 6px; font-family: var(--font-list); }
+  .checkin-box .rec-btn { background: var(--btn-primary); color: #fff; font-size: 13px; font-weight: 700; padding: 7px 10px; border-radius: 9999px; display: inline-block; margin-bottom: 6px; font-family: var(--font-list); }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box { background: #fff; border: 1px solid var(--hairline); border-radius: 12px; padding: 12px; }
+  .stat-box .big { font-family: "Space Grotesk", sans-serif; font-size: 26px; font-weight: 700; color: var(--btn-primary); }
+  .stat-box .small { font-size: 12.5px; color: var(--muted); font-family: var(--font-list); }
 
   /* ===== APPLY PROMO BANNER (event-style strip below the hero) ===== */
-  /* The empty space under this card is the hero's own 96px top padding, which has
-     to stay untouched -- so the card grows down into it with a negative bottom
-     margin. Everything below stays exactly where it was, while the visible gap
-     above the card (margin-top) and below it (margin-bottom + hero's 96px) match. */
-  .apply-banner { max-width: 1180px; margin: 30px auto -66px; border-radius: 18px; background: linear-gradient(135deg, var(--btn-primary), var(--primary)); color: #fff; padding: 21px 36px; display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; box-shadow: 0 18px 44px -22px rgba(201,106,43,0.5); }
-  .apply-banner h2 { font-size: 22px; font-weight: 800; line-height: 1.3; }
+  /* Plain positive margins at every width on purpose -- an earlier version used a
+     negative bottom margin tuned to a specific banner height, which broke (hero
+     content overlapping the banner) whenever the banner's text wrapped to an
+     extra line at in-between viewport widths. This way the gap is always safe,
+     regardless of how many lines the banner text takes. */
+  .apply-banner { max-width: 1180px; margin: 30px auto 0; border-radius: 18px; background: linear-gradient(135deg, var(--btn-primary), var(--primary)); color: #fff; padding: 21px 36px; display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; box-shadow: 0 18px 44px -22px rgba(201,106,43,0.5); }
+  .apply-banner h2 { font-family: var(--font-accent); font-size: 22px; font-weight: 700; line-height: 1.3; }
   .apply-banner p { font-size: 13.5px; margin-top: 6px; color: rgba(255,255,255,0.85); max-width: 460px; }
   .apply-banner .btn-white { background: #fff; color: var(--btn-primary); height: 46px; padding: 0 26px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; flex-shrink: 0; }
   .apply-banner .btn-white:hover { background: #FFF6EF; transform: scale(1.02); }
-  @media (max-width: 900px) { .apply-banner { margin: 28px 24px -60px; padding: 26px 24px; } }
+  @media (max-width: 900px) { .apply-banner { margin: 24px 24px 0; padding: 26px 24px; } }
 
   section.block { padding: 88px 40px; max-width: 1180px; margin: 0 auto; }
   .block.alt-bg { background: var(--surface-alt); box-shadow: 0 0 0 100vmax var(--surface-alt); clip-path: inset(0 -100vmax); }
   .section-head { text-align: center; max-width: 600px; margin: 0 auto 44px; }
-  .section-head .kicker { font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primary); }
-  .section-head h2 { font-size: 32px; font-weight: 700; line-height: 1.3; margin-top: 8px; letter-spacing: -0.01em; }
-  .section-head p { color: var(--muted); margin-top: 10px; font-size: 15px; line-height: 1.6; }
+  .section-head .kicker { display: none; }
+  .section-head h2 { font-size: 40px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+  .section-head p { color: var(--muted); margin-top: 10px; font-size: 24px; line-height: 1.5; font-weight: 400; font-family: var(--font-display); }
+  .section-head p::before { content: "> "; color: var(--primary); }
 
   .who-band { background: var(--surface); border: 1px solid var(--hairline); box-shadow: var(--shadow-soft); border-radius: 20px; padding: 30px 36px; text-align: center; max-width: 1180px; margin: 0 auto; }
   .who-band h2 { color: var(--foreground); font-size: 20px; }
   .who-band p { color: var(--muted); margin-top: 6px; font-size: 14px; }
 
-  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .compare-card { border-radius: 16px; padding: 24px; border: 1px solid var(--hairline); box-shadow: var(--shadow-soft); }
-  .compare-card.bad { background: var(--surface); }
-  .compare-card.good { background: var(--primary-tint); border-color: var(--primary); }
-  .compare-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
-  .compare-card.bad h3 { color: var(--muted); }
-  .compare-card.good h3 { color: var(--primary-hover); }
-  .compare-item { display: flex; gap: 9px; padding: 8px 0; font-size: 13.5px; align-items: flex-start; }
+  /* .compare-grid stacks each bad/good .compare-pair with a generous gap, so
+     pairs read as clearly separate groups; .compare-pair itself uses a tighter
+     gap internally so its own bad+arrow+good trio reads as one connected unit.
+     This two-level gap is what keeps pairs visually distinct at every width,
+     including mobile where it collapses to a single column (see below). */
+  .compare-grid { display: flex; flex-direction: column; gap: 40px; }
+  .compare-pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center; }
+  .compare-arrow { width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--primary); color: var(--btn-primary); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+  .compare-card { border-radius: 20px; padding: 24px; border: 1px solid var(--hairline); box-shadow: var(--shadow-soft); }
+  .compare-card.bad { background: var(--surface); box-shadow: inset 0 -8px 0 0 rgba(0,0,0,0.25); }
+  .compare-card.good { background: var(--gold); border-color: var(--hairline); box-shadow: inset 0 -8px 0 0 var(--gold-shadow); }
+  .compare-card h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 14px; }
+  .compare-card.bad h3 { color: var(--foreground); }
+  .compare-card.good h3 { color: var(--foreground); }
+  .compare-item { display: flex; gap: 9px; padding: 8px 0; font-size: 14px; align-items: flex-start; font-family: var(--font-list); }
+  .compare-item .text { flex: 1; line-height: 1.4; }
   .compare-item .dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
   .compare-card.bad .dot { background: var(--muted); }
-  .compare-card.good .dot { background: var(--primary); }
+  .compare-card.good .dot { background: var(--btn-primary-hover); }
+  .compare-item mark { background: none; color: var(--btn-primary); font-weight: 700; }
+  @media (max-width: 900px) { .compare-pair { grid-template-columns: 1fr; gap: 14px; } .compare-arrow { transform: rotate(90deg); margin: 0 auto; } }
 
   .steps { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
-  .step-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; padding: 24px 20px; box-shadow: var(--shadow-soft); }
-  .step-num { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-tint); color: var(--primary-hover); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; margin-bottom: 14px; font-family: "Space Grotesk", sans-serif; }
-  .step-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-  .step-card p { font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .step-card { background: var(--surface); border: 5px solid var(--border-accent); border-radius: 20px; padding: 22px; box-shadow: var(--shadow-subtle); }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--primary-tint); color: var(--primary-hover); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; margin-bottom: 14px; font-family: "Geist", sans-serif; }
+  .step-card h4 { font-family: var(--font-accent); font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .step-card p { font-size: 15px; line-height: 1.55; color: var(--muted); font-family: "Geist", sans-serif; }
 
-  .price-card { max-width: 360px; margin: 0 auto; background: var(--surface); border: 2px solid var(--primary); border-radius: 16px; padding: 32px 28px; text-align: center; position: relative; box-shadow: var(--shadow-soft); }
-  .price-card .badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--btn-primary); color: #fff; font-size: 10.5px; font-weight: 800; padding: 5px 14px; border-radius: 9999px; }
-  .price-card .amount { font-family: "Space Grotesk", sans-serif; font-size: 36px; font-weight: 800; margin: 16px 0 2px; }
+  .price-card { max-width: 420px; margin: 0 auto; background: #fff; border: 4px solid var(--border-accent); border-radius: 20px; padding: 32px; text-align: center; position: relative; box-shadow: var(--shadow-raised); }
+  .price-card .badge { background: var(--primary-tint); color: var(--btn-primary); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 9999px; font-family: "Geist", sans-serif; }
+  .price-card > div:not(.badge):not(.amount):not(.price-note) { font-family: var(--font-logo); font-size: 20px; font-weight: 600; }
+  .price-card .amount { font-family: var(--font-logo); font-size: 36px; font-weight: 800; margin: 16px 0 2px; }
   .price-card .amount span { font-size: 13px; font-weight: 600; color: var(--muted); }
   .price-card .strike { color: var(--muted); text-decoration: line-through; font-size: 13px; font-weight: 600; }
-  .price-card .price-note { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .price-card .price-note { font-size: 14px; color: var(--muted); margin-bottom: 4px; font-family: "Geist", sans-serif; }
   .price-list { text-align: left; margin: 20px 0; }
-  .price-list .item { display: flex; gap: 9px; padding: 7px 0; font-size: 13.5px; }
+  .price-list .item { display: flex; gap: 9px; padding: 7px 0; font-size: 14px; font-family: "Geist", sans-serif; }
+  #checkout-btn { font-family: var(--font-accent); font-weight: 600; text-transform: uppercase; box-shadow: var(--shadow-subtle); }
   .price-list .item::before { content: "✓"; color: var(--primary); font-weight: 800; }
 
   .trust-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
@@ -206,9 +239,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .trust-person .name { font-size: 12.5px; font-weight: 700; }
   .trust-person .role { font-size: 10.5px; color: var(--muted); }
 
-  .cta-band { background: var(--foreground); color: #fff; border-radius: 20px; padding: 56px 40px; text-align: center; max-width: 1080px; margin: 0 auto 96px; }
-  .cta-band h2 { font-size: 28px; font-weight: 700; }
-  .cta-band p { color: #CFC7BA; margin-top: 8px; font-size: 14.5px; line-height: 1.6; }
+  .cta-band { background: var(--surface); text-align: center; max-width: 1180px; margin: 0 auto; padding: 70px 40px; }
+  .cta-band h2 { font-family: var(--font-display); font-size: 40px; font-weight: 700; }
+  .cta-band p { color: var(--muted); margin-top: 10px; font-size: 18px; line-height: 1.6; font-family: "Geist", sans-serif; }
   .cta-band .hero-ctas { justify-content: center; margin-top: 22px; }
 
   footer { padding: 34px 40px; border-top: 1px solid var(--hairline); }
@@ -219,13 +252,47 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .footer-social { display: flex; gap: 12px; }
   .footer-social .icon { width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
   .footer-social .icon:hover { color: var(--primary); border-color: var(--primary); }
+  .footer-business { border-top: 1px solid var(--hairline); padding: 20px 40px; }
+  .footer-business .footer-business-inner { max-width: 1180px; margin: 0 auto; }
+  .footer-business p { font-size: 12px; color: var(--muted); line-height: 1.7; font-family: "Geist", sans-serif; }
+  .footer-business .copyright { font-size: 11px; margin-top: 8px; }
 
   @media (max-width: 900px) {
     .hero { flex-direction: column; padding: 56px 24px 48px; }
-    .hero-visual { width: 100%; }
-    .compare-grid, .steps, .trust-grid { grid-template-columns: 1fr; }
+    .hero-visual { width: 100%; max-width: 340px; margin: 0 auto; }
+    .steps, .trust-grid { grid-template-columns: 1fr; }
     section.block { padding: 56px 24px; }
-    .cta-band { padding: 44px 24px; margin-bottom: 64px; }
+    .cta-band { padding: 44px 24px; }
+  }
+
+  /* ===== MOBILE (phones) ===== */
+  @media (max-width: 560px) {
+    nav { padding: 12px 16px; gap: 8px; }
+    .nav-links { display: none; }
+    .nav-actions .btn-sm { padding: 8px 12px; font-size: 11.5px; }
+    .apply-banner { margin: 16px 16px 0; padding: 20px; flex-direction: column; align-items: flex-start; text-align: left; }
+    .apply-banner .btn-white { width: 100%; justify-content: center; }
+    .hero { padding: 48px 16px 40px; gap: 32px; }
+    .hero h1 { font-size: 28px; }
+    .hero-ctas .btn { width: 100%; }
+    .hero-ctas { flex-direction: column; }
+    .hero-stats { gap: 16px; }
+    .hero-stats .stat b { font-size: 26px; }
+    section.block { padding: 48px 16px; }
+    .section-head h2 { font-size: 28px; }
+    .section-head p { font-size: 15px; }
+    .compare-grid { gap: 36px; }
+    .compare-pair { gap: 10px; position: relative; }
+    .compare-pair:not(:first-child)::before { content: ""; position: absolute; top: -18px; left: 10%; right: 10%; height: 1px; background: var(--hairline); }
+    .compare-card { padding: 18px; }
+    .steps { gap: 14px; }
+    .step-card { padding: 18px; border-width: 3px; }
+    .price-card { padding: 24px 20px; max-width: 100%; }
+    .cta-band { padding: 40px 16px; }
+    .cta-band h2 { font-size: 26px; }
+    .footer-inner { flex-direction: column; align-items: flex-start; text-align: left; }
+    .footer-links { gap: 14px; flex-wrap: wrap; }
+    .footer-business { padding: 18px 16px; }
   }
 
   /* ===== AUTH (login / signup) ===== */
@@ -363,7 +430,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   <div class="apply-banner">
     <div>
-      <h2>🔥 Apply for the <span id="apply-banner-month">October</span> Challenge</h2>
+      <h2>✍️ Apply for Our <span id="apply-banner-month">October</span> Challenge!</h2>
       <p>Real Korean staff review your Speaking + Writing every week. 39 spots/month.</p>
     </div>
     <a class="btn btn-white" href="#" id="apply-btn-banner">Apply Now →</a>
@@ -371,27 +438,40 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   <section class="hero">
     <div class="hero-text">
-      <div class="hero-tag">🔥 Challenge-based Korean conversation community</div>
-      <h1>Want to improve your Korean speaking? Struggling to stay <span class="accent">consistent</span> on your own?</h1>
-      <p class="sub">Then it's time to join EngKor. Real Korean staff correct your writing every week, in a Speaking + Writing 1-month challenge. Connect with fellow members in your monthly cohort and build your skills together, while having fun!</p>
+      <div class="hero-tag">🔥 30-Day Korean Learning Challenge Platform</div>
+      <h1>Want to level up your Korean? Tired of studying with <span class="accent">AI</span>?</h1>
+      <ul class="sub">
+        <li>30-day Korean challenge (writing + speaking) with REAL feedback from native Korean mentors!</li>
+        <li>Access to a free Discord community with channels featuring Q&amp;A, conversations, daily expressions, and much more!</li>
+      </ul>
       <div class="hero-ctas">
-        <a class="btn btn-primary" href="#" id="apply-btn-hero">Start the Challenge →</a>
+        <a class="btn btn-primary" href="#" id="apply-btn-hero">Start Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><b>Weekly</b><span>guaranteed correction</span></div>
+        <div class="stat"><b>weekly</b><span>guaranteed correction</span></div>
         <div class="stat"><b>100%</b><span>real human feedback</span></div>
-        <div class="stat"><b>Small</b><span>same-cohort community</span></div>
+        <div class="stat"><b>small</b><span>same-cohort community</span></div>
       </div>
     </div>
     <div class="hero-visual">
-      <div class="streak-badge">
-        <div><div class="num spring-badge">12</div><div class="label">day streak 🔥</div></div>
-        <div class="label">This week: 5/7 done</div>
+      <div class="visual-head"><h3>Welcome back, Jacob!</h3><span>Saturday, September 12</span></div>
+      <div class="checkin-label">Today's Check-in</div>
+      <div class="checkin-grid">
+        <div class="checkin-box">
+          <div class="box-label">Writing</div>
+          <div class="box-placeholder">Click to select a screenshot</div>
+        </div>
+        <div class="checkin-box">
+          <div class="box-label">Speaking</div>
+          <div class="rec-btn">Start recording</div>
+          <div class="box-placeholder" style="height:28px; margin-top:4px;">or select an audio file</div>
+        </div>
       </div>
-      <div class="mini-row"><div class="avatar"></div><div class="name">Alex</div><div class="bar-track"><div class="bar-fill" style="width:90%"></div></div><div class="pct">90%</div></div>
-      <div class="mini-row"><div class="avatar"></div><div class="name">Mina</div><div class="bar-track"><div class="bar-fill" style="width:70%"></div></div><div class="pct">70%</div></div>
-      <div class="mini-row"><div class="avatar"></div><div class="name">Jordan</div><div class="bar-track"><div class="bar-fill" style="width:55%"></div></div><div class="pct">55%</div></div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="big">25</div><div class="small">Day streak</div></div>
+        <div class="stat-box"><div class="big">98%</div><div class="small">Completion rate</div></div>
+      </div>
     </div>
   </section>
 
@@ -405,43 +485,53 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <section class="block alt-bg">
     <div class="section-head">
       <div class="kicker">Why EngKor</div>
-      <h2>How EngKor compares</h2>
-      <p>See how EngKor fills the gap that other options leave behind.</p>
+      <h2>Why Choose EngKor?</h2>
+      <p>See how EngKor fills the gap that other options cannot!</p>
     </div>
     <div class="compare-grid">
-      <div class="compare-card bad reveal">
-        <h3>① Large free Korean-learning communities</h3>
-        <div class="compare-item"><span class="dot"></span>Tens of thousands of members: you're just anonymous</div>
-        <div class="compare-item"><span class="dot"></span>No individual feedback to speak of</div>
-        <div class="compare-item"><span class="dot"></span>Some reviewers say the "community" is a ghost town</div>
-      </div>
-      <div class="compare-card good reveal">
-        <h3>EngKor's answer</h3>
-        <div class="compare-item"><span class="dot"></span>Small monthly cohorts: you actually get to know each other</div>
-        <div class="compare-item"><span class="dot"></span>Staff can give real, detailed attention at this size</div>
-      </div>
-
-      <div class="compare-card bad reveal">
-        <h3>② Private tutoring</h3>
-        <div class="compare-item"><span class="dot"></span>Booking and scheduling is a hassle every time</div>
-        <div class="compare-item"><span class="dot"></span>Costs add up fast if you're consistent</div>
-        <div class="compare-item"><span class="dot"></span>Between lessons, you're on your own</div>
-      </div>
-      <div class="compare-card good reveal">
-        <h3>EngKor's answer</h3>
-        <div class="compare-item"><span class="dot"></span>$11/mo, check in whenever you like</div>
-        <div class="compare-item"><span class="dot"></span>Daily check-ins build the habit automatically</div>
+      <div class="compare-pair">
+        <div class="compare-card bad reveal">
+          <h3>① Large free Korean-learning communities</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text">Tens of thousands of members</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">No individual feedback</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Some reviewers say the "community" is a ghost town</span></div>
+        </div>
+        <div class="compare-arrow">→</div>
+        <div class="compare-card good reveal">
+          <h3>We keep every cohort small</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text"><mark>Small monthly cohorts</mark>: you actually get to know each other</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Staff can give <mark>real, detailed attention</mark> and <mark>personalized feedback</mark></span></div>
+        </div>
       </div>
 
-      <div class="compare-card bad reveal">
-        <h3>③ Correcting yourself with an AI chatbot</h3>
-        <div class="compare-item"><span class="dot"></span>Great at grammar & vocab, weak at context and nuance</div>
-        <div class="compare-item"><span class="dot"></span>Can't build a real emotional connection</div>
+      <div class="compare-pair">
+        <div class="compare-card bad reveal">
+          <h3>② Private tutoring</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text">Booking and scheduling is a hassle every time</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Costs add up fast if you're consistent</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Between lessons, you're on your own</span></div>
+        </div>
+        <div class="compare-arrow">→</div>
+        <div class="compare-card good reveal">
+          <h3>We make it simple and affordable</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text">$11/mo, check in whenever you like</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text"><mark>Daily check-ins build the habit automatically</mark></span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text"><mark>When we send feedback, you can also get it via e-mail</mark></span></div>
+        </div>
       </div>
-      <div class="compare-card good reveal">
-        <h3>EngKor's answer</h3>
-        <div class="compare-item"><span class="dot"></span>AI helps behind the scenes, but a real Korean makes the final call</div>
-        <div class="compare-item"><span class="dot"></span>Nuance, tone, and context, corrected like a native would</div>
+
+      <div class="compare-pair">
+        <div class="compare-card bad reveal">
+          <h3>③ Correcting yourself with an AI chatbot</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text">Great at grammar &amp; vocab, weak at context and nuance</span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Can't build a real emotional connection</span></div>
+        </div>
+        <div class="compare-arrow">→</div>
+        <div class="compare-card good reveal">
+          <h3>We always have a real human check it</h3>
+          <div class="compare-item"><span class="dot"></span><span class="text">Always a <mark>REAL Korean</mark> giving you genuine feedback, <mark>without AI</mark></span></div>
+          <div class="compare-item"><span class="dot"></span><span class="text">Nuance, tone, and context is corrected <mark>like a native would</mark></span></div>
+        </div>
       </div>
     </div>
   </section>
@@ -449,12 +539,13 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <section class="block" id="how">
     <div class="section-head">
       <div class="kicker">How it works</div>
-      <h2>Getting started is simple</h2>
+      <h2>Getting Started Is Simple!</h2>
+      <p>From sign-up to your first streak, in four simple steps.</p>
     </div>
     <div class="steps">
       <div class="step-card reveal"><div class="step-num">1</div><h4>Join for free</h4><p>Hop into the Discord community and start chatting freely.</p></div>
-      <div class="step-card reveal"><div class="step-num">2</div><h4>Apply for the challenge</h4><p>Cohorts open monthly. Check in daily with Speaking + Writing.</p></div>
-      <div class="step-card reveal"><div class="step-num">3</div><h4>Weekly correction</h4><p>A real Korean staff member reviews your writing and pronunciation every week.</p></div>
+      <div class="step-card reveal"><div class="step-num">2</div><h4>Apply for the challenge</h4><p>Cohort applications open on the 3rd week of every month! Check in daily with Speaking + Writing.</p></div>
+      <div class="step-card reveal"><div class="step-num">3</div><h4>Weekly correction</h4><p>A real Korean mentor reviews your writing and pronunciation every week.</p></div>
       <div class="step-card reveal"><div class="step-num">4</div><h4>Keep your streak</h4><p>Track your progress and see the community leaderboard on your dashboard.</p></div>
     </div>
   </section>
@@ -462,18 +553,19 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <section class="block alt-bg" id="pricing">
     <div class="section-head">
       <div class="kicker">Pricing</div>
-      <h2>Start without the pressure</h2>
+      <h2>Start Without The Pressure!</h2>
+      <p>One transparent price. No hidden fees, no long-term contracts.</p>
     </div>
     <div class="price-card reveal">
-      <div class="badge">Pilot Price</div>
+      <div class="badge">Launch Special Price</div>
       <div>Monthly Challenge</div>
       <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
-      <p class="price-note">Pilot test participants get 50% off the regular price.</p>
+      <p class="price-note">1-2 cohort members get 50% off the regular price.</p>
       <div class="price-list">
         <div class="item">Speaking + Writing challenge</div>
-        <div class="item">Weekly correction from a real staff member</div>
-        <div class="item">Personal streak & completion dashboard</div>
-        <div class="item">Community leaderboard</div>
+        <div class="item">Weekly correction from a real Korean mentor</div>
+        <div class="item">Personal streak &amp; completion dashboard</div>
+        <div class="item">Private unlimited Q&amp;A channel for paid users</div>
       </div>
       <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
     </div>
@@ -497,8 +589,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   -->
 
   <div class="cta-band">
-    <h2>For those who already know some Korean</h2>
-    <p>Build the fundamentals of real conversation through Speaking + Writing correction, in a small community that meets fresh every month.</p>
+    <h2>For Intermediate Korean Learners...</h2>
+    <p>You're not alone! Join EngKor and improve your Korean skills everyday!</p>
     <div class="hero-ctas">
       <a class="btn btn-primary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join the Discord →</a>
     </div>
