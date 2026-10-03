@@ -99,6 +99,25 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl!, serviceRoleKey!);
+
+    // Record the payment as soon as PayPal confirms it, before and regardless of
+    // enrollment: we need it for refunds and the 5-year retention rule even if
+    // enrollment then fails. A failure here is logged but never blocks enrollment.
+    const captureInfo = capture.purchase_units?.[0]?.payments?.captures?.[0];
+    const { error: recordError } = await adminClient.from("payment_records").upsert(
+      {
+        paypal_order_id: orderID,
+        paypal_capture_id: captureInfo?.id ?? null,
+        member_id: userData.user.id,
+        email: userData.user.email ?? null,
+        name,
+        amount: captureInfo?.amount?.value ? Number(captureInfo.amount.value) : null,
+        currency: captureInfo?.amount?.currency_code ?? null,
+      },
+      { onConflict: "paypal_order_id", ignoreDuplicates: true }
+    );
+    if (recordError) console.error(`Could not write payment_records for order ${orderID}:`, recordError.message);
+
     const { data: cohort, error: applyError } = await adminClient.rpc("_apply_for_challenge_core", {
       p_member_id: userData.user.id,
       p_name: name,
@@ -107,6 +126,13 @@ Deno.serve(async (req) => {
       p_month_offset: monthOffset === 1 ? 1 : 0,
       p_referral_code: referralCode || null,
     });
+
+    if (!applyError && cohort?.id) {
+      await adminClient
+        .from("payment_records")
+        .update({ cohort_id: cohort.id, cohort_label: cohort.label ?? null })
+        .eq("paypal_order_id", orderID);
+    }
 
     const isBusinessError = !!applyError && BUSINESS_ERRORS.some((code) => applyError.message.includes(code));
     if (!applyError || isBusinessError) {
