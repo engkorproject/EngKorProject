@@ -96,7 +96,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .nav-links { display: flex; gap: 26px; font-size: 14px; font-weight: 500; font-family: "Geist", sans-serif; color: var(--muted); }
   .nav-links a { position: relative; transition: color 150ms var(--ease-standard); }
   .nav-links a:hover { color: var(--primary); }
-  .nav-actions { display: flex; gap: 8px; }
+  .nav-actions { display: flex; gap: 8px; align-items: center; }
   /* Keep short buttons on one line; only the long Apply label may wrap on phones */
   .nav-actions .btn-sm { white-space: nowrap; }
   .nav-actions #nav-apply-btn { white-space: normal; }
@@ -347,6 +347,40 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   /* ===== APPLY (challenge application form) ===== */
   #apply-view { display: none; padding: 60px 20px; }
+
+  /* ===== account menu (avatar in nav) ===== */
+  .nav-avatar-wrap { position: relative; }
+  .nav-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--primary-tint); color: var(--btn-primary); border: 1.5px solid var(--hairline); font-family: var(--font-display); font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .nav-avatar:hover, .nav-avatar[aria-expanded="true"] { border-color: var(--border-accent); }
+  .nav-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 230px; max-width: 280px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 14px; box-shadow: var(--shadow-raised); padding: 6px; z-index: 30; text-align: left; }
+  .nav-menu[hidden] { display: none; }
+  .nav-menu-head { padding: 10px 12px 12px; border-bottom: 1px solid var(--hairline); margin-bottom: 4px; }
+  .nav-menu-head b { display: block; font-family: var(--font-display); font-size: 15px; }
+  .nav-menu-head span { display: block; font-size: 12.5px; color: var(--muted); word-break: break-all; }
+  .nav-menu button { display: block; width: 100%; text-align: left; background: none; border-radius: 8px; padding: 9px 12px; font-size: 13.5px; font-weight: 600; color: var(--foreground); }
+  .nav-menu button:hover { background: var(--surface); }
+
+  /* ===== MY ACCOUNT VIEW ===== */
+  #account-view { display: none; padding: 48px 20px 80px; }
+  .account-page { max-width: 640px; margin: 0 auto; }
+  .account-title { font-size: 32px; font-weight: 700; margin-bottom: 20px; }
+  .account-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 24px 26px; box-shadow: var(--shadow-subtle); margin-bottom: 16px; }
+  .account-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+  .account-rows > div { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+  .account-rows > div:first-child { border-top: none; padding-top: 0; }
+  .account-rows dt { color: var(--muted); font-family: var(--font-list); }
+  .account-rows dd { font-weight: 600; text-align: right; word-break: break-all; }
+  .account-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+  .account-status b { font-family: var(--font-display); font-size: 15px; }
+  .status-pill { display: inline-block; background: var(--primary-tint); color: var(--btn-primary); border-radius: 9999px; padding: 3px 10px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+  .account-help p { font-size: 14px; margin-bottom: 6px; }
+  .account-help a { color: var(--btn-primary); font-weight: 600; }
+  .account-danger { text-align: right; padding: 10px 6px 0; font-size: 12.5px; color: var(--muted); }
+  @media (max-width: 560px) {
+    #account-view { padding: 28px 16px 60px; }
+    .account-title { font-size: 26px; }
+    .account-card { padding: 20px 18px; }
+  }
 
   /* ===== generic modal (welcome popup, cohort-full notice) ===== */
   .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
@@ -674,6 +708,12 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <div class="auth-card" id="apply-card"></div>
 </div>
 
+<!-- ============ MY ACCOUNT VIEW ============ -->
+<div id="account-view">
+  <div class="dz-back" id="account-back-link">← Back to website</div>
+  <div class="account-page" id="account-root"></div>
+</div>
+
 <script>
 (function() {
   // Snapshot of the hash the page was opened with, taken before anything else
@@ -686,6 +726,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   const appView = document.getElementById('app-view');
   const authView = document.getElementById('auth-view');
   const applyView = document.getElementById('apply-view');
+  const accountView = document.getElementById('account-view');
   const dzRoot = document.getElementById('dz-root');
   const MAX_REC_SECONDS = 120;
 
@@ -1019,24 +1060,56 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       document.getElementById('nav-restore-btn').addEventListener('click', showRestoreModal);
       document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
     } else if (currentProfile.role === 'leader') {
-      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">🛠 Admin Dashboard</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">🛠 Admin Dashboard</button>${accountMenuHtml()}`;
       document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('leader'));
-      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
+      bindAccountMenu();
     } else if (state.hasEverApplied) {
       // Applied at least once (this month or a past one) -> dashboard is visible,
       // even if this month's application is missing (renderApp shows a read-only/reapply state then).
-      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">📊 My Dashboard</button><button class="btn-sm" id="nav-account-btn">Account</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-dash-btn">📊 My Dashboard</button>${accountMenuHtml()}`;
       document.getElementById('nav-dash-btn').addEventListener('click', () => showApp('member'));
-      document.getElementById('nav-account-btn').addEventListener('click', openAccountModal);
-      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
+      bindAccountMenu();
     } else {
       // Never applied -> no dashboard button at all. Applying is the only door in.
-      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button><button class="btn-sm" id="nav-account-btn">Account</button><button class="btn-sm" id="nav-logout-btn">Log out</button>`;
+      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>${accountMenuHtml()}`;
       document.getElementById('nav-apply-btn').addEventListener('click', openApply);
-      document.getElementById('nav-account-btn').addEventListener('click', openAccountModal);
-      document.getElementById('nav-logout-btn').addEventListener('click', () => sb.auth.signOut());
+      bindAccountMenu();
     }
   }
+
+  // Avatar button with a small menu: who's signed in, My Account, Log out.
+  function accountMenuHtml() {
+    const name = currentProfile.name || '';
+    const initial = (name.trim()[0] || (currentUser.email || '?')[0]).toUpperCase();
+    return `
+      <div class="nav-avatar-wrap">
+        <button type="button" class="nav-avatar" id="nav-avatar-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">${escapeHtml(initial)}</button>
+        <div class="nav-menu" id="nav-menu" role="menu" hidden>
+          <div class="nav-menu-head"><b>${escapeHtml(name)}</b><span>${escapeHtml(currentUser.email || '')}</span></div>
+          <button type="button" role="menuitem" id="nav-menu-account">My Account</button>
+          <button type="button" role="menuitem" id="nav-menu-logout">Log out</button>
+        </div>
+      </div>`;
+  }
+  function closeAccountMenu() {
+    const menu = document.getElementById('nav-menu');
+    const btn = document.getElementById('nav-avatar-btn');
+    if (menu) menu.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+  function bindAccountMenu() {
+    const btn = document.getElementById('nav-avatar-btn');
+    const menu = document.getElementById('nav-menu');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      btn.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.getElementById('nav-menu-account').addEventListener('click', () => { closeAccountMenu(); showAccountView(); });
+    document.getElementById('nav-menu-logout').addEventListener('click', () => { closeAccountMenu(); sb.auth.signOut(); });
+  }
+  document.addEventListener('click', (e) => { if (!e.target.closest('.nav-avatar-wrap')) closeAccountMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAccountMenu(); });
 
   function renderAuth() {
     const card = document.getElementById('auth-card');
@@ -1168,7 +1241,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function showAuth() {
     state.view = 'auth';
-    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block'; accountView.style.display = 'none';
     window.scrollTo(0, 0);
     authMode = 'login'; authError = null; authMessage = null;
     renderAuth();
@@ -1192,7 +1265,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
       if (profile.role === 'leader') {
         renderNav();
-        if (state.view === 'landing' || state.view === 'auth') showApp('leader');
+        if (state.view === 'account' || window.location.hash === '#/account') showAccountView();
+        else if (state.view === 'landing' || state.view === 'auth') showApp('leader');
         return;
       }
 
@@ -1238,7 +1312,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       renderNav();
       updateApplyButtonLabel();
 
-      if (state.view === 'landing' || state.view === 'auth') {
+      if (state.view === 'account' || window.location.hash === '#/account') {
+        showAccountView();
+      } else if (state.view === 'landing' || state.view === 'auth') {
         if (state.hasEverApplied) {
           showApp('member');
         } else {
@@ -1252,7 +1328,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       state.hasCurrentApplication = false; state.readOnly = false; state.notYetStarted = false; state.showRenewalBanner = false;
       renderNav();
       updateApplyButtonLabel();
-      if (state.view === 'member' || state.view === 'leader' || state.view === 'apply') showLanding();
+      if (state.view === 'member' || state.view === 'leader' || state.view === 'apply' || state.view === 'account') showLanding();
     }
   }
 
@@ -1319,14 +1395,14 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function showLanding() {
     state.view = 'landing';
-    landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none';
+    landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'none';
     window.scrollTo(0,0);
     if (location.hash !== '' && location.hash !== '#/') location.hash = '#/';
   }
   function showApp(view) {
     if (isPendingDeletion()) { showLanding(); showRestoreModal(); return; }
     state.view = view;
-    landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none'; applyView.style.display = 'none';
+    landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'none';
     window.scrollTo(0,0);
     state.loaded = false;
     renderApp();
@@ -1383,7 +1459,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function showApplyView() {
     state.view = 'apply';
-    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block'; accountView.style.display = 'none';
     window.scrollTo(0,0);
     applyError = null; applyLoading = false; applyDraft = null;
     renderPricingStep();
@@ -1597,13 +1673,77 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     return 'Something went wrong. Please try again, or email us at engkorproject@gmail.com.';
   }
 
-  function openAccountModal() {
-    showModal(`
-      <h2>Account</h2>
-      <p style="margin:8px 0 20px;">Signed in as <b>${escapeHtml(currentUser.email || '')}</b></p>
-      <button type="button" class="link-danger" id="open-delete-account">Delete account</button>
-    `, { wide: true });
-    document.getElementById('open-delete-account').addEventListener('click', openDeleteAccountModal);
+  // ---- My Account page (#/account) ----
+  function showAccountView() {
+    if (!currentUser) { showAuth(); return; }
+    if (isPendingDeletion()) { showLanding(); showRestoreModal(); return; }
+    state.view = 'account';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'block';
+    window.scrollTo(0, 0);
+    renderAccountView();
+    if (location.hash !== '#/account') location.hash = '#/account';
+  }
+
+  function renderAccountView() {
+    const p = currentProfile;
+    const isLeader = p.role === 'leader';
+    const birthLabel = p.birthdate
+      ? new Date(p.birthdate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : 'Not set';
+
+    let challenge;
+    if (isLeader) {
+      challenge = `<div class="account-status"><span><b>Leader account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
+    } else if (state.hasCurrentApplication && state.cohort) {
+      const [y] = state.cohort.label.split('-');
+      const current = state.applications.find(a => a.cohort_id === state.cohort.id && a.status === 'active');
+      const pill = state.notYetStarted
+        ? `Starts ${new Date(state.cohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+        : (current && current.is_beta ? 'Enrolled (beta)' : 'Enrolled');
+      challenge = `<div class="account-status"><span><b>${cohortMonthLabel(state.cohort)} ${y}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
+    } else if (state.cohort) {
+      challenge = `<div class="account-status"><span>You're not enrolled in the ${cohortMonthLabel(state.cohort)} challenge yet.</span><button type="button" class="btn-sm" id="account-apply">Apply for ${cohortMonthLabel(state.cohort)}</button></div>`;
+    } else {
+      challenge = `<div class="account-status"><span>Applications are closed right now. Check back soon.</span></div>`;
+    }
+
+    document.getElementById('account-root').innerHTML = `
+      <h1 class="account-title">My Account</h1>
+
+      <section class="account-card">
+        <h2>Profile</h2>
+        <dl class="account-rows">
+          <div><dt>Name</dt><dd>${escapeHtml(p.name || '')}</dd></div>
+          <div><dt>Email</dt><dd>${escapeHtml(currentUser.email || '')}</dd></div>
+          <div><dt>Time zone</dt><dd>${escapeHtml(p.timezone || 'Not set')}</dd></div>
+          <div><dt>Date of birth</dt><dd>${birthLabel}</dd></div>
+        </dl>
+      </section>
+
+      <section class="account-card">
+        <h2>Challenge</h2>
+        ${challenge}
+      </section>
+
+      <section class="account-card account-help">
+        <h2>Help</h2>
+        <p>Questions? Email us at <a href="mailto:engkorproject@gmail.com">engkorproject@gmail.com</a>.</p>
+        <p><a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> · <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> · <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a></p>
+      </section>
+
+      <div class="account-danger">
+        ${isLeader
+          ? "Leader accounts can't be deleted here."
+          : '<button type="button" class="link-danger" id="open-delete-account">Delete account</button>'}
+      </div>
+    `;
+
+    const goDash = document.getElementById('account-go-dashboard');
+    if (goDash) goDash.addEventListener('click', () => showApp(isLeader ? 'leader' : 'member'));
+    const applyBtn = document.getElementById('account-apply');
+    if (applyBtn) applyBtn.addEventListener('click', openApply);
+    const del = document.getElementById('open-delete-account');
+    if (del) del.addEventListener('click', openDeleteAccountModal);
   }
 
   function openDeleteAccountModal() {
@@ -1941,6 +2081,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   document.getElementById('back-link').addEventListener('click', showLanding);
   document.getElementById('auth-back-link').addEventListener('click', showLanding);
   document.getElementById('apply-back-link').addEventListener('click', showLanding);
+  document.getElementById('account-back-link').addEventListener('click', showLanding);
   document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-hero').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-banner').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
@@ -2029,6 +2170,13 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const hash = window.location.hash;
     if (hash === '#/login') { if (state.view !== 'auth') showAuth(); return; }
     if (hash === '#/apply') { if (state.view !== 'apply') openApply(); return; }
+    if (hash === '#/account') {
+      if (state.view === 'account') return;
+      if (currentProfile) showAccountView();
+      else if (!currentUser) showAuth();
+      // else: handleSession() opens it once the profile has loaded.
+      return;
+    }
     if (hash === '#/dashboard') {
       if (state.view === 'member' || state.view === 'leader') return;
       if (currentProfile) showApp(currentProfile.role === 'leader' ? 'leader' : 'member');
@@ -2071,7 +2219,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // there's no hash write for anything to race against.
   function routeToUpdatePassword() {
     state.view = 'auth';
-    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block'; accountView.style.display = 'none';
     window.scrollTo(0, 0);
     authMode = 'update-password'; authError = null; authMessage = null;
     renderAuth();
@@ -2081,7 +2229,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
   function routeToExpiredRecoveryLink() {
     state.view = 'auth';
-    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'block'; accountView.style.display = 'none';
     window.scrollTo(0, 0);
     authMode = 'reset'; authError = "That reset link has expired or was already used. Enter your email and we'll send a new one."; authMessage = null;
     renderAuth();
