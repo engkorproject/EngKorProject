@@ -224,9 +224,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .step-card h4 { font-family: var(--font-accent); font-size: 24px; font-weight: 700; margin-bottom: 6px; }
   .step-card p { font-size: 15px; line-height: 1.55; color: var(--muted); font-family: "Geist", sans-serif; }
 
-  #pricing { position: relative; overflow: hidden; }
+  #pricing { position: relative; }
   .price-card-wrap { position: relative; max-width: 1180px; margin: 0 auto; }
-  .pricing-mascot { position: absolute; left: 40px; bottom: -40px; width: 220px; height: auto; pointer-events: none; z-index: 0; }
+  .pricing-mascot { position: absolute; left: 40px; bottom: 0; width: 220px; height: 170px; object-fit: cover; object-position: top; pointer-events: none; z-index: 0; }
   .price-card { max-width: 420px; margin: 0 auto; background: #fff; border: 4px solid var(--border-accent); border-radius: 20px; padding: 32px; text-align: center; position: relative; z-index: 1; box-shadow: var(--shadow-raised); }
   .price-card .badge { background: var(--primary-tint); color: var(--btn-primary); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 9999px; font-family: "Geist", sans-serif; }
   .price-card > div:not(.badge):not(.amount):not(.price-note) { font-family: var(--font-logo); font-size: 20px; font-weight: 600; }
@@ -271,6 +271,11 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     .steps, .trust-grid { grid-template-columns: 1fr; }
     section.block { padding: 56px 24px; }
     .cta-band { padding: 44px 24px; }
+  }
+
+  /* ===== TABLET (narrower gutter: shrink/shift the pricing mascot so it clears the card) ===== */
+  @media (min-width: 561px) and (max-width: 900px) {
+    .pricing-mascot { left: -20px; width: 150px; height: 116px; }
   }
 
   /* ===== MOBILE (phones) ===== */
