@@ -2,8 +2,8 @@
   "name": "EngKor",
   "short_name": "EngKor",
   "icons": [
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" },
-    { "src": "/icon-mask.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+    { "src": "/images/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/images/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    { "src": "/images/icon-mask.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
   ]
 }
