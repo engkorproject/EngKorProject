@@ -156,10 +156,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .btn-secondary { background: var(--surface-alt); border: none; color: var(--foreground); height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
   .btn-secondary:hover { transform: scale(1.02); }
   .hero-stats { container-type: inline-size; display: flex; flex-wrap: nowrap; gap: 2.2cqw; margin-top: 34px; }
-  .hero-stats .stat { flex: 1 1 0; min-width: 0; }
+  .hero-stats .stat { flex: 1 1 0; min-width: 0; position: relative; padding-left: clamp(12px, 5.3cqw, 27px); }
   .hero-stats .stat b { font-family: var(--font-display); font-size: clamp(13px, 7cqw, 36px); line-height: 1.1; font-weight: 700; color: #CC5500; letter-spacing: -0.01em; display: block; white-space: nowrap; }
-  .hero-stats .stat b::before { content: "✔ "; color: var(--foreground); }
-  .hero-stats .stat span { font-size: clamp(9px, 2.6cqw, 16px); color: var(--muted); font-family: "Geist", sans-serif; display: block; white-space: nowrap; }
+  .hero-stats .stat b::before { content: "✔"; position: absolute; left: 0; color: var(--foreground); }
+  .hero-stats .stat span { font-size: clamp(9px, 3cqw, 18px); color: var(--muted); font-family: "Geist", sans-serif; display: block; }
   .hero-visual { container-type: inline-size; width: clamp(320px, 42vw, 606px); flex-shrink: 0; background: var(--surface); border: clamp(2px, 0.66cqw, 4px) solid var(--border-accent); border-radius: clamp(10px, 3.3cqw, 20px); padding: clamp(14px, 3.3cqw, 20px) clamp(16px, 5.28cqw, 32px) clamp(16px, 4.95cqw, 30px); box-shadow: var(--shadow-raised); display: flex; flex-direction: column; gap: clamp(14px, 3.96cqw, 24px); }
   .hero-visual .visual-head { display: flex; flex-direction: column; gap: clamp(2px, 0.66cqw, 4px); }
   .hero-visual .visual-head h3 { font-family: var(--font-display); font-size: clamp(18px, 4.29cqw, 26px); font-weight: 700; }
@@ -318,7 +318,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
     .hero-stats { gap: 14px; margin-top: 22px; }
     .hero-stats .stat b { font-size: 19px; }
-    .hero-stats .stat span { font-size: 11px; white-space: normal; }
+    .hero-stats .stat span { font-size: 11px; }
 
     section.block { padding: 44px 20px; }
     .section-head h2 { font-size: 24px; }
