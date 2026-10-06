@@ -352,23 +352,35 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .footer-business { border-top: 1px solid var(--hairline); padding: 20px 40px; }
 
   /* ===== cookie banner (EEA / UK / CH) ===== */
-  .cookie-banner { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: calc(100% - 32px); max-width: 760px; z-index: 900;
-                   display: flex; align-items: center; gap: 18px; padding: 14px 16px 14px 20px; background: var(--canvas);
-                   border: 1px solid var(--hairline); border-radius: 16px; box-shadow: var(--shadow-raised); font-family: "Geist", sans-serif; }
+  .cookie-banner { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); width: calc(100% - 32px); max-width: 980px; z-index: 900;
+                   display: flex; align-items: center; gap: 22px; padding: 20px 22px 20px 24px; background: var(--surface);
+                   border: 2px solid var(--border-accent); border-radius: 20px; font-family: "Geist", sans-serif;
+                   box-shadow: 0 4px 10px rgba(0,0,0,0.06), 0 22px 48px -10px rgba(201,106,43,0.35);
+                   animation: cookie-in 420ms var(--ease-enter) both; }
   .cookie-banner[hidden] { display: none; }
-  .cookie-banner p { font-size: 13px; line-height: 1.55; color: var(--foreground); margin: 0; flex: 1; }
+  @keyframes cookie-in { from { opacity: 0; transform: translate(-50%, 24px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .cookie-icon { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; background: var(--primary-tint); display: flex; align-items: center; justify-content: center; }
+  .cookie-icon img { width: 38px; height: 38px; }
+  .cookie-text { flex: 1; min-width: 0; }
+  .cookie-text h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--foreground); margin: 0 0 4px; }
+  .cookie-text p { font-size: 14px; line-height: 1.55; color: var(--foreground); margin: 0; }
   .cookie-banner a { color: var(--btn-primary); font-weight: 600; text-decoration: underline; }
-  .cookie-actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .cookie-btn { min-width: 92px; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 700; border-radius: 9999px;
-                background: var(--surface); border: 1.5px solid var(--hairline); color: var(--foreground); }
+  .cookie-actions { display: flex; gap: 10px; flex-shrink: 0; }
+  .cookie-btn { min-width: 128px; height: 46px; padding: 0 20px; font-size: 14.5px; font-weight: 700; border-radius: 9999px;
+                background: var(--canvas); border: 1.5px solid var(--border-accent); color: var(--foreground); }
   .cookie-btn:hover { border-color: var(--border-accent); }
   /* Both buttons look identical at rest; only hovering/focusing Accept fills it in. */
   #cookie-accept { transition: background-color 220ms var(--ease-standard), border-color 220ms var(--ease-standard), color 220ms var(--ease-standard); }
   #cookie-accept:hover, #cookie-accept:focus-visible { background: var(--btn-primary); border-color: var(--btn-primary); color: #fff; }
-  @media (max-width: 560px) {
-    .cookie-banner { flex-direction: column; align-items: stretch; gap: 12px; bottom: 12px; padding: 14px 16px; }
-    .cookie-actions .cookie-btn { flex: 1; }
+  @media (max-width: 760px) {
+    .cookie-banner { flex-wrap: wrap; gap: 14px; bottom: 12px; padding: 18px; }
+    .cookie-icon { width: 44px; height: 44px; }
+    .cookie-icon img { width: 32px; height: 32px; }
+    .cookie-text { flex: 1 1 calc(100% - 60px); }
+    .cookie-actions { width: 100%; }
+    .cookie-actions .cookie-btn { flex: 1; min-width: 0; }
   }
+  @media (prefers-reduced-motion: reduce) { .cookie-banner { animation: none; } }
   .footer-business .footer-business-inner { max-width: 1180px; margin: 0 auto; }
   .footer-business p { font-size: 12px; color: var(--muted); line-height: 1.7; font-family: "Geist", sans-serif; }
   .footer-business .copyright { font-size: 11px; margin-top: 8px; }
@@ -821,7 +833,11 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
 <!-- ============ COOKIE BANNER (EEA / UK / CH visitors, or "Cookie settings") ============ -->
 <div class="cookie-banner" id="cookie-banner" role="region" aria-label="Cookie consent" hidden>
-  <p>We use cookies for analytics (Google Analytics and Microsoft Clarity) to understand how EngKor is used and improve it. You can change your choice anytime in Cookie settings. <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
+  <div class="cookie-icon"><img src="images/favicon-96.png" alt=""></div>
+  <div class="cookie-text">
+    <h2>We value your privacy</h2>
+    <p>We use cookies for analytics (Google Analytics and Microsoft Clarity) to understand how EngKor is used and improve it. You can change your choice anytime in Cookie settings. <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
+  </div>
   <div class="cookie-actions">
     <button type="button" class="cookie-btn" id="cookie-decline">Reject All</button>
     <button type="button" class="cookie-btn" id="cookie-accept">Accept All</button>
