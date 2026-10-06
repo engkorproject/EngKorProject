@@ -17,6 +17,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const BUSINESS_ERRORS = ["COHORT_FULL", "DUPLICATE_PERSON", "NO_OPEN_COHORT"];
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
@@ -121,13 +123,24 @@ Deno.serve(async (req) => {
     p_referral_code: pending.referral_code || null,
   });
 
-  // Whether enrollment succeeded or hit e.g. COHORT_FULL, don't leave the row
-  // around for PayPal's retried deliveries of the same event to reprocess --
-  // same "contact us" resolution path as the normal flow covers the failure case.
+  // Retrying only helps for unexpected failures (DB hiccup, timeout). For those
+  // we keep the pending row and answer 500 so PayPal redelivers the event later
+  // and enrollment is tried again. Business errors (cohort full, duplicate
+  // person, no open cohort) won't change on retry, and a unique-key clash means
+  // capture-order already enrolled them, so those end here like a success.
+  const message = error?.message || "";
+  const alreadyEnrolled = message.includes("duplicate key");
+  const finalError = !error || alreadyEnrolled || BUSINESS_ERRORS.some((code) => message.includes(code));
+
+  if (!finalError) {
+    console.error(`Webhook-driven enrollment failed for order ${orderId}, asking PayPal to retry:`, message);
+    return new Response("Enrollment failed, please retry", { status: 500 });
+  }
+
   await sb.from("pending_paypal_orders").delete().eq("order_id", orderId);
 
-  if (error) {
-    console.error(`Webhook-driven enrollment failed for order ${orderId}:`, error.message);
+  if (error && !alreadyEnrolled) {
+    console.error(`Webhook-driven enrollment failed for order ${orderId}:`, message);
   } else if (cohort?.id) {
     await sb
       .from("payment_records")

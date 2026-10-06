@@ -778,12 +778,17 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // after PayPal confirms the charge, so no one occupies a cohort seat without
   // paying, and no one is charged without an enrollment attempt.
   let paypalButtonsInstance = null;
+  // Shown under every PayPal button so terms and the refund window are disclosed
+  // before payment (a refund limit only holds if it was shown up front).
+  const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>, including a full refund within 7 days of payment.</p>`;
+
   function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     showModal(`
       <h2 style="font-size:19px;">Confirm & Pay</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
       <div id="paypal-button-container"></div>
+      ${PAYMENT_CONSENT_HTML}
     `);
     renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode });
   }
@@ -1630,7 +1635,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         <p class="auth-error" id="renew-code-error" hidden></p>
       </form>
       ${PAYMENT_ENABLED
-        ? `<p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="paypal-button-container"></div>`
+        ? `<p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}`
         : `<p class="dz-muted" style="margin:20px 0 0;">Paid renewals are opening soon. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.</p>`}
     `);
     document.getElementById('renew-code-form').addEventListener('submit', redeemRenewalCode);
