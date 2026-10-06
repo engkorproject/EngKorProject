@@ -18,6 +18,18 @@
     var loaded = false;
 
     function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    // Removes GA (_ga*) and Clarity (_clck, _clsk) cookies left from earlier visits.
+    function clearAnalyticsCookies() {
+      var host = location.hostname, root = '.' + host.replace(/^www\./, '');
+      document.cookie.split(';').forEach(function(c) {
+        var name = c.split('=')[0].trim();
+        if (/^(_ga|_clck|_clsk)/.test(name)) {
+          [host, root, ''].forEach(function(d) {
+            document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' + (d ? '; domain=' + d : '');
+          });
+        }
+      });
+    }
     function write(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
 
     function load(consented) {
@@ -76,12 +88,16 @@
         gtag('consent', 'update', { analytics_storage: 'denied' });
         window.clarity('consentv2', { ad_Storage: 'denied', analytics_Storage: 'denied' });
       }
+      clearAnalyticsCookies();
     }
 
     var stored = read();
     if (stored === 'granted') load(true);
-    else if (stored !== 'denied') {
-      needsConsent().then(function(required) { if (required) show(); else load(false); });
+    else if (stored === 'denied') clearAnalyticsCookies();
+    else {
+      needsConsent().then(function(required) {
+        if (required) { clearAnalyticsCookies(); show(); } else load(false);
+      });
     }
 
     return { accept: accept, decline: decline, openSettings: show };
