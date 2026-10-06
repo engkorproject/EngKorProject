@@ -2,14 +2,90 @@
 <html lang="en">
 <head>
 
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HLZPNT20L4"></script>
+<!-- Analytics: Google tag (GA4) + Microsoft Clarity, gated by region and consent.
+     Visitors from the EEA, UK and Switzerland (country from Cloudflare's
+     /cdn-cgi/trace) get a cookie banner, and neither tool loads for them until
+     they accept. Everyone else gets analytics as before and can opt out at any
+     time from "Cookie settings" in the footer. The choice is kept in
+     localStorage under engkor_cookie_consent ('granted' | 'denied'). -->
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  window.EngKorConsent = (function() {
+    var KEY = 'engkor_cookie_consent';
+    var GA_ID = 'G-HLZPNT20L4', CLARITY_ID = 'yo80h9qy9t';
+    var CONSENT_REGIONS = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH'];
+    var loaded = false;
 
-  gtag('config', 'G-HLZPNT20L4');
+    function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function write(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+
+    function load(consented) {
+      if (loaded) return;
+      loaded = true;
+      if (consented) gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+      document.head.appendChild(s);
+      gtag('js', new Date());
+      gtag('config', GA_ID);
+      (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", CLARITY_ID);
+      if (consented) window.clarity('consentv2', { ad_Storage: 'denied', analytics_Storage: 'granted' });
+    }
+
+    // Country code from Cloudflare; falls back to the browser time zone if the
+    // lookup fails, treating any Europe/* zone as needing consent.
+    // ?consent_test=eu forces the banner so the team can check the EU flow from anywhere.
+    function needsConsent() {
+      if (/[?&]consent_test=eu\b/.test(location.search)) return Promise.resolve(true);
+      return fetch('/cdn-cgi/trace', { cache: 'no-store' })
+        .then(function(r) { return r.text(); })
+        .then(function(t) { var m = t.match(/^loc=([A-Z]{2})$/m); if (!m) throw new Error('no loc'); return CONSENT_REGIONS.indexOf(m[1]) !== -1; })
+        .catch(function() {
+          var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+          return tz.indexOf('Europe/') === 0;
+        });
+    }
+
+    function banner() { return document.getElementById('cookie-banner'); }
+    function show() {
+      var run = function() { var b = banner(); if (b) b.hidden = false; };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+    }
+    function hide() { var b = banner(); if (b) b.hidden = true; }
+
+    function accept() {
+      write('granted');
+      hide();
+      if (loaded) {
+        gtag('consent', 'update', { analytics_storage: 'granted' });
+        window.clarity('consentv2', { ad_Storage: 'denied', analytics_Storage: 'granted' });
+      } else {
+        load(true);
+      }
+    }
+    function decline() {
+      write('denied');
+      hide();
+      if (loaded) {
+        gtag('consent', 'update', { analytics_storage: 'denied' });
+        window.clarity('consentv2', { ad_Storage: 'denied', analytics_Storage: 'denied' });
+      }
+    }
+
+    var stored = read();
+    if (stored === 'granted') load(true);
+    else if (stored !== 'denied') {
+      needsConsent().then(function(required) { if (required) show(); else load(false); });
+    }
+
+    return { accept: accept, decline: decline, openSettings: show };
+  })();
 </script>
 
 <meta charset="UTF-8">
@@ -31,14 +107,6 @@
 <meta name="twitter:title" content="EngKor - Challenge-based Korean Conversation Community">
 <meta name="twitter:description" content="Real Korean staff correct your writing and speaking every week. Join EngKor's small monthly cohort challenge and build a daily streak.">
 
-<!-- Microsoft Clarity -->
-<script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "yo80h9qy9t");
-</script>
 
 <script type="application/ld+json">
 {
@@ -266,6 +334,24 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .footer-social .icon { width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
   .footer-social .icon:hover { color: var(--primary); border-color: var(--primary); }
   .footer-business { border-top: 1px solid var(--hairline); padding: 20px 40px; }
+
+  /* ===== cookie banner (EEA / UK / CH) ===== */
+  .cookie-banner { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); width: calc(100% - 32px); max-width: 760px; z-index: 900;
+                   display: flex; align-items: center; gap: 18px; padding: 14px 16px 14px 20px; background: var(--canvas);
+                   border: 1px solid var(--hairline); border-radius: 16px; box-shadow: var(--shadow-raised); font-family: "Geist", sans-serif; }
+  .cookie-banner[hidden] { display: none; }
+  .cookie-banner p { font-size: 13px; line-height: 1.55; color: var(--foreground); margin: 0; flex: 1; }
+  .cookie-banner a { color: var(--btn-primary); font-weight: 600; text-decoration: underline; }
+  .cookie-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .cookie-btn { min-width: 92px; height: 38px; padding: 0 16px; font-size: 13px; font-weight: 700; border-radius: 9999px;
+                background: var(--surface); border: 1.5px solid var(--hairline); color: var(--foreground); }
+  .cookie-btn:hover { border-color: var(--border-accent); }
+  .cookie-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: #fff; }
+  .cookie-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
+  @media (max-width: 560px) {
+    .cookie-banner { flex-direction: column; align-items: stretch; gap: 12px; bottom: 12px; padding: 14px 16px; }
+    .cookie-actions .cookie-btn { flex: 1; }
+  }
   .footer-business .footer-business-inner { max-width: 1180px; margin: 0 auto; }
   .footer-business p { font-size: 12px; color: var(--muted); line-height: 1.7; font-family: "Geist", sans-serif; }
   .footer-business .copyright { font-size: 11px; margin-top: 8px; }
@@ -689,7 +775,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <footer>
     <div class="footer-inner">
       <div class="logo"><img class="logo-icon" src="images/mascot.png" alt="" width="28" height="28">EngKor</div>
-      <div class="footer-links"><a href="#how">Getting Started</a><a href="#pricing">Pricing</a><a href="terms.html">Terms</a><a href="privacy.html">Privacy</a><a href="refund.html">Refund</a></div>
+      <div class="footer-links"><a href="#how">Getting Started</a><a href="#pricing">Pricing</a><a href="terms.html">Terms</a><a href="privacy.html">Privacy</a><a href="refund.html">Refund</a><a href="#" id="cookie-settings-link">Cookie settings</a></div>
       <div class="footer-social"><div class="icon">D</div><div class="icon">T</div><div class="icon">IG</div></div>
     </div>
     <div class="footer-business">
@@ -715,6 +801,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <img id="dz-lightbox-img" src="" alt="Submitted writing screenshot, enlarged">
 </div>
 <div class="dz-toast" id="dz-toast"></div>
+
+<!-- ============ COOKIE BANNER (EEA / UK / CH visitors, or "Cookie settings") ============ -->
+<div class="cookie-banner" id="cookie-banner" role="region" aria-label="Cookie consent" hidden>
+  <p>We use cookies for analytics (Google Analytics and Microsoft Clarity) to understand how EngKor is used and improve it. You can change your choice anytime in Cookie settings. <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
+  <div class="cookie-actions">
+    <button type="button" class="cookie-btn" id="cookie-decline">Decline</button>
+    <button type="button" class="cookie-btn primary" id="cookie-accept">Accept</button>
+  </div>
+</div>
 
 <!-- ============ GENERIC MODAL (welcome popup, cohort-full notice) ============ -->
 <div class="ek-modal" id="ek-modal">
@@ -2115,6 +2210,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   document.getElementById('auth-back-link').addEventListener('click', showLanding);
   document.getElementById('apply-back-link').addEventListener('click', showLanding);
   document.getElementById('account-back-link').addEventListener('click', showLanding);
+  document.getElementById('cookie-accept').addEventListener('click', () => window.EngKorConsent.accept());
+  document.getElementById('cookie-decline').addEventListener('click', () => window.EngKorConsent.decline());
+  document.getElementById('cookie-settings-link').addEventListener('click', (e) => { e.preventDefault(); window.EngKorConsent.openSettings(); });
   document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-hero').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-banner').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
