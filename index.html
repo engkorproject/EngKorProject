@@ -380,6 +380,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     .cookie-actions { width: 100%; }
     .cookie-actions .cookie-btn { flex: 1; min-width: 0; }
   }
+  /* Phones get a shorter first layer; the full details are one tap away in the Privacy Policy. */
+  .cookie-short { display: none; }
+  @media (max-width: 560px) {
+    .cookie-long { display: none; }
+    .cookie-short { display: inline; }
+    .cookie-banner { padding: 16px; gap: 12px; }
+    .cookie-text h2 { font-size: 16px; }
+    .cookie-btn { height: 42px; }
+  }
   @media (prefers-reduced-motion: reduce) { .cookie-banner { animation: none; } }
   .footer-business .footer-business-inner { max-width: 1180px; margin: 0 auto; }
   .footer-business p { font-size: 12px; color: var(--muted); line-height: 1.7; font-family: "Geist", sans-serif; }
@@ -836,7 +845,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <div class="cookie-icon"><img src="images/favicon-96.png" alt=""></div>
   <div class="cookie-text">
     <h2>We value your privacy</h2>
-    <p>We use cookies for analytics (Google Analytics and Microsoft Clarity) to understand how EngKor is used and improve it. You can change your choice anytime in Cookie settings. <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
+    <p><span class="cookie-long">We use cookies for analytics (Google Analytics and Microsoft Clarity) to understand how EngKor is used and improve it. You can change your choice anytime in Cookie settings.</span><span class="cookie-short">We use analytics cookies to improve EngKor. Change anytime in Cookie settings.</span> <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>
   </div>
   <div class="cookie-actions">
     <button type="button" class="cookie-btn" id="cookie-decline">Reject All</button>
