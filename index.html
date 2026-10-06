@@ -240,6 +240,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .price-list { text-align: left; margin: 20px 0; }
   .price-list .item { display: flex; gap: 9px; padding: 7px 0; font-size: 14px; font-family: "Geist", sans-serif; }
   #checkout-btn { font-family: var(--font-accent); font-weight: 600; text-transform: uppercase; box-shadow: var(--shadow-subtle); }
+  .consent-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 12px; text-align: center; font-family: "Geist", sans-serif; }
+  .consent-note a { color: var(--btn-primary); text-decoration: underline; }
   .price-list .item::before { content: "✓"; color: var(--primary); font-weight: 800; }
 
   .trust-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
@@ -654,6 +656,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           <div class="item">Private unlimited Q&amp;A channel for paid users</div>
         </div>
         <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
+        <p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>
       </div>
     </div>
   </section>
@@ -763,6 +766,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // and the QA test account still enroll without payment. Before turning this
   // back on, rerun one Sandbox checkout end to end, then switch PayPal to Live.
   const PAYMENT_ENABLED = false;
+  const CONSENT_NOTE_HTML = `<p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>`;
   function showPaymentUnavailableModal() {
     showModal(`
       <h2 style="font-size:19px;">Payments opening soon</h2>
@@ -1517,6 +1521,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           <div class="item">Community leaderboard</div>
         </div>
         <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Apply for ${monthLabel}</button>
+        ${CONSENT_NOTE_HTML}
       </div>
     `;
     document.getElementById('pricing-continue-btn').addEventListener('click', renderApplyForm);
@@ -1542,6 +1547,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
         <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" value="${escapeHtml(d.referralCode || '')}" /></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
+        ${CONSENT_NOTE_HTML}
         ${applyError ? `<p class="auth-error">${escapeHtml(applyError)}</p>` : ''}
       </form>
     `;
