@@ -240,9 +240,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .btn-secondary { background: var(--surface-alt); border: none; color: var(--foreground); height: 48px; padding: 0 28px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
   .btn-secondary:hover { transform: scale(1.02); }
   .hero-stats { container-type: inline-size; display: flex; flex-wrap: nowrap; gap: 2.2cqw; margin-top: 34px; }
-  .hero-stats .stat { flex: 1 1 0; min-width: 0; position: relative; padding-left: clamp(12px, 5.3cqw, 27px); }
+  .hero-stats .stat { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-start; gap: clamp(5px, 1.5cqw, 10px); }
+  .hero-stats .stat .stat-check { font-family: var(--font-display); font-size: clamp(13px, 7cqw, 36px); line-height: 1.1; font-weight: 700; color: var(--foreground); flex-shrink: 0; }
+  .hero-stats .stat-body { min-width: 0; }
   .hero-stats .stat b { font-family: var(--font-display); font-size: clamp(13px, 7cqw, 36px); line-height: 1.1; font-weight: 700; color: #CC5500; letter-spacing: -0.01em; display: block; white-space: nowrap; }
-  .hero-stats .stat b::before { content: "✔"; position: absolute; left: 0; color: var(--foreground); }
   .hero-stats .stat span { font-size: clamp(9px, 3cqw, 18px); color: var(--muted); font-family: "Geist", sans-serif; display: block; }
   .hero-visual { container-type: inline-size; width: clamp(320px, 42vw, 606px); flex-shrink: 0; background: var(--surface); border: clamp(2px, 0.66cqw, 4px) solid var(--border-accent); border-radius: clamp(10px, 3.3cqw, 20px); padding: clamp(14px, 3.3cqw, 20px) clamp(16px, 5.28cqw, 32px) clamp(16px, 4.95cqw, 30px); box-shadow: var(--shadow-raised); display: flex; flex-direction: column; gap: clamp(14px, 3.96cqw, 24px); }
   .hero-visual .visual-head { display: flex; flex-direction: column; gap: clamp(2px, 0.66cqw, 4px); }
@@ -341,15 +342,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .cta-band p { color: var(--muted); margin-top: 10px; font-size: 18px; line-height: 1.6; font-family: "Geist", sans-serif; }
   .cta-band .hero-ctas { justify-content: center; margin-top: 22px; }
 
-  footer { padding: 34px 40px; border-top: 1px solid var(--hairline); }
-  .footer-inner { max-width: 1180px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+  footer { padding: 0; border-top: 1px solid var(--hairline); }
+  .footer-inner { max-width: 1180px; margin: 0 auto; padding: 30px 40px; box-sizing: content-box; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
   .footer-links { display: flex; gap: 22px; font-size: 12.5px; color: var(--muted); }
   .footer-links a { transition: color 150ms var(--ease-standard); }
   .footer-links a:hover { color: var(--primary); }
   .footer-social { display: flex; gap: 12px; }
   .footer-social .icon { width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
   .footer-social .icon:hover { color: var(--primary); border-color: var(--primary); }
-  .footer-business { border-top: 1px solid var(--hairline); padding: 20px 40px; }
+  .footer-business { border-top: 1px solid var(--hairline); padding: 22px 40px 34px; }
 
   /* ===== cookie banner (EEA / UK / CH) ===== */
   .cookie-banner { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); width: calc(100% - 32px); max-width: 980px; z-index: 900;
@@ -444,6 +445,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
     .hero-stats { gap: 14px; margin-top: 22px; }
     .hero-stats .stat b { font-size: 19px; }
+    .hero-stats .stat .stat-check { font-size: 19px; }
     .hero-stats .stat span { font-size: 11px; }
 
     section.block { padding: 44px 20px; }
@@ -463,9 +465,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     .cta-band { padding: 36px 20px; }
     .cta-band h2 { font-size: 23px; }
     .cta-band p { font-size: 15px; }
-    .footer-inner { flex-direction: column; align-items: flex-start; text-align: left; }
+    .footer-inner { flex-direction: column; align-items: flex-start; text-align: left; padding: 26px 20px; }
     .footer-links { gap: 14px; flex-wrap: wrap; }
-    .footer-business { padding: 18px 20px; }
+    .footer-business { padding: 20px 20px 28px; }
   }
 
   /* ===== AUTH (login / signup) ===== */
@@ -665,9 +667,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><b>weekly</b><span>guaranteed correction</span></div>
-        <div class="stat"><b>100%</b><span>real human feedback</span></div>
-        <div class="stat"><b>small</b><span>same-cohort community</span></div>
+        <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>Weekly</b><span>guaranteed correction</span></div></div>
+        <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>100%</b><span>real human feedback</span></div></div>
+        <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>Small</b><span>same-cohort community</span></div></div>
       </div>
     </div>
     <div class="hero-visual">
