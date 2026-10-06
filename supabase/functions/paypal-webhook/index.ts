@@ -130,9 +130,9 @@ Deno.serve(async (req) => {
   // capture-order already enrolled them, so those end here like a success.
   const message = error?.message || "";
   const alreadyEnrolled = message.includes("duplicate key");
-  const finalError = !error || alreadyEnrolled || BUSINESS_ERRORS.some((code) => message.includes(code));
+  const done = !error || alreadyEnrolled || BUSINESS_ERRORS.some((code) => message.includes(code));
 
-  if (!finalError) {
+  if (!done) {
     console.error(`Webhook-driven enrollment failed for order ${orderId}, asking PayPal to retry:`, message);
     return new Response("Enrollment failed, please retry", { status: 500 });
   }
