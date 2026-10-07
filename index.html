@@ -1723,7 +1723,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     // says. Years stop at 14 years ago (our Terms' minimum age); the exact
     // age-14 check runs in handleApplySubmit.
     const d = applyDraft || {};
-    const [by, bm, bd] = (d.birthParts || ((d.birthdate ?? currentProfile.birthdate) || '').split('-')).map((v) => v || '');
+    const [by, bm, bd] = ((d.birthdate ?? currentProfile.birthdate) || '').split('-').map((v) => v || '');
     const thisYear = new Date().getFullYear();
     const opt = (value, label, selected) => `<option value="${value}"${selected ? ' selected' : ''}>${label}</option>`;
     const monthOpts = BIRTH_MONTHS.map((m, i) => opt(pad2(i + 1), m, bm === pad2(i + 1))).join('');
@@ -1770,9 +1770,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const referralCode = document.getElementById('apply-referral-code').value.trim();
     const birthError = birthdateError(birthParts);
     if (birthError) {
-      applyDraft = { name, timezone, birthParts, referralCode };
-      applyError = birthError;
-      renderApplyForm();
+      showBirthdateErrorModal(birthError);
       return;
     }
     if (applyError) { applyDraft = { name, timezone, birthdate, referralCode }; applyError = null; renderApplyForm(); }
@@ -1791,10 +1789,24 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // Catches impossible dates (e.g. February 30) and anyone under 14 (our Terms).
   function birthdateError([y, m, d]) {
     const date = new Date(Number(y), Number(m) - 1, Number(d));
-    if (date.getMonth() !== Number(m) - 1) return "That date doesn't exist. Please check your birthdate.";
+    if (date.getMonth() !== Number(m) - 1) return `${BIRTH_MONTHS[Number(m) - 1]} ${Number(d)} doesn't exist. Please pick a valid date.`;
     const today = new Date();
     if (date > new Date(today.getFullYear() - 14, today.getMonth(), today.getDate())) return 'You must be at least 14 years old to join.';
     return null;
+  }
+
+  // A popup rather than the small inline error line, so it can't be missed
+  // below the button. The form isn't re-rendered, so the picks stay as they were.
+  function showBirthdateErrorModal(message) {
+    showModal(`
+      <h2 style="font-size:19px;">Please check your birthdate</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${message}</p>
+      <button class="btn btn-primary" id="birthdate-error-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    document.getElementById('birthdate-error-ok-btn').addEventListener('click', () => {
+      closeModal();
+      document.getElementById('apply-birth-month').focus();
+    });
   }
 
   function applyErrorMessage(msg) {
