@@ -912,10 +912,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   <button class="dz-lightbox-close" id="dz-lightbox-close" aria-label="Close">✕</button>
   <div class="dz-lb-controls" role="group" aria-label="Zoom">
     <button data-lb="out" aria-label="Zoom out">−</button>
-    <span class="pct" id="dz-lb-pct">Fit</span>
+    <span class="pct" id="dz-lb-pct" aria-live="polite">100%</span>
     <button data-lb="in" aria-label="Zoom in">+</button>
     <button data-lb="fit">Fit</button>
-    <button data-lb="actual">Actual size</button>
   </div>
   <img id="dz-lightbox-img" src="" alt="Submitted writing screenshot, enlarged">
 </div>
@@ -2679,7 +2678,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   const dzLightbox = document.getElementById('dz-lightbox');
   const dzLightboxImg = document.getElementById('dz-lightbox-img');
   // Zoom: buttons, mouse wheel / trackpad pinch, two-finger pinch on phones,
-  // and drag to move around once zoomed in. 100% = the photo's real pixels.
+  // and drag to move around once zoomed in.
   const lb = { s: 1, tx: 0, ty: 0 };
   const lbPointers = new Map();
   let lbDrag = null, lbPinch = null, lbMoved = false;
@@ -2688,8 +2687,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     if (lb.s <= 1.001) { lb.s = 1; lb.tx = 0; lb.ty = 0; }
     dzLightboxImg.style.transform = `translate(${lb.tx}px, ${lb.ty}px) scale(${lb.s})`;
     dzLightbox.classList.toggle('zoomed', lb.s > 1);
-    const actual = lb.s * (dzLightboxImg.offsetWidth || 1) / (dzLightboxImg.naturalWidth || 1);
-    document.getElementById('dz-lb-pct').textContent = lb.s === 1 ? 'Fit' : `${Math.round(actual * 100)}%`;
+    // 100% = the photo fitted to the screen.
+    document.getElementById('dz-lb-pct').textContent = `${Math.round(lb.s * 100)}%`;
   }
   // Keeps the point under (x, y) in place while changing the zoom.
   function lbZoomAt(x, y, nextScale) {
@@ -2713,7 +2712,6 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     if (act === 'in') lbZoomCenter(lb.s * 1.5);
     if (act === 'out') lbZoomCenter(lb.s / 1.5);
     if (act === 'fit') { lb.s = 1; lbApply(); }
-    if (act === 'actual') { lb.s = 1; lbApply(); lbZoomCenter((dzLightboxImg.naturalWidth || 1) / (dzLightboxImg.offsetWidth || 1)); }
   }));
   dzLightbox.addEventListener('wheel', (e) => {
     if (!dzLightbox.classList.contains('open')) return;
