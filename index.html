@@ -586,15 +586,22 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .dz-status-dot.done { background: var(--primary); }
   .dz-thumb { width: 100%; max-height: 150px; object-fit: contain; border-radius: 12px; border: 1px solid var(--hairline); background: #fff; cursor: zoom-in; transition: opacity 150ms var(--ease-standard); }
   .dz-thumb:hover { opacity: 0.85; }
-  .dz-lightbox { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.85); z-index: 999; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out; }
+  .dz-lightbox { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.88); z-index: 999; align-items: center; justify-content: center; padding: 40px 40px 90px; overflow: hidden; touch-action: none; cursor: zoom-out; }
   .dz-lightbox.open { display: flex; }
-  .dz-lightbox img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: zoom-out; }
-  .dz-lightbox-close { position: fixed; top: 20px; right: 24px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
+  .dz-lightbox img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: zoom-in; transform-origin: center center; user-select: none; -webkit-user-drag: none; }
+  .dz-lightbox.zoomed img { cursor: grab; border-radius: 0; }
+  .dz-lightbox.dragging img { cursor: grabbing; }
+  .dz-lb-controls { position: fixed; z-index: 2; left: 50%; bottom: 24px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.14); border-radius: 9999px; padding: 5px; backdrop-filter: blur(6px); }
+  .dz-lb-controls button { min-width: 40px; white-space: nowrap; height: 36px; padding: 0 12px; border-radius: 9999px; background: transparent; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .dz-lb-controls button:hover { background: rgba(255,255,255,0.2); }
+  .dz-lb-controls .pct { min-width: 52px; text-align: center; color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 700; }
+  .dz-lightbox-close { position: fixed; z-index: 2; top: 20px; right: 24px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; }
   .dz-lightbox-close:hover { background: rgba(255,255,255,0.28); }
   .dz-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--foreground); color: #fff; font-size: 13px; font-weight: 700; padding: 12px 22px; border-radius: 9999px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-standard), transform 200ms var(--ease-standard); }
   .dz-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .dz-toast.error { background: var(--error); }
   .dz-placeholder { border: 1px dashed var(--hairline); border-radius: 12px; padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+  .dz-audio-len { display: block; font-size: 11.5px; color: var(--muted); margin-top: 4px; }
   .dz-drop { border: 1.5px dashed var(--hairline); border-radius: 12px; padding: 14px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; transition: border-color 150ms var(--ease-standard), color 150ms var(--ease-standard), background 150ms var(--ease-standard); }
   .dz-drop:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-tint); }
   audio { width: 100%; height: 32px; }
@@ -903,6 +910,13 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 <!-- ============ IMAGE LIGHTBOX (zoom in on submitted writing screenshots) ============ -->
 <div class="dz-lightbox" id="dz-lightbox">
   <button class="dz-lightbox-close" id="dz-lightbox-close" aria-label="Close">✕</button>
+  <div class="dz-lb-controls" role="group" aria-label="Zoom">
+    <button data-lb="out" aria-label="Zoom out">−</button>
+    <span class="pct" id="dz-lb-pct">Fit</span>
+    <button data-lb="in" aria-label="Zoom in">+</button>
+    <button data-lb="fit">Fit</button>
+    <button data-lb="actual">Actual size</button>
+  </div>
   <img id="dz-lightbox-img" src="" alt="Submitted writing screenshot, enlarged">
 </div>
 <div class="dz-toast" id="dz-toast"></div>
@@ -1120,6 +1134,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     // leader member list: 'month' = this calendar month's cohort only
     leaderScope: 'month', leaderSearch: '', leaderSort: 'latest',
     leaderDayOpen: {}, // "memberId|date" -> true/false once the leader opens or closes a day
+    mediaLoaded: new Set(), mediaLoading: new Set(), // leader: whose photos/recordings are fetched
     monthCohortLabel: null, monthMemberIds: new Set(),
     recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
@@ -1155,8 +1170,14 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       const memberIds = state.members.map(m => m.id);
       state.members.forEach(m => { state.submissions[m.id] = {}; });
       if (memberIds.length) {
-        const { data: subs } = await sb.from('submissions').select('*').in('member_id', memberIds);
-        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, createdAt: s.created_at }; });
+        // Just the light columns for everyone: photos and recordings are only
+        // fetched for the member the leader opens (loadMemberMedia).
+        state.mediaLoaded = new Set(); state.mediaLoading = new Set();
+        const { data: subs, error: subsErr } = await sb.from('submissions')
+          .select('member_id,date,created_at,diary_feedback,shadowing_feedback,diary_feedback_sent_at,shadowing_feedback_sent_at,has_diary,has_shadowing')
+          .in('member_id', memberIds);
+        if (subsErr) console.error(subsErr);
+        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.has_diary ? MEDIA_PENDING : null, shadowing: s.has_shadowing ? MEDIA_PENDING : null, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, createdAt: s.created_at }; });
       }
     } else {
       const memberId = currentProfile.id;
@@ -1326,18 +1347,59 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
 
   function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+  // Stands in for a photo/recording that exists but hasn't been fetched yet.
+  const MEDIA_PENDING = 'media:pending';
+  async function loadMemberMedia(memberId) {
+    if (state.mediaLoaded.has(memberId) || state.mediaLoading.has(memberId)) return;
+    state.mediaLoading.add(memberId);
+    const { data, error } = await sb.from('submissions').select('date,diary_url,shadowing_url').eq('member_id', memberId);
+    state.mediaLoading.delete(memberId);
+    if (error) { console.error(error); showToast("Couldn't load this member's photos and recordings.", true); return; }
+    (data || []).forEach(r => setDay(memberId, r.date, { diary: r.diary_url, shadowing: r.shadowing_url }));
+    state.mediaLoaded.add(memberId);
+    // Fill in just the media slots (not a full re-render) so feedback being typed isn't lost.
+    document.querySelectorAll(`.dz-media-slot[data-member="${memberId}"]`).forEach(slot => {
+      const day = getDay(memberId, slot.dataset.date);
+      slot.innerHTML = mediaBlock(slot.dataset.kind === 'diary' ? day.diary : day.shadowing, slot.dataset.kind);
+    });
+    fixAudioDurations(dzRoot);
+  }
+  function mediaSlot(memberId, date, value, kind) {
+    return `<div class="dz-media-slot" data-member="${memberId}" data-date="${date}" data-kind="${kind}">${mediaBlock(value, kind)}</div>`;
+  }
   function mediaBlock(value, kind) {
     if (!value) return '<p class="dz-muted">No submission</p>';
+    if (value === MEDIA_PENDING) return `<div class="dz-placeholder">Loading ${kind === 'diary' ? 'photo' : 'recording'}...</div>`;
     if (value === 'seed') return kind === 'diary' ? '<div class="dz-placeholder">📝 Writing submitted (demo)</div>' : '<div class="dz-placeholder">🎙 Speaking submitted (demo)</div>';
     return kind === 'diary' ? `<img class="dz-thumb" src="${value}" />` : `<audio controls preload="metadata" src="${value}"></audio>`;
   }
   // Recordings made in the browser (webm) don't store their length up front,
   // so players show 0:00 until played and look empty. Seeking far past the end
   // makes the browser work out the real length; then jump back to the start.
+  let lengthAudioCtx = null;
+  const fmtLen = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+  // Shows "Length 1:24" under each recording. Decoding the file works even when
+  // the player itself can't tell the length before playing.
+  async function labelAudioLength(a) {
+    if (a.nextElementSibling && a.nextElementSibling.classList.contains('dz-audio-len')) return;
+    const label = document.createElement('span');
+    label.className = 'dz-audio-len';
+    a.after(label);
+    try {
+      let sec = Number.isFinite(a.duration) && a.duration > 0 ? a.duration : null;
+      if (sec == null) {
+        lengthAudioCtx = lengthAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const buf = await (await fetch(a.src)).arrayBuffer();
+        sec = (await lengthAudioCtx.decodeAudioData(buf)).duration;
+      }
+      label.textContent = `Length ${fmtLen(sec)}`;
+    } catch (e) { label.remove(); }
+  }
   function fixAudioDurations(root) {
     root.querySelectorAll('audio').forEach(a => {
       if (a.dataset.durationFixed) return;
       a.dataset.durationFixed = '1';
+      if (a.readyState >= 1) labelAudioLength(a); else a.addEventListener('loadedmetadata', () => labelAudioLength(a), { once: true });
       const probe = () => {
         if (Number.isFinite(a.duration) && a.duration > 0) return;
         const restore = () => {
@@ -1379,12 +1441,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
   async function handleDiaryUpload(memberId, file) {
     if (!file) return;
-    try { const dataUrl = await compressImageFile(file, 480, 0.6); setDay(memberId, todayStr(), { diary: dataUrl }); renderApp(); await saveSub(memberId); }
+    // 2560px at 90% keeps handwriting sharp when the leader zooms in (it used to
+    // be 480px, which blurred the writing), while staying around 0.5 to 1MB.
+    try { const dataUrl = await compressImageFile(file, 2560, 0.9); setDay(memberId, todayStr(), { diary: dataUrl }); renderApp(); await saveSub(memberId); }
     catch (e) { alert('Could not process that image.'); }
   }
   async function handleShadowUploadFile(memberId, file) {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert('File too large (10MB max recommended).'); return; }
+    // Uploaded files are stored as-is (no re-encoding), so keep them small.
+    if (file.size > 4 * 1024 * 1024) { alert('File too large. Please choose an audio file under 4MB (about 3 minutes).'); return; }
     const dataUrl = await blobToDataURL(file); setDay(memberId, todayStr(), { shadowing: dataUrl }); renderApp(); await saveSub(memberId);
   }
   async function startRecording(memberId) {
@@ -1397,7 +1462,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       // fixes recordings that played back broken or failed to save.
       const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg'];
       const supportedType = preferredTypes.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
-      mediaRecorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
+      // 32kbps is plenty for a clear speaking voice and about 1/7 the size of the default.
+      const recOptions = { audioBitsPerSecond: 32000 };
+      if (supportedType) recOptions.mimeType = supportedType;
+      mediaRecorder = new MediaRecorder(stream, recOptions);
       mediaRecorder.ondataavailable = (e) => recChunks.push(e.data);
       mediaRecorder.onstop = async () => {
         if (recInterval) { clearInterval(recInterval); recInterval = null; }
@@ -2366,8 +2434,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           return `<details class="dz-day" data-day-key="${key}" ${open ? 'open' : ''}>
             <summary><span class="dl">${dayLabel}</span><span class="dz-day-chips">${partChip('Writing', day.diary, day.diaryFeedback, day.diaryFeedbackSentAt)}${partChip('Speaking', day.shadowing, day.shadowingFeedback, day.shadowingFeedbackSentAt)}</span></summary>
             <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
-              <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
-              <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
+              <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaSlot(focusId, d, day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
+              <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaSlot(focusId, d, day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
             </div></div>
           </details>`;
         }).join('');
@@ -2436,7 +2504,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
                 ${state.recording ? '<span class="dz-muted">' + fmtRecTime(state.recSeconds) + ' / ' + fmtRecTime(MAX_REC_SECONDS) + '</span>' : ''}
               </div>
               <p class="dz-muted" style="margin:2px 0;">or</p>
-              <div class="dz-drop" id="shadow-drop">Select an audio file (10MB max)</div>
+              <div class="dz-drop" id="shadow-drop">Select an audio file (4MB max)</div>
               <input type="file" id="shadow-file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" style="display:none;" />
               ${state.recError ? `<p class="dz-muted" style="color:#B4443A;">${state.recError}</p>` : ''}
             `}
@@ -2556,6 +2624,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       // Feedback boxes grow with what's typed instead of scrolling inside.
       const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight + 2, 120) + 'px'; };
       document.querySelectorAll('.dz-leader textarea.dz-ta').forEach(ta => { grow(ta); ta.addEventListener('input', () => grow(ta)); });
+      if (state.leaderFocusId) loadMemberMedia(state.leaderFocusId);
       const mobilePick = document.getElementById('lead-mobile-pick');
       if (mobilePick) mobilePick.addEventListener('change', () => { state.leaderFocusId = mobilePick.value; renderApp(); });
       // Re-rendering on each keystroke rebuilds the input, so put the cursor back.
@@ -2609,8 +2678,90 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // ---- image lightbox (click a submitted writing screenshot to zoom in) ----
   const dzLightbox = document.getElementById('dz-lightbox');
   const dzLightboxImg = document.getElementById('dz-lightbox-img');
-  function openLightbox(src) { dzLightboxImg.src = src; dzLightbox.classList.add('open'); }
-  function closeLightbox() { dzLightbox.classList.remove('open'); dzLightboxImg.src = ''; }
+  // Zoom: buttons, mouse wheel / trackpad pinch, two-finger pinch on phones,
+  // and drag to move around once zoomed in. 100% = the photo's real pixels.
+  const lb = { s: 1, tx: 0, ty: 0 };
+  const lbPointers = new Map();
+  let lbDrag = null, lbPinch = null, lbMoved = false;
+  function lbMax() { return Math.max(4, (dzLightboxImg.naturalWidth / (dzLightboxImg.offsetWidth || 1)) * 2); }
+  function lbApply() {
+    if (lb.s <= 1.001) { lb.s = 1; lb.tx = 0; lb.ty = 0; }
+    dzLightboxImg.style.transform = `translate(${lb.tx}px, ${lb.ty}px) scale(${lb.s})`;
+    dzLightbox.classList.toggle('zoomed', lb.s > 1);
+    const actual = lb.s * (dzLightboxImg.offsetWidth || 1) / (dzLightboxImg.naturalWidth || 1);
+    document.getElementById('dz-lb-pct').textContent = lb.s === 1 ? 'Fit' : `${Math.round(actual * 100)}%`;
+  }
+  // Keeps the point under (x, y) in place while changing the zoom.
+  function lbZoomAt(x, y, nextScale) {
+    const s2 = Math.min(Math.max(nextScale, 1), lbMax());
+    const r = dzLightbox.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + (r.height - 50) / 2;
+    lb.tx = x - cx - (x - cx - lb.tx) * (s2 / lb.s);
+    lb.ty = y - cy - (y - cy - lb.ty) * (s2 / lb.s);
+    lb.s = s2;
+    lbApply();
+  }
+  function lbZoomCenter(nextScale) {
+    const r = dzLightboxImg.getBoundingClientRect();
+    lbZoomAt(r.left + r.width / 2, r.top + r.height / 2, nextScale);
+  }
+  function openLightbox(src) { lb.s = 1; lb.tx = 0; lb.ty = 0; dzLightboxImg.src = src; dzLightbox.classList.add('open'); lbApply(); }
+  function closeLightbox() { dzLightbox.classList.remove('open', 'zoomed', 'dragging'); dzLightboxImg.src = ''; dzLightboxImg.style.transform = ''; }
+  document.getElementById('dz-lightbox-close').addEventListener('click', closeLightbox);
+  document.querySelectorAll('[data-lb]').forEach(btn => btn.addEventListener('click', () => {
+    const act = btn.dataset.lb;
+    if (act === 'in') lbZoomCenter(lb.s * 1.5);
+    if (act === 'out') lbZoomCenter(lb.s / 1.5);
+    if (act === 'fit') { lb.s = 1; lbApply(); }
+    if (act === 'actual') { lb.s = 1; lbApply(); lbZoomCenter((dzLightboxImg.naturalWidth || 1) / (dzLightboxImg.offsetWidth || 1)); }
+  }));
+  dzLightbox.addEventListener('wheel', (e) => {
+    if (!dzLightbox.classList.contains('open')) return;
+    e.preventDefault();
+    lbZoomAt(e.clientX, e.clientY, lb.s * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
+  }, { passive: false });
+  dzLightbox.addEventListener('dblclick', (e) => {
+    if (e.target !== dzLightboxImg) return;
+    if (lb.s > 1) { lb.s = 1; lbApply(); } else lbZoomAt(e.clientX, e.clientY, 2.5);
+  });
+  dzLightbox.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.dz-lb-controls, .dz-lightbox-close')) return;
+    lbPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { dzLightbox.setPointerCapture(e.pointerId); } catch (err) {}
+    lbMoved = false;
+    if (lbPointers.size === 1) lbDrag = { x: e.clientX, y: e.clientY, tx: lb.tx, ty: lb.ty, onImage: e.target === dzLightboxImg };
+    if (lbPointers.size === 2) {
+      const [a, b] = [...lbPointers.values()];
+      lbPinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: lb.s };
+      lbDrag = null;
+    }
+  });
+  dzLightbox.addEventListener('pointermove', (e) => {
+    if (!lbPointers.has(e.pointerId)) return;
+    lbPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (lbPinch && lbPointers.size === 2) {
+      const [a, b] = [...lbPointers.values()];
+      lbZoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, lbPinch.s * Math.hypot(a.x - b.x, a.y - b.y) / lbPinch.d);
+      lbMoved = true;
+    } else if (lbDrag && lb.s > 1) {
+      const dx = e.clientX - lbDrag.x, dy = e.clientY - lbDrag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) { lbMoved = true; dzLightbox.classList.add('dragging'); }
+      lb.tx = lbDrag.tx + dx; lb.ty = lbDrag.ty + dy; lbApply();
+    }
+  });
+  const lbEnd = (e) => {
+    if (!lbPointers.has(e.pointerId)) return;
+    lbPointers.delete(e.pointerId);
+    if (lbPointers.size < 2) lbPinch = null;
+    if (lbPointers.size === 0) {
+      dzLightbox.classList.remove('dragging');
+      // A plain click on the dark background (not a drag, not the photo) closes it.
+      if (!lbMoved && lbDrag && !lbDrag.onImage && e.type === 'pointerup') closeLightbox();
+      lbDrag = null;
+    }
+  };
+  dzLightbox.addEventListener('pointerup', lbEnd);
+  dzLightbox.addEventListener('pointercancel', lbEnd);
 
   // ---- toast (brief confirmation popup, e.g. "Feedback saved!") ----
   let toastTimer = null;
@@ -2625,7 +2776,6 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   document.addEventListener('click', (e) => {
     const thumb = e.target.closest('.dz-thumb');
     if (thumb) { openLightbox(thumb.src); return; }
-    if (e.target.closest('#dz-lightbox')) closeLightbox();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
 
