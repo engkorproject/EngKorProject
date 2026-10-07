@@ -1156,14 +1156,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       state.members.forEach(m => { state.submissions[m.id] = {}; });
       if (memberIds.length) {
         const { data: subs } = await sb.from('submissions').select('*').in('member_id', memberIds);
-        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', createdAt: s.created_at }; });
+        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, createdAt: s.created_at }; });
       }
     } else {
       const memberId = currentProfile.id;
       state.members = [{ id: memberId, name: currentProfile.name }];
       state.submissions[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
-      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '' }; });
+      // Members only see feedback the leader has sent; saved drafts stay hidden.
+      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback_sent_at ? (s.diary_feedback || '') : '', shadowingFeedback: s.shadowing_feedback_sent_at ? (s.shadowing_feedback || '') : '' }; });
       const { data: lb } = await sb.from('leaderboard').select('*');
       state.leaderboard = lb || [];
     }
@@ -1188,13 +1189,34 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     renderApp();
     return true;
   }
+  // Send = save the text, stamp when it was sent (that's what makes it visible
+  // to the member and clears it from the leader's to-review count), then email.
   async function submitDayFeedback(memberId, date, field, text) {
-    const ok = await saveDayFeedback(memberId, date, field, text);
-    if (ok && text && text.trim()) {
-      const taskLabel = field === 'diaryFeedback' ? 'Writing' : 'Speaking';
-      notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
-      showToast('Feedback sent!');
+    const taskLabel = field === 'diaryFeedback' ? 'Writing' : 'Speaking';
+    if (!text || !text.trim()) {
+      showModal(`
+        <h2 style="font-size:19px;">Nothing to send yet</h2>
+        <p class="dz-muted" style="margin:10px 0 20px;">Write some ${taskLabel.toLowerCase()} feedback first, then send it.</p>
+        <button class="btn btn-primary" id="fb-empty-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+      `);
+      document.getElementById('fb-empty-ok-btn').addEventListener('click', closeModal);
+      return;
     }
+    const sentAt = new Date().toISOString();
+    const column = field === 'diaryFeedback' ? 'diary_feedback' : 'shadowing_feedback';
+    const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text, [column + '_sent_at']: sentAt }, { onConflict: 'member_id,date' });
+    if (error) { console.error(error); showToast('Failed to send. Try again.', true); return; }
+    setDay(memberId, date, { [field]: text, [field + 'SentAt']: sentAt });
+    notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
+    renderApp();
+    const member = state.members.find(m => m.id === memberId);
+    const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    showModal(`
+      <h2 style="font-size:19px;">Feedback sent!</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${escapeHtml((member && member.name) || 'The member')} can now see your ${taskLabel} feedback for ${dayLabel}, and we've emailed them about it.</p>
+      <button class="btn btn-primary" id="fb-sent-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    document.getElementById('fb-sent-ok-btn').addEventListener('click', closeModal);
   }
   // Fire-and-forget: a failed notification email should never block saving
   // the feedback itself, so errors here are only logged, not surfaced.
@@ -1256,15 +1278,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   }
 
   // ---- leader member list (scope, search, sort, feedback-to-do badge) ----
-  // A submission "needs feedback" when it has Writing or Speaking but that
-  // part's feedback box is still empty (a saved draft counts as done).
+  // A submission "needs feedback" until that part's feedback has been sent
+  // (a saved draft still counts as to-do).
   function memberListInfo(m) {
     const sub = state.submissions[m.id] || {};
     let pending = 0, lastDate = null, lastAt = null;
     Object.keys(sub).forEach(d => {
       const day = sub[d];
-      if (day.diary && !(day.diaryFeedback || '').trim()) pending++;
-      if (day.shadowing && !(day.shadowingFeedback || '').trim()) pending++;
+      if (day.diary && !day.diaryFeedbackSentAt) pending++;
+      if (day.shadowing && !day.shadowingFeedbackSentAt) pending++;
       if ((day.diary || day.shadowing) && (!lastDate || d > lastDate)) { lastDate = d; lastAt = day.createdAt || null; }
     });
     return { m, pending, lastDate, lastAt, rate: completionRate(m.id) };
@@ -2307,18 +2329,20 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
             <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Send feedback</button>
           </div>`;
       };
-      const partChip = (label, media, fb) => !media
+      const partChip = (label, media, fb, sentAt) => !media
         ? `<span class="dz-day-chip">${label}: none</span>`
-        : ((fb || '').trim() ? `<span class="dz-day-chip">${label} ✓</span>` : `<span class="dz-day-chip todo">${label}: to review</span>`);
+        : sentAt ? `<span class="dz-day-chip">${label} ✓ sent</span>`
+        : (fb || '').trim() ? `<span class="dz-day-chip todo">${label}: draft</span>`
+        : `<span class="dz-day-chip todo">${label}: to review</span>`;
       const allHistory = weekKeysDesc.map(wk => {
         const dayItems = groups[wk].map(d => {
           const day = sub[d];
-          const needsReview = (day.diary && !(day.diaryFeedback || '').trim()) || (day.shadowing && !(day.shadowingFeedback || '').trim());
+          const needsReview = (day.diary && !day.diaryFeedbackSentAt) || (day.shadowing && !day.shadowingFeedbackSentAt);
           const key = focusId + '|' + d;
           const open = key in state.leaderDayOpen ? state.leaderDayOpen[key] : !!needsReview;
           const dayLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
           return `<details class="dz-day" data-day-key="${key}" ${open ? 'open' : ''}>
-            <summary><span class="dl">${dayLabel}</span><span class="dz-day-chips">${partChip('Writing', day.diary, day.diaryFeedback)}${partChip('Speaking', day.shadowing, day.shadowingFeedback)}</span></summary>
+            <summary><span class="dl">${dayLabel}</span><span class="dz-day-chips">${partChip('Writing', day.diary, day.diaryFeedback, day.diaryFeedbackSentAt)}${partChip('Speaking', day.shadowing, day.shadowingFeedback, day.shadowingFeedbackSentAt)}</span></summary>
             <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
               <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
               <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
