@@ -679,7 +679,15 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .dz-leader .dz-day-chip { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; background: var(--surface-alt); color: var(--muted); }
   .dz-leader .dz-day-chip.todo { background: var(--primary-tint); color: var(--primary-hover); }
   .dz-leader .dz-day-body { padding: 0 14px 14px; }
-  .dz-leader textarea.dz-ta { min-height: 120px; font-size: 13px; line-height: 1.55; padding: 10px 12px; resize: vertical; overflow-y: hidden; }
+  .dz-leader textarea.dz-ta { min-height: 120px; font-size: 14.5px; line-height: 1.6; padding: 11px 13px; resize: vertical; overflow-y: hidden; color: var(--foreground); background: #FFFDFB; border-color: #E3DAD2; }
+  .dz-leader textarea.dz-ta::placeholder { color: #A39A92; }
+  .dz-leader textarea.dz-ta:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+  /* section titles inside a day: Writing / Speaking, then "... feedback" */
+  .dz-leader .dz-part-title { font-size: 15.5px; font-weight: 800; color: var(--foreground); margin: 2px 0 8px; letter-spacing: -0.01em; }
+  .dz-leader .dz-fb-label { font-size: 13.5px; font-weight: 700; color: var(--foreground); margin: 14px 0 6px; }
+  .dz-leader .dz-media-slot > p.dz-muted { font-size: 13.5px; color: #8A8178; padding: 14px; border: 1px dashed var(--hairline); border-radius: 12px; text-align: center; margin: 0; }
+  .dz-leader details.dz-day > summary .dl { font-size: 14.5px; }
+  .dz-leader .dz-day-chip { font-size: 12px; }
   .dz-lead-daytools { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
   .dz-lead-daytools button { font-size: 12px; font-weight: 700; color: var(--btn-primary); background: none; padding: 0; cursor: pointer; }
   @media (max-width: 860px) {
@@ -2411,7 +2419,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         const day = sub[date];
         const existing = day[field] || '';
         return `
-          <p class="dz-muted" style="margin:10px 0 4px;">${label} feedback</p>
+          <p class="dz-fb-label">${label} feedback</p>
           <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${existing ? escapeHtml(existing) : ''}</textarea>
           <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
             <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save draft</button>
@@ -2433,8 +2441,8 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           return `<details class="dz-day" data-day-key="${key}" ${open ? 'open' : ''}>
             <summary><span class="dl">${dayLabel}</span><span class="dz-day-chips">${partChip('Writing', day.diary, day.diaryFeedback, day.diaryFeedbackSentAt)}${partChip('Speaking', day.shadowing, day.shadowingFeedback, day.shadowingFeedbackSentAt)}</span></summary>
             <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
-              <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaSlot(focusId, d, day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
-              <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaSlot(focusId, d, day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
+              <div><p class="dz-part-title">Writing</p>${mediaSlot(focusId, d, day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
+              <div><p class="dz-part-title">Speaking</p>${mediaSlot(focusId, d, day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
             </div></div>
           </details>`;
         }).join('');
