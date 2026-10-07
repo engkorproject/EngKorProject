@@ -1329,7 +1329,27 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   function mediaBlock(value, kind) {
     if (!value) return '<p class="dz-muted">No submission</p>';
     if (value === 'seed') return kind === 'diary' ? '<div class="dz-placeholder">📝 Writing submitted (demo)</div>' : '<div class="dz-placeholder">🎙 Speaking submitted (demo)</div>';
-    return kind === 'diary' ? `<img class="dz-thumb" src="${value}" />` : `<audio controls src="${value}"></audio>`;
+    return kind === 'diary' ? `<img class="dz-thumb" src="${value}" />` : `<audio controls preload="metadata" src="${value}"></audio>`;
+  }
+  // Recordings made in the browser (webm) don't store their length up front,
+  // so players show 0:00 until played and look empty. Seeking far past the end
+  // makes the browser work out the real length; then jump back to the start.
+  function fixAudioDurations(root) {
+    root.querySelectorAll('audio').forEach(a => {
+      if (a.dataset.durationFixed) return;
+      a.dataset.durationFixed = '1';
+      const probe = () => {
+        if (Number.isFinite(a.duration) && a.duration > 0) return;
+        const restore = () => {
+          if (!Number.isFinite(a.duration)) return;
+          a.removeEventListener('durationchange', restore);
+          a.currentTime = 0;
+        };
+        a.addEventListener('durationchange', restore);
+        a.currentTime = 1e101;
+      };
+      if (a.readyState >= 1) probe(); else a.addEventListener('loadedmetadata', probe, { once: true });
+    });
   }
 
   // ---- media handling ----
@@ -2477,6 +2497,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         </div>
       </div>
     `;
+    fixAudioDurations(dzRoot);
 
     if (!isLeader) {
       const reapplyBtn = document.getElementById('reapply-btn');
