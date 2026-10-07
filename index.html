@@ -950,7 +950,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   let paypalButtonsInstance = null;
   // Shown under every PayPal button so terms and the refund window are disclosed
   // before payment (a refund limit only holds if it was shown up front).
-  const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>, including a full refund within 7 days of payment.</p>`;
+  const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>. You can withdraw for a full refund within 7 days of payment if you haven't substantially used the Service.</p>`;
 
   function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
