@@ -653,9 +653,23 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .dz-leader { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
   .dz-leader .dz-detail-panel { margin-top: 0; }
   .dz-lead-side { position: sticky; top: 84px; background: var(--canvas); border-radius: 20px; box-shadow: var(--shadow-soft); padding: 14px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 110px); }
-  .dz-lead-scope { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-alt); border-radius: 9999px; padding: 3px; }
-  .dz-lead-scope button { font-size: 12px; font-weight: 700; padding: 7px 8px; border-radius: 9999px; color: var(--muted); background: transparent; cursor: pointer; }
-  .dz-lead-scope button.on { background: var(--canvas); color: var(--foreground); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  /* October / All switch: a clear glass bubble that slides (with a little stretch) between the two */
+  .dz-lead-scope { position: relative; display: grid; grid-template-columns: 1fr 1fr; border-radius: 9999px; padding: 4px;
+    background: linear-gradient(180deg, rgba(242,146,78,0.10), rgba(242,146,78,0.16));
+    box-shadow: inset 0 1px 2px rgba(201,106,43,0.12), inset 0 0 0 1px rgba(242,146,78,0.10); }
+  .dz-scope-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 9999px; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.42) 55%, rgba(255,255,255,0.58) 100%);
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: inset 0 1px 1px #fff, inset 0 -2px 5px rgba(242,146,78,0.14), 0 3px 10px rgba(242,146,78,0.22), 0 1px 2px rgba(242,146,78,0.18);
+    -webkit-backdrop-filter: blur(4px) saturate(180%); backdrop-filter: blur(4px) saturate(180%);
+    transform: translateX(0); transition: transform 420ms cubic-bezier(0.34, 1.32, 0.5, 1); }
+  .dz-scope-thumb::after { content: ""; position: absolute; left: 14%; right: 14%; top: 2px; height: 40%; border-radius: 9999px; background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0)); }
+  .dz-lead-scope[data-pos="all"] .dz-scope-thumb { transform: translateX(100%); }
+  .dz-scope-thumb.moving { animation: dz-scope-stretch 420ms cubic-bezier(0.3, 0.7, 0.4, 1); }
+  @keyframes dz-scope-stretch { 0% { scale: 1 1; } 35% { scale: 1.14 0.9; } 70% { scale: 0.97 1.03; } 100% { scale: 1 1; } }
+  .dz-lead-scope button { position: relative; z-index: 1; font-size: 12.5px; font-weight: 700; padding: 8px 8px; border-radius: 9999px; color: var(--muted); background: transparent; cursor: pointer; transition: color 250ms var(--ease-standard); }
+  .dz-lead-scope button.on { color: var(--foreground); }
+  @media (prefers-reduced-motion: reduce) { .dz-scope-thumb { transition: none; } .dz-scope-thumb.moving { animation: none; } }
   .dz-lead-tools input, .dz-lead-tools select, .dz-lead-mobile select { width: 100%; height: 38px; border: 1px solid var(--hairline); border-radius: 10px; padding: 0 12px; font-family: inherit; font-size: 13px; background: var(--surface); color: var(--foreground); }
   .dz-lead-tools { display: grid; gap: 8px; }
   .dz-lead-tools label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -2412,9 +2426,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       const mobileOptions = rows.map(r => `<option value="${r.m.id}" ${r.m.id === focusId ? 'selected' : ''}>${escapeHtml(r.m.name || 'Unnamed')} · ${rowMeta(r)}${r.pending ? ` · ${r.pending} to review` : ''}</option>`).join('');
       const sideHtml = `
         <aside class="dz-lead-side">
-          <div class="dz-lead-scope" role="group" aria-label="Which members to show">
-            <button id="lead-scope-month" class="${state.leaderScope === 'month' ? 'on' : ''}">${monthName} (${monthCount})</button>
-            <button id="lead-scope-all" class="${state.leaderScope === 'all' ? 'on' : ''}">All (${state.members.length})</button>
+          <div class="dz-lead-scope" role="group" aria-label="Which members to show" data-pos="${state.leaderScopeFrom || state.leaderScope}">
+            <span class="dz-scope-thumb" aria-hidden="true"></span>
+            <button id="lead-scope-month" aria-pressed="${state.leaderScope === 'month'}" class="${state.leaderScope === 'month' ? 'on' : ''}">${monthName} (${monthCount})</button>
+            <button id="lead-scope-all" aria-pressed="${state.leaderScope === 'all'}" class="${state.leaderScope === 'all' ? 'on' : ''}">All (${state.members.length})</button>
           </div>
           <div class="dz-lead-tools">
             <input type="search" id="lead-search" placeholder="Search name or email" value="${escapeHtml(state.leaderSearch)}" aria-label="Search members" />
@@ -2634,7 +2649,22 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       document.querySelectorAll('[data-focus]').forEach(chip => {
         chip.addEventListener('click', () => { state.leaderFocusId = chip.getAttribute('data-focus'); renderApp(); });
       });
-      const setScope = (scope) => { state.leaderScope = scope; renderApp(); };
+      // The list re-renders on switch, so draw the bubble where it was, then slide it over.
+      const setScope = (scope) => {
+        if (scope === state.leaderScope) return;
+        state.leaderScopeFrom = state.leaderScope;
+        state.leaderScope = scope;
+        renderApp();
+      };
+      const scopeEl = document.querySelector('.dz-lead-scope');
+      if (scopeEl && state.leaderScopeFrom) {
+        state.leaderScopeFrom = null;
+        // Reading the layout first commits the old position, so changing it now animates.
+        const thumb = scopeEl.querySelector('.dz-scope-thumb');
+        void thumb.offsetWidth;
+        scopeEl.dataset.pos = state.leaderScope;
+        thumb.classList.add('moving');
+      }
       const scopeMonth = document.getElementById('lead-scope-month');
       if (scopeMonth) scopeMonth.addEventListener('click', () => setScope('month'));
       const scopeAll = document.getElementById('lead-scope-all');
