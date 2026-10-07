@@ -660,6 +660,21 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .dz-lead-pill { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 9999px; background: var(--surface-alt); color: var(--foreground); }
   .dz-lead-pill.todo { background: var(--primary-tint); color: var(--primary-hover); }
   .dz-lead-mobile { display: none; }
+  /* leader history: one collapsible row per day, open by default only if it still needs feedback */
+  .dz-leader details.dz-day { border: 1px solid var(--hairline); border-radius: 14px; margin: 8px 0; background: var(--canvas); }
+  .dz-leader details.dz-day[open] { border-color: var(--primary-tint); box-shadow: var(--shadow-soft); }
+  .dz-leader details.dz-day > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 11px 14px; }
+  .dz-leader details.dz-day > summary::-webkit-details-marker { display: none; }
+  .dz-leader details.dz-day > summary .dl { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .dz-leader details.dz-day > summary .dl::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform 150ms var(--ease-standard); }
+  .dz-leader details.dz-day[open] > summary .dl::before { transform: rotate(45deg); }
+  .dz-leader .dz-day-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dz-leader .dz-day-chip { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; background: var(--surface-alt); color: var(--muted); }
+  .dz-leader .dz-day-chip.todo { background: var(--primary-tint); color: var(--primary-hover); }
+  .dz-leader .dz-day-body { padding: 0 14px 14px; }
+  .dz-leader textarea.dz-ta { min-height: 120px; font-size: 13px; line-height: 1.55; padding: 10px 12px; resize: vertical; overflow-y: hidden; }
+  .dz-lead-daytools { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+  .dz-lead-daytools button { font-size: 12px; font-weight: 700; color: var(--btn-primary); background: none; padding: 0; cursor: pointer; }
   @media (max-width: 860px) {
     .dz-leader { grid-template-columns: 1fr; }
     .dz-lead-side { position: static; max-height: none; }
@@ -1104,6 +1119,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     leaderFocusId: null, loaded: false, showFeedbackHistory: false,
     // leader member list: 'month' = this calendar month's cohort only
     leaderScope: 'month', leaderSearch: '', leaderSort: 'latest',
+    leaderDayOpen: {}, // "memberId|date" -> true/false once the leader opens or closes a day
     monthCohortLabel: null, monthMemberIds: new Set(),
     recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
@@ -2291,13 +2307,23 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
             <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Send feedback</button>
           </div>`;
       };
+      const partChip = (label, media, fb) => !media
+        ? `<span class="dz-day-chip">${label}: none</span>`
+        : ((fb || '').trim() ? `<span class="dz-day-chip">${label} ✓</span>` : `<span class="dz-day-chip todo">${label}: to review</span>`);
       const allHistory = weekKeysDesc.map(wk => {
         const dayItems = groups[wk].map(d => {
           const day = sub[d];
-          return `<div class="dz-day-block"><div class="day-label">${d}</div><div class="dz-cards" style="margin:6px 0;">
-            <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
-            <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
-          </div></div>`;
+          const needsReview = (day.diary && !(day.diaryFeedback || '').trim()) || (day.shadowing && !(day.shadowingFeedback || '').trim());
+          const key = focusId + '|' + d;
+          const open = key in state.leaderDayOpen ? state.leaderDayOpen[key] : !!needsReview;
+          const dayLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          return `<details class="dz-day" data-day-key="${key}" ${open ? 'open' : ''}>
+            <summary><span class="dl">${dayLabel}</span><span class="dz-day-chips">${partChip('Writing', day.diary, day.diaryFeedback)}${partChip('Speaking', day.shadowing, day.shadowingFeedback)}</span></summary>
+            <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
+              <div><p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(day.diary, 'diary')}${feedbackField(d, 'diary', 'Writing')}</div>
+              <div><p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(day.shadowing, 'shadowing')}${feedbackField(d, 'shadowing', 'Speaking')}</div>
+            </div></div>
+          </details>`;
         }).join('');
         return `
           <div class="dz-week-header">${weekKeyToLabel(wk)}</div>
@@ -2314,7 +2340,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
                 ${focusInfo.pending ? `<span class="dz-lead-pill todo">${focusInfo.pending} to review</span>` : '<span class="dz-lead-pill">All reviewed</span>'}
               </div>
             </div>
-            ${allHistory || '<p class="dz-muted" style="margin-top:14px;">No submissions yet.</p>'}
+            ${allHistory ? `<div class="dz-lead-daytools"><button id="lead-open-all">Expand all</button><button id="lead-close-all">Collapse all</button></div>${allHistory}` : '<p class="dz-muted" style="margin-top:14px;">No submissions yet.</p>'}
           </div>` : `<div class="dz-detail-panel"><p class="dz-muted">Pick a member on the left to see their submissions.</p></div>`;
       body = `<div class="dz-leader">${sideHtml}<div>${detailHtml}</div></div>`;
     } else {
@@ -2474,6 +2500,17 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       if (showAll) showAll.addEventListener('click', () => setScope('all'));
       const sortSel = document.getElementById('lead-sort');
       if (sortSel) sortSel.addEventListener('change', () => { state.leaderSort = sortSel.value; renderApp(); });
+      document.querySelectorAll('.dz-leader details.dz-day').forEach(el => {
+        el.addEventListener('toggle', () => { state.leaderDayOpen[el.dataset.dayKey] = el.open; if (el.open) el.querySelectorAll('textarea.dz-ta').forEach(grow); });
+      });
+      const setAllDays = (open) => document.querySelectorAll('.dz-leader details.dz-day').forEach(el => { el.open = open; state.leaderDayOpen[el.dataset.dayKey] = open; });
+      const openAll = document.getElementById('lead-open-all');
+      if (openAll) openAll.addEventListener('click', () => setAllDays(true));
+      const closeAll = document.getElementById('lead-close-all');
+      if (closeAll) closeAll.addEventListener('click', () => setAllDays(false));
+      // Feedback boxes grow with what's typed instead of scrolling inside.
+      const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight + 2, 120) + 'px'; };
+      document.querySelectorAll('.dz-leader textarea.dz-ta').forEach(ta => { grow(ta); ta.addEventListener('input', () => grow(ta)); });
       const mobilePick = document.getElementById('lead-mobile-pick');
       if (mobilePick) mobilePick.addEventListener('change', () => { state.leaderFocusId = mobilePick.value; renderApp(); });
       // Re-rendering on each keystroke rebuilds the input, so put the cursor back.
@@ -2491,6 +2528,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           const date = btn.getAttribute('data-save-day-fb-date');
           const field = btn.getAttribute('data-save-day-fb-field');
           const ta = document.querySelector(`textarea[data-fb-day-member="${mid}"][data-fb-day-date="${date}"][data-fb-day-field="${field}"]`);
+          state.leaderDayOpen[mid + '|' + date] = true; // a draft isn't finished, so keep the day open
           saveDayFeedback(mid, date, field, ta.value);
         });
       });
@@ -2500,6 +2538,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
           const date = btn.getAttribute('data-submit-day-fb-date');
           const field = btn.getAttribute('data-submit-day-fb-field');
           const ta = document.querySelector(`textarea[data-fb-day-member="${mid}"][data-fb-day-date="${date}"][data-fb-day-field="${field}"]`);
+          delete state.leaderDayOpen[mid + '|' + date]; // back to the default: closes once both parts have feedback
           submitDayFeedback(mid, date, field, ta.value);
         });
       });
