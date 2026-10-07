@@ -2275,9 +2275,11 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function renderApp() {
     if (state.view === 'landing' || state.view === 'auth') return;
-    if (!state.loaded) { dzRoot.innerHTML = '<div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div>'; return; }
-
     const isLeader = state.view === 'leader';
+    // Set the width before the loading state too, so the box doesn't jump when data arrives.
+    dzRoot.classList.toggle('wide', isLeader);
+    document.getElementById('back-link').classList.toggle('wide', isLeader);
+    if (!state.loaded) { dzRoot.innerHTML = '<div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div>'; return; }
     let body = '';
 
     if (!isLeader && state.notYetStarted) {
@@ -2480,8 +2482,6 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const displayName = currentProfile ? currentProfile.name : '';
     const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-    dzRoot.classList.toggle('wide', !!isLeader);
-    document.getElementById('back-link').classList.toggle('wide', !!isLeader);
     dzRoot.innerHTML = `
       <div class="dz-header">
         <div>
