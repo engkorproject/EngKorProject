@@ -190,6 +190,13 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   #nav-logo:hover { opacity: 0.75; }
   #nav-logo:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
   .nav-links { display: flex; gap: 26px; font-size: 14px; font-weight: 500; font-family: "Geist", sans-serif; color: var(--muted); }
+  /* Above phone width: equal side columns put the menu at the true page center,
+     however wide the logo or the right-hand buttons are. */
+  @media (min-width: 561px) {
+    nav { display: grid; grid-template-columns: 1fr auto 1fr; }
+    nav > .logo { justify-self: start; }
+    nav > .nav-actions { justify-self: end; }
+  }
   .nav-links a { position: relative; transition: color 150ms var(--ease-standard); }
   .nav-links a:hover { color: var(--primary); }
   .nav-actions { display: flex; gap: 8px; align-items: center; }
