@@ -1631,7 +1631,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // ---- challenge application ----
   // applyDraft keeps what the member typed, so re-rendering the form to show a
   // loading state or an error doesn't wipe their input.
-  let applyError = null, applyLoading = false, applyDraft = null;
+  let applyLoading = false, applyDraft = null;
 
   // Shown to signed-out visitors (and anyone before their cohort data loads), who
   // never trigger a query against cohorts.is_open. Previously this fell back to
@@ -1679,7 +1679,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     state.view = 'apply';
     landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block'; accountView.style.display = 'none';
     window.scrollTo(0,0);
-    applyError = null; applyLoading = false; applyDraft = null;
+    applyLoading = false; applyDraft = null;
     renderPricingStep();
     if (location.hash !== '#/apply') location.hash = '#/apply';
   }
@@ -1745,7 +1745,6 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" value="${escapeHtml(d.referralCode || '')}" /></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
         ${CONSENT_NOTE_HTML}
-        ${applyError ? `<p class="auth-error">${escapeHtml(applyError)}</p>` : ''}
       </form>
     `;
     document.getElementById('apply-form').addEventListener('submit', handleApplySubmit);
@@ -1770,10 +1769,9 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const referralCode = document.getElementById('apply-referral-code').value.trim();
     const birthError = birthdateError(birthParts);
     if (birthError) {
-      showBirthdateErrorModal(birthError);
+      showApplyErrorModal('Please check your birthdate', birthError, 'apply-birth-month');
       return;
     }
-    if (applyError) { applyDraft = { name, timezone, birthdate, referralCode }; applyError = null; renderApplyForm(); }
     if (currentUser && currentUser.email === TEST_BYPASS_EMAIL) {
       submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode, viaReferral: false });
       return;
@@ -1795,17 +1793,18 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     return null;
   }
 
-  // A popup rather than the small inline error line, so it can't be missed
-  // below the button. The form isn't re-rendered, so the picks stay as they were.
-  function showBirthdateErrorModal(message) {
+  // Apply form errors show as a popup rather than a small line under the
+  // button, so they can't be missed. The form keeps what was entered.
+  function showApplyErrorModal(title, message, focusId) {
     showModal(`
-      <h2 style="font-size:19px;">Please check your birthdate</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">${message}</p>
-      <button class="btn btn-primary" id="birthdate-error-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+      <h2 style="font-size:19px;">${title}</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${escapeHtml(message)}</p>
+      <button class="btn btn-primary" id="apply-error-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
     `);
-    document.getElementById('birthdate-error-ok-btn').addEventListener('click', () => {
+    document.getElementById('apply-error-ok-btn').addEventListener('click', () => {
       closeModal();
-      document.getElementById('apply-birth-month').focus();
+      const field = focusId && document.getElementById(focusId);
+      if (field) field.focus();
     });
   }
 
@@ -1825,7 +1824,7 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // account via apply_for_challenge_test, which checks the account server-side.
   async function submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode, viaReferral }) {
     applyDraft = { name, timezone, birthdate, referralCode };
-    applyError = null; applyLoading = true; renderApplyForm();
+    applyLoading = true; renderApplyForm();
     const { data, error } = viaReferral
       ? await sb.rpc('apply_with_code', {
           p_code: referralCode, p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0
@@ -1836,8 +1835,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     applyLoading = false;
     if (error) {
       console.error('Application failed:', error);
-      applyError = applyErrorMessage(error.message || '');
       renderApplyForm();
+      const msg = error.message || '';
+      const codeProblem = ['INVALID_REFERRAL_CODE', 'COUPON_ALREADY_USED'].some((c) => msg.includes(c));
+      showApplyErrorModal("We couldn't submit your application", applyErrorMessage(msg), codeProblem ? 'apply-referral-code' : null);
       return;
     }
     applyDraft = null;
