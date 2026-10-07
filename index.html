@@ -490,6 +490,12 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   .auth-field label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
   .auth-field input { width: 100%; height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--canvas); font-family: inherit; font-size: 14px; color: var(--foreground); }
   .auth-field input:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+  .birth-row { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr; gap: 8px; }
+  .auth-field select { width: 100%; height: 44px; padding: 0 30px 0 12px; border-radius: 8px; border: 1px solid var(--hairline); font-family: inherit; font-size: 14px; color: var(--foreground); cursor: pointer;
+                       appearance: none; -webkit-appearance: none;
+                       background: var(--canvas) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A8478' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center; }
+  .auth-field select:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+  .auth-field select:invalid { color: var(--muted); }
   .auth-error { color: var(--error); font-size: 12.5px; margin-top: 10px; }
   .auth-success { color: var(--success); font-size: 15px; font-weight: 700; margin-top: 10px; }
   .auth-switch { text-align: center; font-size: 14.5px; color: var(--muted); margin-top: 18px; }
@@ -1712,19 +1718,29 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
     const card = document.getElementById('apply-card');
     card.style.cssText = '';
     const monthLabel = cohortMonthLabel(state.cohort);
-    // Bounds the native date picker's year field to 4 digits (without min/max
-    // it lets you keep typing digits past a normal year, e.g. Chrome), and
-    // doubles as an actual age-14 floor per our Terms.
-    const today = new Date();
-    const maxBirthdate = localDateStr(new Date(today.getFullYear() - 14, today.getMonth(), today.getDate()));
-    const minBirthdate = '1925-01-01';
+    // Month/Day/Year dropdowns instead of <input type="date">, whose placeholder
+    // and picker follow the browser's language (e.g. Korean) whatever the page
+    // says. Years stop at 14 years ago (our Terms' minimum age); the exact
+    // age-14 check runs in handleApplySubmit.
     const d = applyDraft || {};
+    const [by, bm, bd] = (d.birthParts || ((d.birthdate ?? currentProfile.birthdate) || '').split('-')).map((v) => v || '');
+    const thisYear = new Date().getFullYear();
+    const opt = (value, label, selected) => `<option value="${value}"${selected ? ' selected' : ''}>${label}</option>`;
+    const monthOpts = BIRTH_MONTHS.map((m, i) => opt(pad2(i + 1), m, bm === pad2(i + 1))).join('');
+    const dayOpts = Array.from({ length: 31 }, (_, i) => opt(pad2(i + 1), i + 1, bd === pad2(i + 1))).join('');
+    const yearOpts = Array.from({ length: thisYear - 14 - 1925 + 1 }, (_, i) => thisYear - 14 - i).map((y) => opt(y, y, by === String(y))).join('');
     card.innerHTML = `
       <h2>Apply for the ${monthLabel} Challenge</h2>
       <p class="sub">Fill this out once and our staff will start reviewing your daily check-ins.</p>
       <form id="apply-form">
         <div class="auth-field"><label>Name</label><input type="text" id="apply-name" required value="${escapeHtml((d.name ?? currentProfile.name) || '')}" /></div>
-        <div class="auth-field"><label>Birthdate</label><input type="date" id="apply-birthdate" lang="en-US" required min="${minBirthdate}" max="${maxBirthdate}" value="${escapeHtml((d.birthdate ?? currentProfile.birthdate) || '')}" /></div>
+        <div class="auth-field"><label id="apply-birth-label">Birthdate</label>
+          <div class="birth-row" role="group" aria-labelledby="apply-birth-label">
+            <select id="apply-birth-month" aria-label="Birth month" required><option value="">Month</option>${monthOpts}</select>
+            <select id="apply-birth-day" aria-label="Birth day" required><option value="">Day</option>${dayOpts}</select>
+            <select id="apply-birth-year" aria-label="Birth year" required><option value="">Year</option>${yearOpts}</select>
+          </div>
+        </div>
         <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
         <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" value="${escapeHtml(d.referralCode || '')}" /></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
@@ -1748,9 +1764,18 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   function handleApplySubmit(e) {
     e.preventDefault();
     const name = document.getElementById('apply-name').value.trim();
-    const birthdate = document.getElementById('apply-birthdate').value;
+    const birthParts = ['apply-birth-year', 'apply-birth-month', 'apply-birth-day'].map((id) => document.getElementById(id).value);
+    const birthdate = birthParts.join('-');
     const timezone = document.getElementById('apply-timezone').value.trim();
     const referralCode = document.getElementById('apply-referral-code').value.trim();
+    const birthError = birthdateError(birthParts);
+    if (birthError) {
+      applyDraft = { name, timezone, birthParts, referralCode };
+      applyError = birthError;
+      renderApplyForm();
+      return;
+    }
+    if (applyError) { applyDraft = { name, timezone, birthdate, referralCode }; applyError = null; renderApplyForm(); }
     if (currentUser && currentUser.email === TEST_BYPASS_EMAIL) {
       submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode, viaReferral: false });
       return;
@@ -1760,6 +1785,16 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
       return;
     }
     openPaymentModal({ name, timezone, birthdate, monthOffset: 0, referralCode });
+  }
+
+  const BIRTH_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  // Catches impossible dates (e.g. February 30) and anyone under 14 (our Terms).
+  function birthdateError([y, m, d]) {
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
+    if (date.getMonth() !== Number(m) - 1) return "That date doesn't exist. Please check your birthdate.";
+    const today = new Date();
+    if (date > new Date(today.getFullYear() - 14, today.getMonth(), today.getDate())) return 'You must be at least 14 years old to join.';
+    return null;
   }
 
   function applyErrorMessage(msg) {
