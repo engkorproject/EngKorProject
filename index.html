@@ -152,10 +152,11 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/sn-pro@5.3.0/400.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/sn-pro@5.3.0/700.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<!-- TEMP: back to Sandbox for the referral code test. Swap client-id back to the
-Live one below (and also flip Supabase Secrets back to Live) once verified.
-Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTLoyxBu5_RdEMNwZlrRg -->
-<script src="https://www.paypal.com/sdk/js?client-id=AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvxvK8j0h7sZcVXl8mkE1d&currency=USD&locale=en_US"></script>
+<!-- PayPal Live. For a Sandbox test, swap in the Sandbox client-id below and
+flip the four PAYPAL_* Supabase secrets back to Sandbox too. Keep locale=en_US
+so the buttons stay English whatever the visitor's browser language.
+Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvxvK8j0h7sZcVXl8mkE1d -->
+<script src="https://www.paypal.com/sdk/js?client-id=BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTLoyxBu5_RdEMNwZlrRg&currency=USD&locale=en_US"></script>
 <style>
   :root {
     --primary: #F2924E; --primary-hover: #D58045; --primary-tint: #FCE5D5;
@@ -1024,10 +1025,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   const CREATE_ORDER_URL = SUPABASE_URL + '/functions/v1/create-order';
   const CAPTURE_ORDER_URL = SUPABASE_URL + '/functions/v1/capture-order';
-  // Off while we run beta-only (no paid sign-ups yet): the referral-code path
-  // and the QA test account still enroll without payment. Before turning this
-  // back on, rerun one Sandbox checkout end to end, then switch PayPal to Live.
-  const PAYMENT_ENABLED = false;
+  // On since October 2026 (PayPal Live). Turning it off shows "Payments opening
+  // soon" instead of the PayPal buttons; the referral-code path and the QA test
+  // account enroll without payment either way.
+  const PAYMENT_ENABLED = true;
   // Paid enrollment is closed to the EU and UK until we've confirmed how VAT
   // applies there. capture-order enforces this from the buyer's PayPal country;
   // this list only decides what the payment modals show. Keep both in sync.
