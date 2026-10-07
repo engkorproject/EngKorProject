@@ -50,18 +50,29 @@
       if (consented) window.clarity('consentv2', { ad_Storage: 'denied', analytics_Storage: 'granted' });
     }
 
-    // Country code from Cloudflare; falls back to the browser time zone if the
-    // lookup fails, treating any Europe/* zone as needing consent.
+    // Visitor's country code from Cloudflare, or null if the lookup fails.
+    // Fetched once and shared with the payment modal (see PAYMENT_BLOCKED_REGIONS).
+    var countryPromise = null;
+    function country() {
+      if (!countryPromise) {
+        countryPromise = fetch('/cdn-cgi/trace', { cache: 'no-store' })
+          .then(function(r) { return r.text(); })
+          .then(function(t) { var m = t.match(/^loc=([A-Z]{2})$/m); return m ? m[1] : null; })
+          .catch(function() { return null; });
+      }
+      return countryPromise;
+    }
+
+    // Falls back to the browser time zone if the country is unknown, treating
+    // any Europe/* zone as needing consent.
     // ?consent_test=eu forces the banner so the team can check the EU flow from anywhere.
     function needsConsent() {
       if (/[?&]consent_test=eu\b/.test(location.search)) return Promise.resolve(true);
-      return fetch('/cdn-cgi/trace', { cache: 'no-store' })
-        .then(function(r) { return r.text(); })
-        .then(function(t) { var m = t.match(/^loc=([A-Z]{2})$/m); if (!m) throw new Error('no loc'); return CONSENT_REGIONS.indexOf(m[1]) !== -1; })
-        .catch(function() {
-          var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-          return tz.indexOf('Europe/') === 0;
-        });
+      return country().then(function(code) {
+        if (code) return CONSENT_REGIONS.indexOf(code) !== -1;
+        var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        return tz.indexOf('Europe/') === 0;
+      });
     }
 
     function banner() { return document.getElementById('cookie-banner'); }
@@ -100,7 +111,7 @@
       });
     }
 
-    return { accept: accept, decline: decline, openSettings: show };
+    return { accept: accept, decline: decline, openSettings: show, country: country };
   })();
 </script>
 
@@ -905,6 +916,16 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
   // and the QA test account still enroll without payment. Before turning this
   // back on, rerun one Sandbox checkout end to end, then switch PayPal to Live.
   const PAYMENT_ENABLED = false;
+  // Paid enrollment is closed to the EU and UK until we've confirmed how VAT
+  // applies there. capture-order enforces this from the buyer's PayPal country;
+  // this list only decides what the payment modals show. Keep both in sync.
+  // ?pay_region_test=eu previews the closed view from anywhere.
+  const PAYMENT_BLOCKED_REGIONS = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','GB'];
+  function paymentBlockedHere() {
+    if (/[?&]pay_region_test=eu\b/.test(location.search)) return Promise.resolve(true);
+    return window.EngKorConsent.country().then((code) => !!code && PAYMENT_BLOCKED_REGIONS.includes(code));
+  }
+  const REGION_CLOSED_TEXT = `Paid enrollment isn't available in the EU or UK yet. We're working on opening it there. Have a referral code? You can still join with it. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.`;
   const CONSENT_NOTE_HTML = `<p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>`;
   function showPaymentUnavailableModal() {
     showModal(`
@@ -927,6 +948,23 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
 
   function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
+    paymentBlockedHere().then((blocked) => {
+      if (blocked) showRegionClosedModal();
+      else showPayModal({ name, timezone, birthdate, monthOffset, referralCode });
+    });
+  }
+
+  function showRegionClosedModal() {
+    showModal(`
+      <h2 style="font-size:19px;">Not available in your region yet</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${REGION_CLOSED_TEXT}</p>
+      <button class="btn btn-primary" id="region-closed-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    const btn = document.getElementById('region-closed-ok-btn');
+    if (btn) btn.addEventListener('click', closeModal);
+  }
+
+  function showPayModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     showModal(`
       <h2 style="font-size:19px;">Confirm & Pay</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
@@ -965,6 +1003,10 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         closeModal();
 
         if (!result.paid) {
+          if ((result.error || '').includes('REGION_NOT_SUPPORTED')) {
+            showToast("Payments from EU or UK PayPal accounts aren't available yet. You haven't been charged.", true);
+            return;
+          }
           showToast('Payment could not be completed. Please try again.', true);
           return;
         }
@@ -1780,14 +1822,21 @@ Live client-id: BAAKT0-Vgru43viTVQudJ9k2i46xUqAiD3rEFWYHhHaViBy_gJ7QXYiemd7qcLTL
         <p class="auth-error" id="renew-code-error" hidden></p>
       </form>
       ${PAYMENT_ENABLED
-        ? `<p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}`
+        ? `<div id="renew-pay-section"><p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}</div>`
         : `<p class="dz-muted" style="margin:20px 0 0;">Paid renewals are opening soon. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.</p>`}
     `);
     document.getElementById('renew-code-form').addEventListener('submit', redeemRenewalCode);
     if (PAYMENT_ENABLED) {
-      renderPaypalButton({
-        name: currentProfile.name, timezone: currentProfile.timezone,
-        birthdate: currentProfile.birthdate, monthOffset: 1
+      paymentBlockedHere().then((blocked) => {
+        if (blocked) {
+          const section = document.getElementById('renew-pay-section');
+          if (section) section.innerHTML = `<p class="dz-muted" style="margin:20px 0 0;">${REGION_CLOSED_TEXT}</p>`;
+          return;
+        }
+        renderPaypalButton({
+          name: currentProfile.name, timezone: currentProfile.timezone,
+          birthdate: currentProfile.birthdate, monthOffset: 1
+        });
       });
     }
   }

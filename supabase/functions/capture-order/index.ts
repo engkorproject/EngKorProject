@@ -26,6 +26,15 @@ const corsHeaders = {
 
 const BUSINESS_ERRORS = ["COHORT_FULL", "DUPLICATE_PERSON", "NO_OPEN_COHORT"];
 
+// Paid enrollment is closed to EU and UK buyers until we've confirmed how VAT
+// applies to EngKor there (non-EU sellers can owe it from the first sale).
+// Matched against the buyer's PayPal country, so a VPN doesn't get around it.
+// Keep in sync with PAYMENT_BLOCKED_REGIONS in index.html.
+const BLOCKED_COUNTRIES = [
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE",
+  "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -82,6 +91,28 @@ Deno.serve(async (req) => {
     if (!tokenRes.access_token) {
       return new Response(JSON.stringify({ error: "Could not get a PayPal access token", detail: tokenRes }), {
         status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Checked before capture, so a blocked buyer is never charged: an approved
+    // but uncaptured order just expires on PayPal's side.
+    const order = await fetch(`${apiBase}/v2/checkout/orders/${orderID}`, {
+      headers: { Authorization: `Bearer ${tokenRes.access_token}` },
+    }).then((r) => r.json());
+    const buyerCountry =
+      order.payer?.address?.country_code ??
+      order.payment_source?.paypal?.address?.country_code ??
+      order.payment_source?.card?.billing_address?.country_code ??
+      null;
+    if (!buyerCountry) console.warn(`No buyer country on order ${orderID}; capturing without the region check`);
+    if (buyerCountry && BLOCKED_COUNTRIES.includes(buyerCountry)) {
+      const { error: deleteError } = await createClient(supabaseUrl!, serviceRoleKey!)
+        .from("pending_paypal_orders")
+        .delete()
+        .eq("order_id", orderID);
+      if (deleteError) console.error("Could not clear pending_paypal_orders row:", deleteError.message);
+      return new Response(JSON.stringify({ paid: false, error: "REGION_NOT_SUPPORTED", country: buyerCountry }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
