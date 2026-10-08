@@ -908,7 +908,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Private unlimited Q&amp;A channel for paid users</div>
         </div>
         <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
-        <p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>
+        <p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>
       </div>
     </div>
   </section>
@@ -1058,7 +1058,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     });
   }
   const REGION_CLOSED_TEXT = `Paid enrollment isn't available in the EU or UK yet. We're working on opening it there. Have a referral code? You can still join with it. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.`;
-  const CONSENT_NOTE_HTML = `<p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>`;
+  const CONSENT_NOTE_HTML = `<p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>`;
   function showPaymentUnavailableModal() {
     showModal(`
       <h2 style="font-size:19px;">Payments opening soon</h2>
@@ -1076,7 +1076,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   let paypalButtonsInstance = null;
   // Shown under every PayPal button so terms and the refund window are disclosed
   // before payment (a refund limit only holds if it was shown up front).
-  const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>. You can withdraw for a full refund within 7 days of payment if you haven't substantially used the Service.</p>`;
+  const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>`;
 
   function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
