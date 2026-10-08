@@ -553,6 +553,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .ek-modal.open { display: flex; }
   .kr-pay-note { text-align: left; font-size: 12.5px; line-height: 1.55; color: var(--foreground); background: #FFF6EE; border: 1px solid var(--primary-tint); border-radius: 12px; padding: 11px 13px; margin: 0 0 14px; }
   .kr-pay-note a { color: var(--btn-primary); font-weight: 600; }
+  .pay-status { display: none; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--foreground); margin: 0 0 10px; }
+  .pay-status.on { display: flex; }
+  .pay-status::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--primary-tint); border-top-color: var(--btn-primary); animation: pay-spin 700ms linear infinite; }
+  @keyframes pay-spin { to { transform: rotate(360deg); } }
   .ek-modal-card { margin: auto; max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
   /* Longer, left-aligned dialogs (account deletion) */
   .ek-modal-card.wide { max-width: 460px; text-align: left; max-height: 88vh; overflow-y: auto; }
@@ -1097,6 +1101,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       <h2 style="font-size:19px;">Confirm & Pay</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
       <div id="kr-pay-note-slot"></div>
+      <p class="pay-status" id="pay-status" role="status">Connecting to PayPal...</p>
       <div id="paypal-button-container"></div>
       ${PAYMENT_CONSENT_HTML}
     `);
@@ -1108,8 +1113,36 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const container = document.getElementById('paypal-button-container');
     if (!container || !window.paypal) return;
     if (paypalButtonsInstance) { try { paypalButtonsInstance.close(); } catch (e) {} }
+    // Creating the order on our server takes a second or two before PayPal opens
+    // its window or the card form; without feedback it looked like the click
+    // didn't register, so people clicked again.
+    const payStatus = (text) => {
+      const el = document.getElementById('pay-status');
+      if (!el) return;
+      if (text) el.textContent = text;
+      el.classList.toggle('on', !!text);
+    };
     paypalButtonsInstance = paypal.Buttons({
+      onClick: () => { payStatus('Connecting to PayPal...'); },
       createOrder: async () => {
+        try { return await createPaypalOrder(); } finally { payStatus(null); }
+      },
+      onApprove: async (data) => {
+        payStatus('Confirming your payment...');
+        try { await handlePaypalApprove(data); } finally { payStatus(null); }
+      },
+      onCancel: () => {
+        payStatus(null);
+        showToast("Payment was cancelled, so you haven't been charged. Please try again and keep the PayPal window open until it finishes.");
+      },
+      onError: () => {
+        payStatus(null);
+        showToast('Something went wrong with PayPal. Please try again.', true);
+      },
+    });
+    paypalButtonsInstance.render('#paypal-button-container');
+
+    async function createPaypalOrder() {
         const { data: sessionData } = await sb.auth.getSession();
         const accessToken = sessionData.session ? sessionData.session.access_token : null;
         const res = await fetch(CREATE_ORDER_URL, {
@@ -1120,8 +1153,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         const data = await res.json();
         if (!data.id) throw new Error('Could not start checkout.');
         return data.id;
-      },
-      onApprove: async (data) => {
+    }
+
+    async function handlePaypalApprove(data) {
         const { data: sessionData } = await sb.auth.getSession();
         const accessToken = sessionData.session ? sessionData.session.access_token : null;
         const res = await fetch(CAPTURE_ORDER_URL, {
@@ -1167,15 +1201,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           renderApp();
           showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
         }
-      },
-      onCancel: () => {
-        showToast("Payment was cancelled, so you haven't been charged. Please try again and keep the PayPal window open until it finishes.");
-      },
-      onError: () => {
-        showToast('Something went wrong with PayPal. Please try again.', true);
-      },
-    });
-    paypalButtonsInstance.render('#paypal-button-container');
+    }
   }
 
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -2151,7 +2177,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <p class="auth-error" id="renew-code-error" hidden></p>
       </form>
       ${PAYMENT_ENABLED
-        ? `<div id="renew-pay-section"><p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="kr-pay-note-slot"></div><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}</div>`
+        ? `<div id="renew-pay-section"><p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="kr-pay-note-slot"></div><p class="pay-status" id="pay-status" role="status">Connecting to PayPal...</p><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}</div>`
         : `<p class="dz-muted" style="margin:20px 0 0;">Paid renewals are opening soon. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.</p>`}
     `);
     document.getElementById('renew-code-form').addEventListener('submit', redeemRenewalCode);
