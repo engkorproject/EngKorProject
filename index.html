@@ -547,9 +547,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
 
   /* ===== generic modal (welcome popup, cohort-full notice) ===== */
-  .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+  /* The overlay scrolls when a popup is taller than the screen (e.g. PayPal's card form).
+     margin: auto on the card centers it when it fits, without cutting off its top when it doesn't. */
+  .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; padding: 20px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .ek-modal.open { display: flex; }
-  .ek-modal-card { max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+  .ek-modal-card { margin: auto; max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
   /* Longer, left-aligned dialogs (account deletion) */
   .ek-modal-card.wide { max-width: 460px; text-align: left; max-height: 88vh; overflow-y: auto; }
   .ek-modal-card.wide h2 { font-size: 19px; }
