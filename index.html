@@ -551,6 +551,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
      margin: auto on the card centers it when it fits, without cutting off its top when it doesn't. */
   .ek-modal { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.6); z-index: 999; padding: 20px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .ek-modal.open { display: flex; }
+  .kr-pay-note { text-align: left; font-size: 12.5px; line-height: 1.55; color: var(--foreground); background: #FFF6EE; border: 1px solid var(--primary-tint); border-radius: 12px; padding: 11px 13px; margin: 0 0 14px; }
+  .kr-pay-note a { color: var(--btn-primary); font-weight: 600; }
   .ek-modal-card { margin: auto; max-width: 380px; width: 100%; background: var(--canvas); border-radius: 20px; padding: 30px 26px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
   /* Longer, left-aligned dialogs (account deletion) */
   .ek-modal-card.wide { max-width: 460px; text-align: left; max-height: 88vh; overflow-y: auto; }
@@ -1040,6 +1042,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (/[?&]pay_region_test=eu\b/.test(location.search)) return Promise.resolve(true);
     return window.EngKorConsent.country().then((code) => !!code && PAYMENT_BLOCKED_REGIONS.includes(code));
   }
+  // PayPal refuses payments between Korean accounts, and that includes Korean
+  // cards. Visitors connecting from Korea get a heads-up above the buttons; anyone
+  // with an overseas PayPal account or card can still pay. ?pay_region_test=kr previews it.
+  const KOREA_PAY_NOTE_HTML = `<p class="kr-pay-note">Paying from Korea? PayPal doesn't support payments from Korean PayPal accounts or Korean cards. Email us at <a href="mailto:engkorproject@gmail.com">engkorproject@gmail.com</a> and we'll help you join.</p>`;
+  function addKoreaPayNote(slotId) {
+    const forced = /[?&]pay_region_test=kr\b/.test(location.search);
+    (forced ? Promise.resolve('KR') : window.EngKorConsent.country()).then((code) => {
+      const slot = document.getElementById(slotId);
+      if (slot && code === 'KR') slot.innerHTML = KOREA_PAY_NOTE_HTML;
+    });
+  }
   const REGION_CLOSED_TEXT = `Paid enrollment isn't available in the EU or UK yet. We're working on opening it there. Have a referral code? You can still join with it. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.`;
   const CONSENT_NOTE_HTML = `<p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can withdraw within 7 days of payment if you haven't substantially used the Service.</p>`;
   function showPaymentUnavailableModal() {
@@ -1083,9 +1096,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     showModal(`
       <h2 style="font-size:19px;">Confirm & Pay</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
+      <div id="kr-pay-note-slot"></div>
       <div id="paypal-button-container"></div>
       ${PAYMENT_CONSENT_HTML}
     `);
+    addKoreaPayNote('kr-pay-note-slot');
     renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode });
   }
 
@@ -2136,7 +2151,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <p class="auth-error" id="renew-code-error" hidden></p>
       </form>
       ${PAYMENT_ENABLED
-        ? `<div id="renew-pay-section"><p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}</div>`
+        ? `<div id="renew-pay-section"><p class="dz-muted" style="text-align:center; margin:20px 0 12px;">or pay $5.50 with PayPal</p><div id="kr-pay-note-slot"></div><div id="paypal-button-container"></div>${PAYMENT_CONSENT_HTML}</div>`
         : `<p class="dz-muted" style="margin:20px 0 0;">Paid renewals are opening soon. Questions? Email us at <a href="mailto:engkorproject@gmail.com" style="color:var(--btn-primary); font-weight:600;">engkorproject@gmail.com</a>.</p>`}
     `);
     document.getElementById('renew-code-form').addEventListener('submit', redeemRenewalCode);
@@ -2147,6 +2162,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           if (section) section.innerHTML = `<p class="dz-muted" style="margin:20px 0 0;">${REGION_CLOSED_TEXT}</p>`;
           return;
         }
+        addKoreaPayNote('kr-pay-note-slot');
         renderPaypalButton({
           name: currentProfile.name, timezone: currentProfile.timezone,
           birthdate: currentProfile.birthdate, monthOffset: 1
