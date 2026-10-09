@@ -600,13 +600,23 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     box-shadow: 0 1px 2px rgba(87,58,40,0.06); }
   .dz-view-select:focus-visible, .dz-owner-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .dz-owner { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
-  .dz-ltag { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
-  .dz-ltag.c0 { background: #E7F0FD; color: #2F5D9E; }
-  .dz-ltag.c1 { background: #E5F4EA; color: #2F7A4B; }
-  .dz-ltag.c2 { background: #F1E8FB; color: #6B3FA0; }
-  .dz-ltag.c3 { background: #FBEFD9; color: #8A5A12; }
-  .dz-ltag.none { background: var(--surface-alt); color: var(--muted); }
-  .dz-lead-row .tagline { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  /* cool hues so tags stay readable on the orange-tinted rows */
+  .dz-ltag { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 7px; border-radius: 6px; white-space: nowrap; border: 1px solid transparent; cursor: pointer; flex-shrink: 0; }
+  .dz-ltag::after { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translate(-1px, -1px); opacity: 0.6; }
+  .dz-ltag.c0 { background: #E3EDFF; border-color: #C6D9FF; color: #1D4FA8; }
+  .dz-ltag.c1 { background: #DDF4EA; border-color: #B5E6D0; color: #106B4E; }
+  .dz-ltag.c2 { background: #EEE6FF; border-color: #D6C6FB; color: #5B33B5; }
+  .dz-ltag.c3 { background: #E9EDF3; border-color: #D3DAE5; color: #3B4A60; }
+  .dz-ltag.none { background: #fff; border-color: var(--hairline); color: var(--muted); }
+  .dz-ltag:hover { filter: brightness(0.97); }
+  .dz-ltag:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .dz-lead-row .nmline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .dz-lead-row .nmline .nm { min-width: 0; }
+  .dz-tag-menu { position: fixed; z-index: 1000; min-width: 160px; padding: 6px; border-radius: 14px; background: #fff; border: 1px solid var(--hairline); box-shadow: 0 12px 32px rgba(87,58,40,0.18); }
+  .dz-tag-menu .ttl { font-size: 11px; font-weight: 700; color: var(--muted); padding: 6px 8px 4px; }
+  .dz-tag-menu button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 7px 8px; border-radius: 9px; background: transparent; cursor: pointer; text-align: left; }
+  .dz-tag-menu button:hover, .dz-tag-menu button:focus-visible { background: var(--surface); outline: none; }
+  .dz-tag-menu .chk { font-size: 12px; color: var(--btn-primary); font-weight: 800; }
   .dz-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 4px 0 18px; }
   .dz-ring-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; background: rgba(255,255,255,0.86); border: 1px solid rgba(255,255,255,0.9);
     box-shadow: inset 0 1px 1px #fff, 0 2px 10px rgba(242,146,78,0.10); cursor: pointer; text-align: left; transition: transform 150ms var(--ease-standard), box-shadow 150ms var(--ease-standard); }
@@ -1453,11 +1463,66 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
   // "Jisoo Leader" / "Hyunho (Leader)" -> "Jisoo" / "Hyunho"
   function leaderShortName(l) { return ((l && l.name) || 'Leader').replace(/\s*\(?leader\)?\s*$/i, '').trim() || 'Leader'; }
-  function leaderTagHtml(leaderId) {
+  // The tag sits inside the row button, so it's a span acting as a button
+  // (a real nested <button> isn't valid HTML). Clicking it opens the leader menu.
+  function leaderTagHtml(leaderId, memberId) {
     const i = state.leaders.findIndex(l => l.id === leaderId);
-    if (i === -1) return '<span class="dz-ltag none">Unassigned</span>';
-    return `<span class="dz-ltag c${i % 4}">${escapeHtml(leaderShortName(state.leaders[i]))}</span>`;
+    const cls = i === -1 ? 'none' : `c${i % 4}`;
+    const label = i === -1 ? 'Unassigned' : escapeHtml(leaderShortName(state.leaders[i]));
+    return `<span class="dz-ltag ${cls}" role="button" tabindex="0" aria-haspopup="menu" aria-label="Leader: ${label}. Change" data-tag-member="${memberId}">${label}</span>`;
   }
+  async function assignLeader(memberId, leaderId) {
+    const { error } = await sb.rpc('set_assigned_leader', { p_member_id: memberId, p_leader_id: leaderId });
+    if (error) {
+      console.error(error);
+      showToast("Couldn't change the leader. Please try again.", true);
+      renderApp();
+      return;
+    }
+    const m = state.members.find(x => x.id === memberId);
+    if (m) m.assigned_leader_id = leaderId;
+    const l = state.leaders.find(x => x.id === leaderId);
+    showToast(l ? `Assigned to ${leaderShortName(l)}.` : 'Leader removed.');
+    renderApp();
+  }
+  function closeTagMenu() { const menu = document.getElementById('dz-tag-menu'); if (menu) menu.remove(); }
+  function openTagMenu(tagEl) {
+    closeTagMenu();
+    const memberId = tagEl.dataset.tagMember;
+    const m = state.members.find(x => x.id === memberId);
+    const current = (m && m.assigned_leader_id) || '';
+    const menu = document.createElement('div');
+    menu.className = 'dz-tag-menu';
+    menu.id = 'dz-tag-menu';
+    menu.setAttribute('role', 'menu');
+    const opts = [{ id: '', label: 'Unassigned' }].concat(state.leaders.map(l => ({ id: l.id, label: leaderShortName(l) })));
+    menu.innerHTML = `<div class="ttl">Assign leader</div>` + opts.map(o =>
+      `<button role="menuitem" data-pick="${o.id}"><span>${escapeHtml(o.label)}</span>${o.id === current ? '<span class="chk">✓</span>' : ''}</button>`).join('');
+    document.body.appendChild(menu);
+    const r = tagEl.getBoundingClientRect();
+    const top = Math.min(r.bottom + 6, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.top = `${Math.max(8, top)}px`;
+    menu.style.left = `${Math.min(r.left, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeTagMenu();
+      const picked = b.dataset.pick || null;
+      if (picked !== (current || null)) assignLeader(memberId, picked);
+    }));
+    const first = menu.querySelector('[data-pick]');
+    if (first) first.focus();
+  }
+  document.addEventListener('click', (e) => {
+    const tag = e.target.closest('[data-tag-member]');
+    if (tag) { e.preventDefault(); e.stopPropagation(); openTagMenu(tag); return; }
+    if (!e.target.closest('#dz-tag-menu')) closeTagMenu();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.closest && e.target.closest('[data-tag-member]');
+    if (tag && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); openTagMenu(tag); }
+    if (e.key === 'Escape') closeTagMenu();
+  }, true);
+  window.addEventListener('scroll', closeTagMenu, true);
   function inLeaderView(m) {
     if (state.leaderView === 'all') return true;
     if (state.leaderView === 'none') return !m.assigned_leader_id;
@@ -2536,7 +2601,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const rowMeta = (r) => `${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
       const listHtml = rows.map(r => `
         <button class="dz-lead-row ${r.m.id === focusId ? 'active' : ''}" data-focus="${r.m.id}">
-          <span style="min-width:0;"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div><div class="meta">${rowMeta(r)}</div><div class="tagline">${leaderTagHtml(r.m.assigned_leader_id)}</div></span>
+          <span style="min-width:0;"><div class="nmline"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div>${leaderTagHtml(r.m.assigned_leader_id, r.m.id)}</div><div class="meta">${rowMeta(r)}</div></span>
           ${r.pending ? `<span class="dz-lead-badge" title="${r.pending} without feedback">${r.pending}</span>` : ''}
         </button>`).join('');
       const emptyHtml = state.leaderSearch.trim()
@@ -2842,22 +2907,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       // Rings start empty and fill to their value.
       document.querySelectorAll('.dz-ring .bar').forEach(bar => { void bar.getBoundingClientRect(); bar.style.strokeDashoffset = bar.dataset.offset; });
       const ownerSel = document.getElementById('lead-owner-select');
-      if (ownerSel) ownerSel.addEventListener('change', async () => {
-        const memberId = ownerSel.dataset.member;
-        const leaderId = ownerSel.value || null;
+      if (ownerSel) ownerSel.addEventListener('change', () => {
         ownerSel.disabled = true;
-        const { error } = await sb.rpc('set_assigned_leader', { p_member_id: memberId, p_leader_id: leaderId });
-        if (error) {
-          console.error(error);
-          showToast("Couldn't change the leader. Please try again.", true);
-          renderApp();
-          return;
-        }
-        const m = state.members.find(x => x.id === memberId);
-        if (m) m.assigned_leader_id = leaderId;
-        const l = state.leaders.find(x => x.id === leaderId);
-        showToast(l ? `Assigned to ${leaderShortName(l)}.` : 'Leader removed.');
-        renderApp();
+        assignLeader(ownerSel.dataset.member, ownerSel.value || null);
       });
       const mobilePick = document.getElementById('lead-mobile-pick');
       if (mobilePick) mobilePick.addEventListener('change', () => { state.leaderFocusId = mobilePick.value; renderApp(); });
