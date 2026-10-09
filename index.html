@@ -592,6 +592,40 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-body { padding: 28px 4px 32px; }
   .dz-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 8px; background: var(--primary-tint); color: var(--primary-hover); }
   .dz-tag.leader { background: var(--btn-primary); color: #fff; }
+  /* leader assignment: header filter, tags, owner dropdown, progress rings */
+  .dz-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .dz-view-select, .dz-owner-select { height: 34px; border-radius: 9999px; border: 1px solid var(--hairline); padding: 0 32px 0 14px; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--foreground); cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A8478' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+    box-shadow: 0 1px 2px rgba(87,58,40,0.06); }
+  .dz-view-select:focus-visible, .dz-owner-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .dz-owner { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .dz-ltag { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; line-height: 1; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .dz-ltag.c0 { background: #E7F0FD; color: #2F5D9E; }
+  .dz-ltag.c1 { background: #E5F4EA; color: #2F7A4B; }
+  .dz-ltag.c2 { background: #F1E8FB; color: #6B3FA0; }
+  .dz-ltag.c3 { background: #FBEFD9; color: #8A5A12; }
+  .dz-ltag.none { background: var(--surface-alt); color: var(--muted); }
+  .dz-lead-row .tagline { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .dz-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 4px 0 18px; }
+  .dz-ring-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; background: rgba(255,255,255,0.86); border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: inset 0 1px 1px #fff, 0 2px 10px rgba(242,146,78,0.10); cursor: pointer; text-align: left; transition: transform 150ms var(--ease-standard), box-shadow 150ms var(--ease-standard); }
+  .dz-ring-card:hover { transform: translateY(-1px); box-shadow: inset 0 1px 1px #fff, 0 6px 16px rgba(242,146,78,0.16); }
+  .dz-ring-card.on { box-shadow: inset 0 0 0 2px var(--primary), 0 6px 16px rgba(242,146,78,0.16); }
+  .dz-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+  .dz-ring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+  .dz-ring .track { stroke: rgba(242,146,78,0.16); }
+  .dz-ring .bar { transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .dz-ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; letter-spacing: -0.02em; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .dz-ring-meta .who { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--foreground); }
+  .dz-ring-meta .pct { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+  @media (prefers-reduced-motion: reduce) { .dz-ring .bar { transition: none; } }
+  @media (max-width: 560px) {
+    .dz-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .dz-ring-card { flex-direction: column; gap: 6px; padding: 12px 6px; text-align: center; border-radius: 16px; }
+    .dz-ring-meta .who { font-size: 13px; }
+    .dz-ring-meta .pct { font-size: 11px; }
+  }
   .dz-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0 0; }
   @media (max-width: 520px) { .dz-cards { grid-template-columns: 1fr; } }
   .dz-task-card { background: var(--canvas); border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-soft); transition: box-shadow 200ms var(--ease-standard), transform 200ms var(--ease-standard); }
@@ -1223,6 +1257,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     leaderScope: 'month', leaderSearch: '', leaderSort: 'latest',
     leaderDayOpen: {}, // "memberId|date" -> true/false once the leader opens or closes a day
     mediaLoaded: new Set(), mediaLoading: new Set(), // leader: whose photos/recordings are fetched
+    leaders: [], // leader accounts, for assigning members and the progress rings
+    leaderView: (() => { try { return localStorage.getItem('engkor_leader_view') || 'all'; } catch (e) { return 'all'; } })(), // 'all' | 'none' | leader id
     monthCohortLabel: null, monthMemberIds: new Set(),
     recording: false, recError: null, recSeconds: 0,
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
@@ -1243,7 +1279,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
     if (currentProfile.role === 'leader') {
       // Members who requested account deletion are hidden during their 7-day grace period.
-      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email').eq('role', 'member').is('deletion_requested_at', null).order('name');
+      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email,assigned_leader_id').eq('role', 'member').is('deletion_requested_at', null).order('name');
+      const { data: leaders } = await sb.from('profiles').select('id,name').eq('role', 'leader').is('deletion_requested_at', null).order('name');
+      state.leaders = leaders || [];
+      if (state.leaderView !== 'all' && state.leaderView !== 'none' && !state.leaders.some(l => l.id === state.leaderView)) state.leaderView = 'all';
       if (membersErr) console.error(membersErr);
       state.members = members || [];
       // "This month" in the member list = the cohort for the current calendar
@@ -1412,9 +1451,46 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (days < 7) return `${days}d ago`;
     return when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+  // "Jisoo Leader" / "Hyunho (Leader)" -> "Jisoo" / "Hyunho"
+  function leaderShortName(l) { return ((l && l.name) || 'Leader').replace(/\s*\(?leader\)?\s*$/i, '').trim() || 'Leader'; }
+  function leaderTagHtml(leaderId) {
+    const i = state.leaders.findIndex(l => l.id === leaderId);
+    if (i === -1) return '<span class="dz-ltag none">Unassigned</span>';
+    return `<span class="dz-ltag c${i % 4}">${escapeHtml(leaderShortName(state.leaders[i]))}</span>`;
+  }
+  function inLeaderView(m) {
+    if (state.leaderView === 'all') return true;
+    if (state.leaderView === 'none') return !m.assigned_leader_id;
+    return m.assigned_leader_id === state.leaderView;
+  }
+  // Sent / submitted Writing+Speaking parts this calendar month, across a leader's members.
+  function leaderProgress(leaderId) {
+    const prefix = todayStr().slice(0, 8);
+    let done = 0, total = 0;
+    state.members.filter(m => m.assigned_leader_id === leaderId).forEach(m => {
+      const sub = state.submissions[m.id] || {};
+      Object.keys(sub).filter(d => d.startsWith(prefix)).forEach(d => {
+        const day = sub[d];
+        if (day.diary) { total++; if (day.diaryFeedbackSentAt) done++; }
+        if (day.shadowing) { total++; if (day.shadowingFeedbackSentAt) done++; }
+      });
+    });
+    return { done, total };
+  }
+  function ringHtml(done, total) {
+    const r = 26, c = 2 * Math.PI * r;
+    const frac = total ? done / total : 0;
+    return `<div class="dz-ring"><svg viewBox="0 0 64 64" aria-hidden="true">
+        <defs><linearGradient id="dzRingGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7B07A"/><stop offset="100%" stop-color="#C96A2B"/></linearGradient></defs>
+        <circle class="track" cx="32" cy="32" r="${r}" fill="none" stroke-width="8"/>
+        <circle class="bar" cx="32" cy="32" r="${r}" fill="none" stroke="url(#dzRingGrad)" stroke-width="8" stroke-linecap="round"
+          stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}" data-offset="${(c * (1 - frac)).toFixed(1)}"/>
+      </svg><span class="num">${done}/${total}</span></div>`;
+  }
+
   function leaderMemberRows() {
     const q = state.leaderSearch.trim().toLowerCase();
-    const inScope = state.leaderScope === 'all' ? state.members : state.members.filter(m => state.monthMemberIds.has(m.id));
+    const inScope = (state.leaderScope === 'all' ? state.members : state.members.filter(m => state.monthMemberIds.has(m.id))).filter(inLeaderView);
     const rows = inScope
       .filter(m => !q || (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q))
       .map(memberListInfo);
@@ -2460,7 +2536,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const rowMeta = (r) => `${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
       const listHtml = rows.map(r => `
         <button class="dz-lead-row ${r.m.id === focusId ? 'active' : ''}" data-focus="${r.m.id}">
-          <span style="min-width:0;"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div><div class="meta">${rowMeta(r)}</div></span>
+          <span style="min-width:0;"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div><div class="meta">${rowMeta(r)}</div><div class="tagline">${leaderTagHtml(r.m.assigned_leader_id)}</div></span>
           ${r.pending ? `<span class="dz-lead-badge" title="${r.pending} without feedback">${r.pending}</span>` : ''}
         </button>`).join('');
       const emptyHtml = state.leaderSearch.trim()
@@ -2539,6 +2615,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
             <div class="dz-lead-head">
               <div><h2>${escapeHtml(focusMember.name || 'Unnamed')}</h2><p class="dz-muted" style="margin-top:2px;">${escapeHtml(focusMember.email || '')}</p></div>
               <div class="stats">
+                <label class="dz-owner">Leader
+                  <select class="dz-owner-select" id="lead-owner-select" data-member="${focusMember.id}" aria-label="Assigned leader">
+                    <option value="">Unassigned</option>
+                    ${state.leaders.map(l => `<option value="${l.id}" ${focusMember.assigned_leader_id === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}</option>`).join('')}
+                  </select>
+                </label>
                 <span class="dz-lead-pill">${focusInfo.rate}% this month</span>
                 <span class="dz-lead-pill">Last: ${timeAgo(focusInfo.lastAt, focusInfo.lastDate)}</span>
                 ${focusInfo.pending ? `<span class="dz-lead-pill todo">${focusInfo.pending} to review</span>` : '<span class="dz-lead-pill">All reviewed</span>'}
@@ -2546,7 +2628,16 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
             </div>
             ${allHistory ? `<div class="dz-lead-daytools"><button id="lead-open-all">Expand all</button><button id="lead-close-all">Collapse all</button></div>${allHistory}` : '<p class="dz-muted" style="margin-top:14px;">No submissions yet.</p>'}
           </div>` : `<div class="dz-detail-panel"><p class="dz-muted">Pick a member on the left to see their submissions.</p></div>`;
-      body = `<div class="dz-leader">${sideHtml}<div>${detailHtml}</div></div>`;
+      const monthName2 = monthLabelOf(state.monthCohortLabel);
+      const ringsHtml = state.leaders.length ? `<div class="dz-rings" aria-label="${monthName2} feedback progress by leader">${state.leaders.map(l => {
+        const p = leaderProgress(l.id);
+        const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+        return `<button class="dz-ring-card ${state.leaderView === l.id ? 'on' : ''}" data-ring-leader="${l.id}" title="Show ${escapeHtml(leaderShortName(l))}'s members">
+          ${ringHtml(p.done, p.total)}
+          <span class="dz-ring-meta"><div class="who">${escapeHtml(leaderShortName(l))}</div><div class="pct">${p.total ? `${pct}% sent · ${monthName2}` : `Nothing to review · ${monthName2}`}</div></span>
+        </button>`;
+      }).join('')}</div>` : '';
+      body = `${ringsHtml}<div class="dz-leader">${sideHtml}<div>${detailHtml}</div></div>`;
     } else {
       const me = state.members[0];
       const rate = completionRate(me.id), streak = currentStreak(me.id);
@@ -2646,7 +2737,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <h1>${isLeader ? 'EngKor Dashboard' : 'Welcome back, <span class="dz-name">' + escapeHtml(displayName) + '</span>'}</h1>
           <p>${todayLabel}</p>
         </div>
-        ${isLeader ? '<span class="dz-tag leader">Leader</span>' : ''}
+        ${isLeader ? `<div class="dz-head-right">
+          ${state.leaders.length ? `<select class="dz-view-select" id="lead-view-select" aria-label="Whose members to show">
+            <option value="all" ${state.leaderView === 'all' ? 'selected' : ''}>All leaders</option>
+            ${state.leaders.map(l => `<option value="${l.id}" ${state.leaderView === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}${currentProfile && l.id === currentProfile.id ? ' (me)' : ''}</option>`).join('')}
+            <option value="none" ${state.leaderView === 'none' ? 'selected' : ''}>Unassigned</option>
+          </select>` : ''}
+          <span class="dz-tag leader">Leader</span>
+        </div>` : ''}
       </div>
       <div class="dz-body">
         ${body}
@@ -2730,6 +2828,37 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight + 2, 120) + 'px'; };
       document.querySelectorAll('.dz-leader textarea.dz-ta').forEach(ta => { grow(ta); ta.addEventListener('input', () => grow(ta)); });
       if (state.leaderFocusId) loadMemberMedia(state.leaderFocusId);
+      const setLeaderView = (v) => {
+        state.leaderView = v;
+        try { localStorage.setItem('engkor_leader_view', v); } catch (e) {}
+        renderApp();
+      };
+      const viewSel = document.getElementById('lead-view-select');
+      if (viewSel) viewSel.addEventListener('change', () => setLeaderView(viewSel.value));
+      document.querySelectorAll('[data-ring-leader]').forEach(card => card.addEventListener('click', () => {
+        const id = card.getAttribute('data-ring-leader');
+        setLeaderView(state.leaderView === id ? 'all' : id);
+      }));
+      // Rings start empty and fill to their value.
+      document.querySelectorAll('.dz-ring .bar').forEach(bar => { void bar.getBoundingClientRect(); bar.style.strokeDashoffset = bar.dataset.offset; });
+      const ownerSel = document.getElementById('lead-owner-select');
+      if (ownerSel) ownerSel.addEventListener('change', async () => {
+        const memberId = ownerSel.dataset.member;
+        const leaderId = ownerSel.value || null;
+        ownerSel.disabled = true;
+        const { error } = await sb.rpc('set_assigned_leader', { p_member_id: memberId, p_leader_id: leaderId });
+        if (error) {
+          console.error(error);
+          showToast("Couldn't change the leader. Please try again.", true);
+          renderApp();
+          return;
+        }
+        const m = state.members.find(x => x.id === memberId);
+        if (m) m.assigned_leader_id = leaderId;
+        const l = state.leaders.find(x => x.id === leaderId);
+        showToast(l ? `Assigned to ${leaderShortName(l)}.` : 'Leader removed.');
+        renderApp();
+      });
       const mobilePick = document.getElementById('lead-mobile-pick');
       if (mobilePick) mobilePick.addEventListener('change', () => { state.leaderFocusId = mobilePick.value; renderApp(); });
       // Re-rendering on each keystroke rebuilds the input, so put the cursor back.
