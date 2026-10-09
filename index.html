@@ -210,10 +210,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
   /* ===== click ripple + reveal ===== */
   .ripple-circle {
-    position: fixed; z-index: 9999; border-radius: 50%; background: rgba(255,255,255,0.55);
-    transform: scale(0); opacity: 1; pointer-events: none; animation: ripple-anim 550ms var(--ease-standard);
+    position: fixed; z-index: 9999; border-radius: 50%; background: rgba(255,255,255,0.35);
+    transform: scale(0); opacity: 0.85; pointer-events: none; animation: ripple-anim 480ms var(--ease-standard);
   }
-  .ripple-circle.ripple-tint { background: rgba(201,106,43,0.2); }
+  .ripple-circle.ripple-tint { background: rgba(201,106,43,0.09); }
   @keyframes ripple-anim { to { transform: scale(1); opacity: 0; } }
   .btn:active, button:active, .dz-member-chip:active { transform: scale(0.98); }
 
@@ -3087,7 +3087,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const el = e.target.closest('.btn, button, .dz-cal-btn, .dz-member-chip, .compare-card, .step-card, .trust-card, .price-card, .dz-task-card, .footer-social .icon');
     if (!el || el.disabled) return;
     const rect = el.getBoundingClientRect();
-    const size = Math.max(rect.width, rect.height) * 1.6;
+    // Kept small and capped so big cards and rows get a soft touch, not a flood.
+    const size = Math.min(Math.max(rect.width, rect.height) * 0.9, 120);
     const ripple = document.createElement('span');
     ripple.className = 'ripple-circle' + (isDarkBackground(el) ? '' : ' ripple-tint');
     ripple.style.width = ripple.style.height = size + 'px';
