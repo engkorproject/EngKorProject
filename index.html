@@ -3082,6 +3082,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
   document.addEventListener('click', function(e) {
     if (prefersReducedMotion) return;
+    // Leader tags and their menu sit inside the member row button; no ripple there.
+    if (e.target.closest('[data-tag-member], #dz-tag-menu')) return;
     const el = e.target.closest('.btn, button, .dz-cal-btn, .dz-member-chip, .compare-card, .step-card, .trust-card, .price-card, .dz-task-card, .footer-social .icon');
     if (!el || el.disabled) return;
     const rect = el.getBoundingClientRect();
