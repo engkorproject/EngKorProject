@@ -208,14 +208,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .btn-sm { padding: 9px 16px; font-size: 12.5px; background: var(--surface); border: 1.5px solid var(--hairline); color: var(--foreground); }
   .btn-sm:hover { border-color: var(--primary); color: var(--primary-hover); }
 
-  /* ===== click ripple + reveal ===== */
-  .ripple-circle {
-    position: fixed; z-index: 9999; border-radius: 50%; background: rgba(255,255,255,0.35);
-    transform: scale(0); opacity: 0.85; pointer-events: none; animation: ripple-anim 480ms var(--ease-standard);
-  }
-  .ripple-circle.ripple-tint { background: rgba(201,106,43,0.09); }
-  @keyframes ripple-anim { to { transform: scale(1); opacity: 0; } }
-  .btn:active, button:active, .dz-member-chip:active { transform: scale(0.98); }
+  /* ===== reveal (the press effect is in the script: "press feedback") ===== */
 
   .reveal { opacity: 0; transform: translateY(12px); transition: opacity 250ms var(--ease-enter), transform 250ms var(--ease-enter); }
   .reveal.in-view { opacity: 1; transform: translateY(0); }
@@ -239,7 +232,6 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   @media (prefers-reduced-motion: reduce) {
     .reveal { transition: opacity 150ms linear !important; transform: none !important; }
     .spring-badge { animation: none !important; }
-    .btn:active, button:active, .dz-member-chip:active { transform: none; }
   }
 
   /* ===== LANDING SECTIONS ===== */
@@ -783,7 +775,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     -webkit-backdrop-filter: blur(12px) saturate(170%); backdrop-filter: blur(12px) saturate(170%);
     transition: transform 150ms var(--ease-standard), box-shadow 150ms var(--ease-standard), background 150ms var(--ease-standard); }
   .dz-lead-daytools button:hover { transform: translateY(-1px); background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(252,229,213,0.7)); box-shadow: inset 0 1px 1px #fff, inset 0 -2px 6px rgba(242,146,78,0.13), 0 4px 12px rgba(242,146,78,0.18), 0 0 0 1px rgba(242,146,78,0.11); }
-  .dz-lead-daytools button:active { transform: translateY(0) scale(0.98); }
+  .dz-lead-daytools button:active { transform: translateY(0); }
   .dz-lead-daytools button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .dz-lead-daytools { display: flex; justify-content: flex-end; margin-top: 12px; }
   @media (max-width: 860px) {
@@ -3067,36 +3059,31 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
 
-  // ---- click ripple effect (brand motion: warm, subtle press feedback) ----
-  // Uses the CAPTURE phase and appends to <body> (not the clicked element) because many
-  // buttons here (member chips, calendar days, dashboard actions) trigger renderApp(),
-  // which synchronously replaces their DOM: a ripple appended as their child would be
-  // destroyed before it ever paints.
+  // ---- press feedback: shrink to 95% while pressed, spring back on release ----
+  // Animates the standalone `scale` property with the Web Animations API, so it
+  // stacks on top of hover lifts and the scroll-reveal transitions instead of
+  // fighting their `transform` and `transition` rules.
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function isDarkBackground(el) {
-    const bg = getComputedStyle(el).backgroundColor;
-    const m = bg.match(/[\d.]+/g);
-    if (!m || m.length < 3) return false;
-    const [r, g, b] = m.map(Number);
-    return (0.299 * r + 0.587 * g + 0.114 * b) < 140;
-  }
-  document.addEventListener('click', function(e) {
-    if (prefersReducedMotion) return;
-    // Leader tags and their menu sit inside the member row button; no ripple there.
+  const PRESSABLE = '.btn, button, .dz-cal-btn, .dz-member-chip, .compare-card, .step-card, .trust-card, .price-card, .dz-task-card, .footer-social .icon';
+  let pressedEl = null, pressAnim = null;
+  document.addEventListener('pointerdown', (e) => {
+    if (prefersReducedMotion || e.button !== 0) return;
+    // Leader tags and their menu sit inside the member row button; the row stays still.
     if (e.target.closest('[data-tag-member], #dz-tag-menu')) return;
-    const el = e.target.closest('.btn, button, .dz-cal-btn, .dz-member-chip, .compare-card, .step-card, .trust-card, .price-card, .dz-task-card, .footer-social .icon');
-    if (!el || el.disabled) return;
-    const rect = el.getBoundingClientRect();
-    // Kept small and capped so big cards and rows get a soft touch, not a flood.
-    const size = Math.min(Math.max(rect.width, rect.height) * 0.9, 120);
-    const ripple = document.createElement('span');
-    ripple.className = 'ripple-circle' + (isDarkBackground(el) ? '' : ' ripple-tint');
-    ripple.style.width = ripple.style.height = size + 'px';
-    ripple.style.left = (e.clientX - size / 2) + 'px';
-    ripple.style.top = (e.clientY - size / 2) + 'px';
-    document.body.appendChild(ripple);
-    ripple.addEventListener('animationend', function() { ripple.remove(); });
+    const el = e.target.closest(PRESSABLE);
+    if (!el || el.disabled || !el.animate) return;
+    pressedEl = el;
+    pressAnim = el.animate([{ scale: '1' }, { scale: '0.95' }], { duration: 110, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' });
   }, true);
+  const releasePress = () => {
+    if (!pressedEl) return;
+    const el = pressedEl, current = getComputedStyle(el).scale;
+    pressedEl = null;
+    if (pressAnim) { pressAnim.cancel(); pressAnim = null; }
+    el.animate([{ scale: current === 'none' ? '0.95' : current }, { scale: '1' }], { duration: 380, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+  };
+  ['pointerup', 'pointercancel', 'dragstart'].forEach(t => document.addEventListener(t, releasePress, true));
+  window.addEventListener('blur', releasePress);
 
   // ---- scroll-reveal for landing cards (fade + rise 12px, staggered) ----
   (function initScrollReveal() {
