@@ -1194,12 +1194,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           state.readOnly = false;
           renderNav();
           showApp('member');
-          showToast('Payment complete! Welcome to the challenge 🎉');
+          showToast('Payment complete! Welcome to the challenge 🎉', false, 3000);
         } else {
           state.showRenewalBanner = false;
           renderNav();
           renderApp();
-          showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
+          showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`, false, 3000);
         }
     }
   }
@@ -2869,13 +2869,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
   // ---- toast (brief confirmation popup, e.g. "Feedback saved!") ----
   let toastTimer = null;
-  function showToast(message, isError) {
+  function showToast(message, isError, ms) {
     const toast = document.getElementById('dz-toast');
     toast.textContent = message;
     toast.classList.toggle('error', !!isError);
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), ms || 2200);
   }
   document.addEventListener('click', (e) => {
     const thumb = e.target.closest('.dz-thumb');
