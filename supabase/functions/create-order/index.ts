@@ -90,11 +90,29 @@ Deno.serve(async (req) => {
         intent: "CAPTURE",
         purchase_units: [
           {
-            amount: { currency_code: "USD", value: CURRENT_PRICE },
+            // Shown to the buyer and to us on PayPal receipts (was blank before).
+            description: "EngKor Monthly Challenge (1 month)",
+            amount: {
+              currency_code: "USD",
+              value: CURRENT_PRICE,
+              breakdown: { item_total: { currency_code: "USD", value: CURRENT_PRICE } },
+            },
+            items: [
+              {
+                name: "EngKor Monthly Challenge",
+                description: "One month of daily practice with weekly staff feedback",
+                quantity: "1",
+                category: "DIGITAL_GOODS",
+                unit_amount: { currency_code: "USD", value: CURRENT_PRICE },
+              },
+            ],
             // e.g. initial_2026-10, renewal_2026-11: tracking only, not read by capture-order/webhook
             custom_id: `${intent}_${new Date().toISOString().slice(0, 7)}`,
           },
         ],
+        // Nothing is shipped, so don't ask for or pass along a shipping address.
+        // (application_context applies to both the PayPal and the card button.)
+        application_context: { shipping_preference: "NO_SHIPPING", brand_name: "EngKor" },
       }),
     }).then((r) => r.json());
 
