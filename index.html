@@ -178,7 +178,6 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     --font-list: "Nunito Sans", "Pretendard", -apple-system, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { overflow-x: hidden; }
   body { font-family: "Geist", "Pretendard", -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; background: var(--background); color: var(--foreground); line-height: 1.5; overflow-x: hidden; }
   a { text-decoration: none; color: inherit; }
   h1, h2, h3, h4 { font-family: var(--font-display); }
@@ -623,7 +622,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-ring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
   .dz-ring .track { stroke: rgba(242,146,78,0.16); }
   .dz-ring .bar { transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1); }
-  .dz-ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; letter-spacing: -0.02em; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  .dz-ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: min(calc(var(--ring-size, 64px) * 0.78 / var(--chars, 3)), calc(var(--ring-size, 64px) * 0.2)); font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; color: var(--foreground); font-variant-numeric: tabular-nums; }
   .dz-ring-meta .who { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--foreground); }
   .dz-ring-meta .pct { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
   @media (prefers-reduced-motion: reduce) { .dz-ring .bar { transition: none; } }
@@ -687,7 +686,6 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-cdot.full { width: 13px; height: 13px; border-radius: 50%; background: var(--primary); }
   .dz-cdot.partial { width: 13px; height: 13px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--primary); background: linear-gradient(to right, var(--primary) 50%, transparent 50%); }
   .dz-cdot.none { font-size: 14px; line-height: 1; font-weight: 700; color: var(--muted); }
-  .dz-fb-arrived { font-size: 7px; font-weight: 800; color: var(--primary-hover); line-height: 1.15; text-align: center; }
   .dz-cal-empty { visibility: hidden; }
   .dz-detail-panel { background: var(--canvas); border-radius: 24px; padding: 24px; margin-top: 20px; box-shadow: var(--shadow-soft); }
   .dz-day-block { border-bottom: 1px dashed var(--hairline); padding: 10px 0; }
@@ -794,6 +792,186 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-btn.ghost:hover { background: var(--primary-tint); }
   .dz-btn.danger { background: transparent; color: var(--error); border: 1px solid var(--error); padding: 4px 10px; font-size: 11.5px; border-radius: 9999px; }
   .dz-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ===== member dashboard: stat tiles on top, check-in + history on the left, calendar + leaderboard on the right ===== */
+  @media (min-width: 961px) { #app-view.dz-shell-view .dz-app, #app-view.dz-shell-view .dz-back { max-width: 1120px; } }
+  .dz-member-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 0 0 24px; }
+  .dz-member-stats .dz-stat { padding: 18px 20px; }
+  .dz-member-stats .dz-stat .num { font-size: 30px; }
+  .dz-member-stats .dz-stat .num small { font-size: inherit; font-weight: inherit; letter-spacing: inherit; color: var(--muted); }
+  button.dz-stat-fb { display: block; width: 100%; font: inherit; cursor: pointer; border: 0; transition: transform 150ms var(--ease-standard), box-shadow 150ms var(--ease-standard); }
+  button.dz-stat-fb:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+  .dz-stat-fb.has-new { background: var(--primary-tint); }
+  .dz-stat-fb.has-new .num { color: var(--primary-hover); }
+  .dz-stat-fb.has-new .label { color: var(--primary-hover); font-weight: 700; }
+  .dz-member { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .dz-member-side { order: -1; }
+  .dz-m-left, .dz-member-side { min-width: 0; }
+  .dz-m-left > .dz-m-history { margin-top: 28px; }
+  .dz-member-side { display: flex; flex-direction: column; gap: 20px; }
+  /* desktop: the page stays put and the left and right sides are two separate panels, each with its own scrollbar */
+  @media (min-width: 961px) {
+    /* fills the window; on a short window it keeps room for roomy panels and the page scrolls instead */
+    .dz-app.dz-shell { height: max(1100px, calc(100dvh - var(--dz-top, 100px) - var(--dz-below, 24px))); display: flex; flex-direction: column; }
+    #app-view.dz-shell-view { padding: 14px 20px 16px; }
+    #app-view.dz-shell-view .dz-back { margin-bottom: 10px; }
+    /* slimmer title and stat tiles so the panels get the height */
+    .dz-shell .dz-header { padding-top: 22px; }
+    .dz-shell .dz-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 28px 4px 6px; }
+    .dz-shell .dz-member-stats { flex: none; gap: 12px; margin-bottom: 14px; }
+    .dz-shell .dz-member-stats .dz-stat { padding: 12px 18px; border-radius: 18px; }
+    .dz-shell .dz-member-stats .dz-stat .num { font-size: 24px; }
+    .dz-shell .dz-member-stats .dz-stat .label { margin-top: 2px; font-size: 12.5px; }
+    .dz-shell .dz-shared-note { flex: none; margin-top: 10px; padding: 6px 10px; }
+    .dz-shell .dz-member { flex: 1; min-height: 0; align-items: stretch; }
+    .dz-m-left, .dz-member-side { min-height: 0; overflow-y: auto; background: #fff; border: 1px solid var(--hairline); box-shadow: var(--shadow-soft); border-radius: 24px; padding: 20px;
+      scrollbar-width: thin; scrollbar-color: #E3A877 transparent; scrollbar-gutter: stable; }
+    .dz-m-left::-webkit-scrollbar, .dz-member-side::-webkit-scrollbar { width: 12px; }
+    .dz-m-left::-webkit-scrollbar-thumb, .dz-member-side::-webkit-scrollbar-thumb { background: #E3A877; border-radius: 9999px; border: 3px solid #fff; }
+    .dz-m-left::-webkit-scrollbar-track, .dz-member-side::-webkit-scrollbar-track { background: transparent; }
+    .dz-board-scroll { max-height: none; overflow: visible; margin: 0; padding: 0; }
+    /* narrow sidebar: tighter padding so the calendar keeps roomy cells */
+    .dz-member-side { padding: 14px; gap: 14px; }
+    .dz-member-side .dz-side-card { padding: 14px; border-radius: 18px; background: #fff; border: 1px solid var(--hairline); box-shadow: none; }
+    .dz-member-side .dz-cal-grid { gap: 4px; }
+    .dz-member-side .dz-cal-btn { font-size: 13px; border-radius: 10px; }
+    .dz-member-side .dz-cal-nav { margin: 10px 0 8px; }
+    .dz-member-side .dz-cal-legend { gap: 4px 10px; font-size: 11.5px; }
+    .dz-member-side .dz-board-row .name { font-size: 13px; }
+  }
+  .dz-side-card { background: var(--canvas); border-radius: 24px; padding: 20px; box-shadow: var(--shadow-soft); }
+  .dz-side-card h2.dz-section { margin: 0; }
+  .dz-member-side > .dz-side-card { flex: 0 0 auto; }
+  /* big calendar */
+  .dz-member-side .dz-cal-nav { margin: 14px 0 12px; }
+  .dz-member-side .dz-cal-nav b { font-size: 17px; }
+  .dz-member-side .dz-cal-dow { font-size: 12px; font-weight: 700; padding: 4px 0; }
+  .dz-member-side .dz-cal-grid { gap: 7px; }
+  .dz-member-side .dz-cal-btn { position: relative; font-size: 14px; font-weight: 700; border-radius: 12px; gap: 3px; line-height: 1; }
+  .dz-member-side .dz-cdot { flex: 0 0 auto; }
+  .dz-member-side .dz-cal-btn.today { background: var(--primary-tint); }
+  .dz-member-side .dz-cal-btn.selected { border: 2px solid var(--primary); }
+  .dz-member-side .dz-cdot.full, .dz-member-side .dz-cdot.partial { width: 8px; height: 8px; border-width: 1px; }
+  .dz-member-side .dz-cdot.none { font-size: 10px; }
+  .dz-member-side .dz-cal-btn.has-fb { background: #EFE6DB; }
+  .dz-member-side .dz-cal-btn.has-fb.fb-new { background: #FBDCC4; }
+  .dz-fb-swatch { display: inline-block; flex: 0 0 auto; width: 12px; height: 12px; border-radius: 4px; background: #EFE6DB; }
+  .dz-fb-swatch.new { background: #FBDCC4; }
+  .dz-cal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .dz-cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dz-cal-legend .dz-cdot.full, .dz-cal-legend .dz-cdot.partial { width: 8px; height: 8px; border-width: 1px; }
+  .dz-cal-caption { margin: 10px 0 0; font-size: 13px; font-weight: 700; color: var(--foreground); background: var(--surface); border-radius: 10px; padding: 9px 12px; }
+  /* leaderboard: everyone, scrolls inside the card; medals for ranks 1-5 */
+  .dz-board-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dz-board-scroll { position: relative; max-height: 280px; overflow-y: auto; margin: 0 -8px; padding: 0 8px; }
+  .dz-board-scroll .dz-board-row { gap: 10px; }
+  .dz-board-scroll .dz-board-row .name { flex: 1.6 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+  .dz-board-scroll .dz-bar-track { flex: 1 1 0; min-width: 48px; }
+  .dz-medal { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; box-sizing: border-box; box-shadow: inset 0 1px 1px rgba(255,255,255,0.65), 0 1px 3px rgba(0,0,0,0.18); }
+  .dz-medal.m1 { background: linear-gradient(145deg, #FFE98A, #E9B300); border: 1.5px solid #C99700; color: #5A4200; }
+  .dz-medal.m2 { background: linear-gradient(145deg, #F4F6F8, #B6BEC6); border: 1.5px solid #9AA3AC; color: #394148; }
+  .dz-medal.m3 { background: linear-gradient(145deg, #F4B684, #C77A3C); border: 1.5px solid #A8601F; color: #fff; }
+  .dz-medal.m4, .dz-medal.m5 { background: var(--primary-tint); border: 1.5px solid var(--primary); color: var(--primary-hover); box-shadow: none; }
+  .dz-rank { flex: 0 0 auto; width: 26px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+  /* history: same collapsible day cards the leader uses */
+  .dz-hist-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .dz-member details.dz-day { border: 1px solid var(--hairline); border-radius: 14px; margin: 8px 0; background: var(--canvas); }
+  .dz-member details.dz-day[open] { border-color: var(--primary-tint); box-shadow: var(--shadow-soft); }
+  .dz-member details.dz-day.has-new { border-color: var(--primary); }
+  .dz-member details.dz-day > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 14px; }
+  .dz-member details.dz-day > summary::-webkit-details-marker { display: none; }
+  .dz-member details.dz-day > summary .dl { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .dz-member details.dz-day > summary .dl::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform 150ms var(--ease-standard); }
+  .dz-member details.dz-day[open] > summary .dl::before { transform: rotate(45deg); }
+  .dz-member .dz-day-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dz-member .dz-day-chip { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: var(--surface-alt); color: var(--muted); }
+  .dz-member .dz-day-chip.none { background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }
+  .dz-member .dz-day-chip.fb { background: var(--primary-tint); color: var(--primary-hover); }
+  .dz-member .dz-day-chip.todo { background: var(--btn-primary); color: #fff; }
+  .dz-member .dz-day-body { padding: 0 14px 14px; }
+  .dz-member .dz-week-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; padding: 9px 14px; margin: 20px 0 8px; border-radius: 12px; }
+  .dz-member .dz-week-header .wk-count { font-size: 12px; font-weight: 700; opacity: 0.85; }
+  .dz-member .dz-part-title { margin: 2px 0 8px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .dz-member .dz-fb-label { margin: 16px 0 8px; font-size: 15px; font-weight: 700; color: var(--foreground); letter-spacing: -0.01em; }
+  .dz-member .dz-feedback-note { background: #FFFDFB; border: 1px solid #E3DAD2; border-radius: 8px; color: var(--foreground); font-size: 13px; line-height: 1.55; padding: 10px 12px; margin-top: 0; min-height: 72px; }
+  .dz-member .dz-feedback-note.empty { color: #A39A92; }
+  /* "No submission" in the same dashed orange box the leader sees */
+  .dz-member .dz-media-slot > p.dz-muted { font-size: 14px; font-weight: 700; color: var(--primary-hover); background: #FFF6EE; padding: 16px; border: 1.5px dashed var(--primary); border-radius: 12px; text-align: center; margin: 0; }
+  .dz-new-tag { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; background: var(--btn-primary); color: #fff; border-radius: 6px; padding: 2px 6px; }
+  @media (max-width: 960px) {
+    /* phone and tablet: one column (check-in, calendar, leaderboard, history) and the normal page scroll */
+    .dz-member { grid-template-columns: 1fr; grid-template-areas: "checkin" "side" "history"; }
+    .dz-m-left { display: contents; }
+    .dz-m-left > .dz-m-history { margin-top: 0; }
+    .dz-m-checkin { grid-area: checkin; min-width: 0; }
+    .dz-m-history { grid-area: history; min-width: 0; }
+    .dz-member-side { grid-area: side; }
+  }
+  @media (max-width: 640px) {
+    .dz-member-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .dz-member-stats .dz-stat .num { font-size: 26px; }
+    .dz-side-card { padding: 16px; }
+    .dz-member-side .dz-cal-grid { gap: 5px; }
+    .dz-member-side .dz-cal-btn { font-size: 12px; gap: 2px; border-radius: 10px; }
+    .dz-member-side .dz-cdot.full, .dz-member-side .dz-cdot.partial { width: 6px; height: 6px; }
+    .dz-member-side .dz-cdot.none { font-size: 9px; }
+  }
+  /* ---- calmer member dashboard: fewer outlines, quieter orange, more air, lighter type ---- */
+  .dz-member { gap: 28px; }
+  .dz-member-side .dz-cal-btn { border: 0; background: transparent; font-weight: 600; }
+  .dz-member-side .dz-cal-btn:not(.future):not(:disabled):hover { background: var(--surface); transform: none; }
+  .dz-member-side .dz-cal-btn.today { background: var(--surface); }
+  .dz-member-side .dz-cal-btn.selected { border: 2px solid var(--primary); }
+  .dz-member-side .dz-side-card { border: 0; background: #FAF7F4; }
+  .dz-member details.dz-day { border: 0; background: #FAF7F4; border-radius: 16px; margin: 14px 0; }
+  .dz-member details.dz-day[open] { border: 0; background: #FAF7F4; box-shadow: none; }
+  .dz-member details.dz-day.has-new { border: 0; box-shadow: inset 4px 0 0 var(--primary); }
+  .dz-member details.dz-day > summary { padding: 16px 20px; }
+  .dz-member .dz-day-body { padding: 0 20px 20px; }
+  .dz-member details.dz-day > summary .dl { font-weight: 700; }
+  .dz-member .dz-day-chip { font-weight: 600; background: #EFEAE5; }
+  .dz-member .dz-day-chip.none { background: transparent; box-shadow: none; color: #A39A92; }
+  .dz-member .dz-day-chip.fb { background: #EFEAE5; color: var(--muted); }
+  .dz-member .dz-week-header { background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 700; padding: 8px 4px; margin: 28px 0 4px; border-radius: 0; border-bottom: 1px solid var(--hairline); }
+  .dz-member .dz-week-header .wk-count { font-weight: 600; opacity: 1; }
+  .dz-member .dz-part-title, .dz-member .dz-fb-label { font-weight: 600; }
+  .dz-member .dz-feedback-note { border-color: var(--hairline); }
+  .dz-member .dz-media-slot > p.dz-muted { color: var(--muted); background: transparent; border: 1.5px dashed #D9D2CB; font-weight: 600; }
+  .dz-board-scroll .dz-board-row .name { font-weight: 600; }
+  .dz-medal.m4, .dz-medal.m5 { background: #F1EDE9; border-color: #D9D2CB; color: var(--muted); }
+  /* member stat tiles with a progress ring (same ring as the leader view) */
+  .dz-member-stats .dz-stat-ring { display: flex; align-items: center; gap: 14px; }
+  .dz-member-stats .dz-ring { --ring-size: 56px; }
+  /* the tile's big-number size must not leak into the ring label; the ring sizes its own text to fit */
+  .dz-member-stats .dz-stat.dz-stat-ring .dz-ring .num { font-size: min(calc(var(--ring-size) * 0.78 / var(--chars, 3)), calc(var(--ring-size) * 0.2)); line-height: 1; }
+  .dz-member-stats .dz-ring, .dz-member-stats .dz-ring svg { width: 56px; height: 56px; }
+  .dz-member-stats .dz-ring-meta { min-width: 0; }
+  .dz-member-stats .dz-ring-meta .sub { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+  /* calendar Prev/Next: clear glass pills */
+  .dz-member-side .dz-cal-nav .dz-btn { font-size: 13px; font-weight: 700; color: var(--foreground); padding: 7px 13px; border-radius: 9999px; cursor: pointer;
+    background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,240,228,0.55)); border: 1px solid rgba(255,255,255,0.85);
+    box-shadow: inset 0 1px 1px #fff, inset 0 -2px 5px rgba(242,146,78,0.10), 0 2px 7px rgba(242,146,78,0.13), 0 0 0 1px rgba(242,146,78,0.08);
+    -webkit-backdrop-filter: blur(8px) saturate(170%); backdrop-filter: blur(8px) saturate(170%);
+    transition: box-shadow 180ms var(--ease-standard), background 180ms var(--ease-standard); }
+  .dz-member-side .dz-cal-nav .dz-btn:hover { background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(252,229,213,0.7)); box-shadow: inset 0 1px 1px #fff, inset 0 -2px 6px rgba(242,146,78,0.13), 0 4px 12px rgba(242,146,78,0.18), 0 0 0 1px rgba(242,146,78,0.11); }
+  .dz-member-side .dz-cal-nav .dz-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  @media (max-width: 640px) { .dz-member-stats .dz-ring { --ring-size: 46px; } .dz-member-stats .dz-ring, .dz-member-stats .dz-ring svg { width: 46px; height: 46px; } .dz-member-stats .dz-stat-ring { flex-direction: column; align-items: flex-start; gap: 6px; } .dz-member-stats .dz-ring-meta .sub { display: none; } .dz-member-stats .dz-ring-meta .who { font-size: 13px; } .dz-member-stats .dz-ring-meta .sub { font-size: 11.5px; } }
+  /* calendar header: one line at any width, text scales with the card */
+  .dz-member-side .dz-cal-nav { container-type: inline-size; gap: 6px; flex-wrap: nowrap; }
+  .dz-member-side .dz-cal-nav b { flex: 1 1 auto; min-width: 0; text-align: center; white-space: nowrap; font-size: clamp(11px, 5.6cqw, 17px); }
+  .dz-member-side .dz-cal-nav .dz-btn { flex: 0 0 auto; white-space: nowrap; font-size: clamp(10.5px, 4.3cqw, 13px); padding: 6px clamp(7px, 3.4cqw, 13px); }
+  /* check-in cards: clearer outlines */
+  .dz-m-checkin .dz-task-card { border: 1.5px solid #EAE2DA; box-shadow: none; }
+  .dz-m-checkin .dz-task-card:hover { box-shadow: var(--shadow-soft); transform: none; }
+  .dz-m-checkin .dz-placeholder, .dz-m-checkin .dz-drop { border: 1.5px dashed #DDD3CA; }
+  .dz-m-checkin .dz-drop:hover { border-color: var(--primary); }
+  @media (min-width: 961px) {
+    #app-view.dz-shell-view .dz-app { padding: 4px 32px 32px; }
+    .dz-m-left, .dz-member-side { padding: 24px; scrollbar-color: #D9D2CB transparent; }
+    .dz-m-left::-webkit-scrollbar-thumb, .dz-member-side::-webkit-scrollbar-thumb { background: #D9D2CB; }
+    .dz-member-side { gap: 18px; }
+    .dz-member-side .dz-side-card { padding: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -1260,7 +1438,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     view: 'landing', // 'landing' | 'auth' | 'apply' | 'member' | 'leader'
     members: [], submissions: {},
     leaderboard: [],
-    leaderFocusId: null, loaded: false, showFeedbackHistory: false,
+    leaderFocusId: null, loaded: false,
+    memberDayOpen: {}, newFbKeys: null, // member dashboard: day cards opened/closed by hand; feedback that is new this visit
     // leader member list: 'month' = this calendar month's cohort only
     leaderScope: 'month', leaderSearch: '', leaderSort: 'latest',
     leaderDayOpen: {}, // "memberId|date" -> true/false once the leader opens or closes a day
@@ -1320,7 +1499,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.submissions[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
       // Members only see feedback the leader has sent; saved drafts stay hidden.
-      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback_sent_at ? (s.diary_feedback || '') : '', shadowingFeedback: s.shadowing_feedback_sent_at ? (s.shadowing_feedback || '') : '' }; });
+      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback_sent_at ? (s.diary_feedback || '') : '', shadowingFeedback: s.shadowing_feedback_sent_at ? (s.shadowing_feedback || '') : '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, feedbackSeenAt: s.feedback_seen_at || null }; });
+      // select('*') only carries feedback_seen_at once the column exists, so until the SQL has been run we fall back to the browser-only way.
+      state.fbSeenInDb = !(subs && subs.length) || subs.some(s => 'feedback_seen_at' in s);
       const { data: lb } = await sb.from('leaderboard').select('*');
       state.leaderboard = lb || [];
     }
@@ -1540,15 +1721,16 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     });
     return { done, total };
   }
-  function ringHtml(done, total) {
+  function ringHtml(done, total, label) {
     const r = 26, c = 2 * Math.PI * r;
     const frac = total ? done / total : 0;
-    return `<div class="dz-ring"><svg viewBox="0 0 64 64" aria-hidden="true">
+    const text = label || `${done}/${total}`;
+    return `<div class="dz-ring" style="--chars:${text.length}"><svg viewBox="0 0 64 64" aria-hidden="true">
         <defs><linearGradient id="dzRingGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F7B07A"/><stop offset="100%" stop-color="#C96A2B"/></linearGradient></defs>
         <circle class="track" cx="32" cy="32" r="${r}" fill="none" stroke-width="8"/>
         <circle class="bar" cx="32" cy="32" r="${r}" fill="none" stroke="url(#dzRingGrad)" stroke-width="8" stroke-linecap="round"
           stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}" data-offset="${(c * (1 - frac)).toFixed(1)}"/>
-      </svg><span class="num">${done}/${total}</span></div>`;
+      </svg><span class="num">${text}</span></div>`;
   }
 
   function leaderMemberRows() {
@@ -2027,8 +2209,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const day = getDay(memberId, dateStr);
       const dotClass = (day.diary && day.shadowing) ? 'full' : (day.diary || day.shadowing) ? 'partial' : 'none';
       const hasFeedback = !!(day.diaryFeedback || day.shadowingFeedback);
+      const fbIsNew = !!(state.newFbKeys && (state.newFbKeys.has(dateStr + '|diary') || state.newFbKeys.has(dateStr + '|shadowing')));
       const selected = dateStr === state.selectedDate ? 'selected' : '';
-      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${isFuture ? 'future' : ''}" data-date="${dateStr}" ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}">${dotClass === 'none' ? '×' : ''}</span>` : ''}${hasFeedback ? '<span class="dz-fb-arrived">Feedback has arrived!</span>' : ''}</button></div>`);
+      cells.push(`<div class="dz-cal-cell"><button class="dz-cal-btn ${selected} ${dateStr === todayD ? 'today' : ''} ${isFuture ? 'future' : ''} ${hasFeedback ? (fbIsNew ? 'has-fb fb-new' : 'has-fb') : ''}" data-date="${dateStr}" ${hasFeedback ? `title="${fbIsNew ? 'New feedback' : 'Feedback received'}"` : ''} ${isFuture ? 'disabled' : ''}><span>${d}</span>${!isFuture ? `<span class="dz-cdot ${dotClass}">${dotClass === 'none' ? '×' : ''}</span>` : ''}</button></div>`);
     }
     const monthLabel = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return `
@@ -2038,23 +2221,62 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         ${cells.join('')}
       </div>`;
   }
-  function groupedFeedbackList(memberId) {
+  // ---- member dashboard: "new feedback" (remembered in this browser only) ----
+  // Every feedback the leader has sent: "2026-10-03|diary" -> time it was sent.
+  function sentFeedbackParts(memberId) {
     const sub = state.submissions[memberId] || {};
-    const dates = Object.keys(sub).filter(d => sub[d].diaryFeedback || sub[d].shadowingFeedback).sort().reverse();
-    if (!dates.length) return '<p class="dz-muted">No leader feedback yet.</p>';
-    const groups = {};
-    dates.forEach(d => { const wk = weekKeyOf(d); if (!groups[wk]) groups[wk] = []; groups[wk].push(d); });
-    const weekKeysDesc = Object.keys(groups).sort().reverse();
-    return weekKeysDesc.map(wk => {
-      const items = groups[wk].map(d => {
+    const parts = {};
+    Object.keys(sub).forEach(d => {
+      if (sub[d].diaryFeedback && sub[d].diaryFeedbackSentAt) parts[d + '|diary'] = sub[d].diaryFeedbackSentAt;
+      if (sub[d].shadowingFeedback && sub[d].shadowingFeedbackSentAt) parts[d + '|shadowing'] = sub[d].shadowingFeedbackSentAt;
+    });
+    return parts;
+  }
+  // What counts as new feedback: a part whose "sent" time is later than the day's feedback_seen_at.
+  // Worked out once per visit, so the NEW tags stay up while the member reads.
+  // (Before the feedback_seen_at column exists we fall back to a copy kept in this browser:
+  // it saves everything as seen right away, and a browser with nothing saved only counts the last 7 days.)
+  function computeNewFeedback(memberId) {
+    if (state.fbSeenInDb) {
+      const sub = state.submissions[memberId] || {};
+      const fresh = new Set();
+      Object.keys(sub).forEach(d => {
         const day = sub[d];
-        const parts = [];
-        if (day.diaryFeedback) parts.push(`<div class="dz-day-block"><div class="day-label">${d} · Writing</div><div class="dz-feedback-note">${escapeHtml(day.diaryFeedback)}</div></div>`);
-        if (day.shadowingFeedback) parts.push(`<div class="dz-day-block"><div class="day-label">${d} · Speaking</div><div class="dz-feedback-note">${escapeHtml(day.shadowingFeedback)}</div></div>`);
-        return parts.join('');
-      }).join('');
-      return `<div class="dz-week-header">${weekKeyToLabel(wk)}</div>${items}`;
-    }).join('');
+        const seenAt = day.feedbackSeenAt ? new Date(day.feedbackSeenAt).getTime() : 0;
+        if (day.diaryFeedback && day.diaryFeedbackSentAt && new Date(day.diaryFeedbackSentAt).getTime() > seenAt) fresh.add(d + '|diary');
+        if (day.shadowingFeedback && day.shadowingFeedbackSentAt && new Date(day.shadowingFeedbackSentAt).getTime() > seenAt) fresh.add(d + '|shadowing');
+      });
+      return fresh;
+    }
+    const key = 'engkor_fb_seen_' + memberId;
+    const parts = sentFeedbackParts(memberId);
+    let seen = null;
+    try { seen = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const fresh = new Set();
+    Object.keys(parts).forEach(k => {
+      const isNew = seen ? seen[k] !== parts[k] : new Date(parts[k]).getTime() >= weekAgo;
+      if (isNew) fresh.add(k);
+    });
+    try { localStorage.setItem(key, JSON.stringify(parts)); } catch (e) {}
+    return fresh;
+  }
+  // A day is marked seen in the database once its card has really been on screen (or was opened by hand).
+  const feedbackSeenQueue = new Set(), feedbackSeenDone = new Set();
+  let feedbackSeenTimer = null;
+  function queueFeedbackSeen(date) {
+    if (!state.fbSeenInDb || feedbackSeenDone.has(date)) return;
+    feedbackSeenQueue.add(date);
+    clearTimeout(feedbackSeenTimer);
+    feedbackSeenTimer = setTimeout(flushFeedbackSeen, 1200);
+  }
+  async function flushFeedbackSeen() {
+    const dates = [...feedbackSeenQueue];
+    feedbackSeenQueue.clear();
+    if (!dates.length || !currentProfile) return;
+    dates.forEach(d => feedbackSeenDone.add(d));
+    const { error } = await sb.from('submissions').update({ feedback_seen_at: new Date().toISOString() }).eq('member_id', currentProfile.id).in('date', dates);
+    if (error) { console.error('marking feedback as seen failed', error); dates.forEach(d => feedbackSeenDone.delete(d)); }
   }
 
   function showLanding() {
@@ -2066,6 +2288,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function showApp(view) {
     if (isPendingDeletion()) { showLanding(); showRestoreModal(); return; }
     state.view = view;
+    state.newFbKeys = null;
     landingView.style.display = 'none'; appView.style.display = 'block'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'none';
     window.scrollTo(0,0);
     state.loaded = false;
@@ -2569,12 +2792,25 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     await handleSession(session);
   }
 
+  // The shell is as tall as the space under the nav and back link, so its panels fill the window.
+  function fitDashboardHeight() {
+    if (!dzRoot.classList.contains('dz-shell')) return;
+    const rect = dzRoot.getBoundingClientRect();
+    const top = rect.top + window.scrollY;
+    // whatever sits under the dashboard (page padding) is kept free too, so the page itself never scrolls
+    const holder = dzRoot.parentElement;
+    const below = holder ? Math.max(0, holder.getBoundingClientRect().bottom - rect.bottom) : 0;
+    dzRoot.style.setProperty('--dz-top', Math.round(top) + 'px');
+    dzRoot.style.setProperty('--dz-below', Math.round(below) + 6 + 'px');
+  }
+  window.addEventListener('resize', fitDashboardHeight);
+
   function renderApp() {
     if (state.view === 'landing' || state.view === 'auth') return;
     const isLeader = state.view === 'leader';
     // Set the width before the loading state too, so the box doesn't jump when data arrives.
-    dzRoot.classList.toggle('wide', isLeader);
-    document.getElementById('back-link').classList.toggle('wide', isLeader);
+    dzRoot.classList.add('wide');
+    document.getElementById('back-link').classList.add('wide');
     if (!state.loaded) { dzRoot.innerHTML = '<div class="dz-muted" style="padding:40px; text-align:center;">Loading...</div>'; return; }
     let body = '';
 
@@ -2706,7 +2942,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const me = state.members[0];
       const rate = completionRate(me.id), streak = currentStreak(me.id);
       const today = getDay(me.id, todayStr());
-      const selDay = getDay(me.id, state.selectedDate);
+      const sub = state.submissions[me.id] || {};
+      // NEW tags are worked out once per visit (see computeNewFeedback).
+      if (!state.newFbKeys) state.newFbKeys = computeNewFeedback(me.id);
+      const newKeys = state.newFbKeys;
 
       // Use the open cohort's own month, not the viewer's real "today" -- someone
       // in read-only mode viewing a past cohort shouldn't get today's day count.
@@ -2714,11 +2953,30 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         ? state.cohort.start_date.split('-').map(Number)
         : [new Date().getFullYear(), new Date().getMonth() + 1];
       const totalDays = daysInMonth(cohortYear, cohortMonth - 1);
-      const board = [...state.leaderboard].sort((a, b) => b.completed_days - a.completed_days).map(m => {
-        const r = Math.round((m.completed_days / totalDays) * 100);
-        const isMe = m.member_id === me.id;
-        return `<div class="dz-board-row ${isMe ? 'me' : ''}"><span class="name">${escapeHtml(m.name)}${isMe ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r}%"></div></div><span class="dz-pct">${r}%</span></div>`;
+
+      // Leaderboard: everyone, most days first. People on the same count share a rank.
+      const sortedBoard = [...state.leaderboard].sort((a, b) => b.completed_days - a.completed_days);
+      let rankNow = 0, prevDays = null;
+      const ranked = sortedBoard.map((m, i) => {
+        if (m.completed_days !== prevDays) { rankNow = i + 1; prevDays = m.completed_days; }
+        return { id: m.member_id, name: m.name, rank: rankNow, pct: Math.round((m.completed_days / totalDays) * 100) };
+      });
+      const myRank = ranked.find(r => r.id === me.id);
+      const rankBadge = (rank) => rank <= 5
+        ? `<span class="dz-medal m${rank}" title="Rank ${rank}">${rank}</span>`
+        : `<span class="dz-rank">${rank}</span>`;
+      const boardRows = ranked.map(r => {
+        const isMe = r.id === me.id;
+        return `<div class="dz-board-row ${isMe ? 'me' : ''}" ${isMe ? 'id="board-me"' : ''}>${rankBadge(r.rank)}<span class="name">${escapeHtml(r.name)}${isMe ? ' (you)' : ''}</span><div class="dz-bar-track"><div class="dz-bar-fill" style="width:${r.pct}%"></div></div><span class="dz-pct">${r.pct}%</span></div>`;
       }).join('');
+
+      // Days this week (Sun to Sat) with both Writing and Speaking done.
+      const [wy, wm, wd] = weekKeyOf(todayStr()).split('-').map(Number);
+      let weekDone = 0;
+      for (let i = 0; i < 7; i++) {
+        const day = sub[localDateStr(new Date(wy, wm - 1, wd + i))];
+        if (day && day.diary && day.shadowing) weekDone++;
+      }
 
       const renewalBanner = state.showRenewalBanner ? `
         <div class="dz-detail-panel dz-banner renewal" style="margin-bottom:20px;">
@@ -2757,38 +3015,104 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         </div>
       `;
 
+      // History: one collapsible card per day, grouped by week, newest first.
+      // Only the newest day starts open; the rest are collapsed.
+      const hasAnyFb = (d) => !!(d.diaryFeedback || d.shadowingFeedback);
+      const histDates = Object.keys(sub).filter(d => sub[d].diary || sub[d].shadowing || hasAnyFb(sub[d])).sort().reverse();
+      const groups = {};
+      histDates.forEach(d => { const wk = weekKeyOf(d); (groups[wk] = groups[wk] || []).push(d); });
+      const weekKeysDesc = Object.keys(groups).sort().reverse();
+      const dayChip = (label, media) => media
+        ? `<span class="dz-day-chip">${label} ✓</span>`
+        : `<span class="dz-day-chip none">${label}: none</span>`;
+      const partBody = (title, media, fb, kind, date) => {
+        const isNew = newKeys.has(date + '|' + kind);
+        return `<div>
+          <p class="dz-part-title">${title}${isNew ? '<span class="dz-new-tag">NEW</span>' : ''}</p>
+          <div class="dz-media-slot">${mediaBlock(media, kind)}</div>
+          ${fb ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note">${escapeHtml(fb)}</div>`
+            : (media ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note empty">Waiting for your leader's feedback.</div>` : '')}
+        </div>`;
+      };
+      const historyHtml = weekKeysDesc.map(wk => {
+        const activeDays = groups[wk].filter(d => sub[d].diary || sub[d].shadowing).length;
+        const items = groups[wk].map(d => {
+          const day = sub[d];
+          const dayIsNew = newKeys.has(d + '|diary') || newKeys.has(d + '|shadowing');
+          const open = d in state.memberDayOpen ? state.memberDayOpen[d] : d === histDates[0];
+          const label = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          const fbChip = dayIsNew ? '<span class="dz-day-chip todo">NEW feedback</span>'
+            : hasAnyFb(day) ? '<span class="dz-day-chip fb">Feedback ✓</span>'
+            : (day.diary || day.shadowing) ? '<span class="dz-day-chip none">Awaiting feedback</span>' : '';
+          return `<details class="dz-day ${dayIsNew ? 'has-new' : ''}" data-day-key="${d}" ${open ? 'open' : ''}>
+            <summary><span class="dl">${label}</span><span class="dz-day-chips">${dayChip('Writing', day.diary)}${dayChip('Speaking', day.shadowing)}${fbChip}</span></summary>
+            <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
+              ${partBody('Writing', day.diary, day.diaryFeedback, 'diary', d)}
+              ${partBody('Speaking', day.shadowing, day.shadowingFeedback, 'shadowing', d)}
+            </div></div>
+          </details>`;
+        }).join('');
+        return `<div class="dz-week-header"><span>${weekKeyToLabel(wk)}</span><span class="wk-count">${activeDays} check-in day${activeDays === 1 ? '' : 's'}</span></div>${items}`;
+      }).join('');
+
+      // Caption under the calendar for the day you tapped.
+      const selDay = getDay(me.id, state.selectedDate);
+      const selLabel = new Date(state.selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const calCaption = (selDay.diary || selDay.shadowing)
+        ? `${selLabel}: Writing ${selDay.diary ? '✓' : '×'} · Speaking ${selDay.shadowing ? '✓' : '×'}`
+        : `${selLabel}: no check-in`;
+
+      const newFbCount = newKeys.size;
+      const fbTile = newFbCount
+        ? `<button type="button" class="dz-stat dz-stat-fb has-new" id="jump-new-fb"><div class="num">${newFbCount}</div><div class="label">New feedback · tap to read</div></button>`
+        : `<div class="dz-stat"><div class="num">0</div><div class="label">New feedback</div></div>`;
+
       body = `
-        ${renewalBanner}
-        ${checkinBlock}
-
-        <div class="dz-stat-row">
+        <div class="dz-member-stats">
           <div class="dz-stat"><div class="num">${streak}</div><div class="label">Day streak</div></div>
-          <div class="dz-stat"><div class="num">${rate}%</div><div class="label">Completion rate</div></div>
+          <div class="dz-stat dz-stat-ring">${ringHtml(rate, 100, rate + '%')}<div class="dz-ring-meta"><div class="who">Completion rate</div><div class="sub">of check-ins done</div></div></div>
+          <div class="dz-stat dz-stat-ring">${ringHtml(weekDone, 7)}<div class="dz-ring-meta"><div class="who">Full days this week</div><div class="sub">Writing and Speaking</div></div></div>
+          ${fbTile}
         </div>
 
-        <h2 class="dz-section">Pick a date on the calendar</h2>
-        ${renderCalendar(me.id)}
-
-        <div class="dz-detail-panel">
-          <b style="font-size:13px;">${state.selectedDate} submission</b>
-          <div class="dz-cards" style="margin:8px 0 0;">
-            <div>
-              <p class="dz-muted" style="margin:0 0 4px;">Writing</p>${mediaBlock(selDay.diary, 'diary')}
-              ${selDay.diaryFeedback ? `<div class="dz-feedback-note">${escapeHtml(selDay.diaryFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No feedback yet.</p>`}
-            </div>
-            <div>
-              <p class="dz-muted" style="margin:0 0 4px;">Speaking</p>${mediaBlock(selDay.shadowing, 'shadowing')}
-              ${selDay.shadowingFeedback ? `<div class="dz-feedback-note">${escapeHtml(selDay.shadowingFeedback)}</div>` : `<p class="dz-muted" style="margin-top:8px;">No feedback yet.</p>`}
-            </div>
+        <div class="dz-member">
+          <section class="dz-m-left">
+          <div class="dz-m-checkin">
+            ${renewalBanner}
+            ${checkinBlock}
           </div>
+
+          <div class="dz-m-history">
+            <div class="dz-hist-head">
+              <h2 class="dz-section" style="margin:0;">Your check-ins &amp; feedback</h2>
+              ${historyHtml ? '<div class="dz-lead-daytools" style="margin:0;"><button id="mem-open-all">Expand all</button><button id="mem-close-all">Collapse all</button></div>' : ''}
+            </div>
+            ${historyHtml || '<p class="dz-muted" style="margin-top:14px;">Your check-ins and feedback will show up here.</p>'}
+          </div>
+          </section>
+
+          <aside class="dz-member-side">
+            <section class="dz-side-card">
+              <h2 class="dz-section" style="margin-top:0;">Calendar</h2>
+              ${renderCalendar(me.id)}
+              <div class="dz-cal-legend">
+                <span><i class="dz-cdot full"></i>Both done</span>
+                <span><i class="dz-cdot partial"></i>One done</span>
+                <span><i class="dz-cdot none">×</i>None</span>
+                <span><i class="dz-fb-swatch"></i>Feedback</span>
+                <span><i class="dz-fb-swatch new"></i>New</span>
+              </div>
+              <p class="dz-cal-caption">${calCaption}</p>
+            </section>
+            <section class="dz-side-card board">
+              <div class="dz-board-head">
+                <h2 class="dz-section" style="margin-top:0;">Community Leaderboard</h2>
+                ${myRank ? `<span class="dz-lead-pill">You: #${myRank.rank} of ${ranked.length}</span>` : ''}
+              </div>
+              <div class="dz-board-scroll" id="board-scroll">${boardRows || '<p class="dz-muted">No one has joined yet.</p>'}</div>
+            </section>
+          </aside>
         </div>
-
-        <h2 class="dz-section">Community Leaderboard</h2>
-        ${board}
-
-        <h2 class="dz-section">Feedback History (by week)</h2>
-        <button class="dz-btn ghost" id="toggle-fb-history" style="margin-top:8px;">${state.showFeedbackHistory ? 'Hide weekly feedback ▴' : 'View weekly feedback ▾'}</button>
-        ${state.showFeedbackHistory ? `<div class="dz-detail-panel" style="margin-top:12px;">${groupedFeedbackList(me.id)}</div>` : ''}
       `;
     }
 
@@ -2818,8 +3142,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       </div>
     `;
     fixAudioDurations(dzRoot);
+    // Desktop member dashboard: the page itself doesn't scroll, the two panels do (see .dz-shell in the CSS).
+    const useShell = !isLeader && !state.notYetStarted;
+    dzRoot.classList.toggle('dz-shell', useShell);
+    appView.classList.toggle('dz-shell-view', useShell);
+    fitDashboardHeight();
 
     if (!isLeader) {
+      // Rings start empty and fill to their value.
+      document.querySelectorAll('.dz-ring .bar').forEach(bar => { void bar.getBoundingClientRect(); bar.style.strokeDashoffset = bar.dataset.offset; });
       const reapplyBtn = document.getElementById('reapply-btn');
       if (reapplyBtn) reapplyBtn.addEventListener('click', openApply);
       const continueNextMonthBtn = document.getElementById('continue-next-month-btn');
@@ -2846,10 +3177,46 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       if (calPrev) calPrev.addEventListener('click', () => { state.calMonth--; if (state.calMonth < 0) { state.calMonth = 11; state.calYear--; } renderApp(); });
       const calNext = document.getElementById('cal-next');
       if (calNext) calNext.addEventListener('click', () => { state.calMonth++; if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; } renderApp(); });
-      document.querySelectorAll('.dz-cal-btn').forEach(btn => { if (!btn.disabled) btn.addEventListener('click', () => { state.selectedDate = btn.getAttribute('data-date'); renderApp(); }); });
+      // Tapping a day opens that day's card in the history and scrolls to it.
+      document.querySelectorAll('.dz-cal-btn').forEach(btn => { if (!btn.disabled) btn.addEventListener('click', () => {
+        const date = btn.getAttribute('data-date');
+        state.selectedDate = date;
+        state.memberDayOpen[date] = true;
+        renderApp();
+        const card = document.querySelector(`details.dz-day[data-day-key="${date}"]`);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }); });
 
-      const toggleFbHistory = document.getElementById('toggle-fb-history');
-      if (toggleFbHistory) toggleFbHistory.addEventListener('click', () => { state.showFeedbackHistory = !state.showFeedbackHistory; renderApp(); });
+      document.querySelectorAll('.dz-member details.dz-day').forEach(el => {
+        el.addEventListener('toggle', () => { state.memberDayOpen[el.dataset.dayKey] = el.open; });
+        // Opening a card by hand counts as reading it (the open event also fires on first draw, so only clicks count).
+        const sum = el.querySelector('summary');
+        if (sum) sum.addEventListener('click', () => setTimeout(() => { if (el.open && el.classList.contains('has-new')) queueFeedbackSeen(el.dataset.dayKey); }, 0));
+      });
+      // Cards with new feedback count as read once they have been on screen.
+      const newCards = document.querySelectorAll('.dz-m-history details.dz-day.has-new');
+      if (state.fbSeenInDb && newCards.length && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => entries.forEach(en => {
+          if (en.isIntersecting && en.target.open) { queueFeedbackSeen(en.target.dataset.dayKey); io.unobserve(en.target); }
+        }), { threshold: 0.4 });
+        newCards.forEach(c => io.observe(c));
+      }
+      const setAllMemberDays = (open) => document.querySelectorAll('.dz-member details.dz-day').forEach(el => { el.open = open; state.memberDayOpen[el.dataset.dayKey] = open; });
+      const memOpenAll = document.getElementById('mem-open-all');
+      if (memOpenAll) memOpenAll.addEventListener('click', () => setAllMemberDays(true));
+      const memCloseAll = document.getElementById('mem-close-all');
+      if (memCloseAll) memCloseAll.addEventListener('click', () => setAllMemberDays(false));
+      const jumpNewFb = document.getElementById('jump-new-fb');
+      if (jumpNewFb) jumpNewFb.addEventListener('click', () => {
+        const card = document.querySelector('.dz-m-history details.has-new');
+        if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      });
+      // The leaderboard starts at the top (medals first); it only scrolls down if your own row would be out of sight.
+      const boardScroll = document.getElementById('board-scroll'), boardMe = document.getElementById('board-me');
+      if (boardScroll && boardMe) {
+        const meBottom = boardMe.offsetTop + boardMe.offsetHeight;
+        if (meBottom > boardScroll.clientHeight) boardScroll.scrollTop = meBottom - boardScroll.clientHeight + 6;
+      }
     }
 
     if (isLeader && state.members.length) {
