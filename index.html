@@ -791,6 +791,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-btn.ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 5px 12px; }
   .dz-btn.ghost:hover { background: var(--primary-tint); }
   .dz-btn.danger { background: transparent; color: var(--error); border: 1px solid var(--error); padding: 4px 10px; font-size: 11.5px; border-radius: 9999px; }
+  .dz-save-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .dz-save-status { margin: 0; font-size: 13px; font-weight: 700; color: var(--success); }
+  .dz-save-status.saving { color: #B5652E; animation: dz-save-pulse 1.2s ease-in-out infinite; }
+  @keyframes dz-save-pulse { 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) { .dz-save-status.saving { animation: none; } }
   .dz-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ===== member dashboard: stat tiles on top, check-in + history on the left, calendar + leaderboard on the right ===== */
@@ -1448,6 +1453,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     leaderView: (() => { try { return localStorage.getItem('engkor_leader_view') || 'all'; } catch (e) { return 'all'; } })(), // 'all' | 'none' | leader id
     monthCohortLabel: null, monthMemberIds: new Set(),
     recording: false, recError: null, recSeconds: 0,
+    saving: { diary: false, shadowing: false }, // upload sent, server hasn't confirmed yet
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     // ---- challenge application gate ----
     cohort: null,             // the cohort currently open for applications (cohorts.is_open = true)
@@ -1508,13 +1514,51 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     state.loaded = true;
     renderApp();
   }
+  // Returns true only once the server has the row. A slow or dropped mobile
+  // connection gives up after 90 seconds instead of hanging forever.
   async function saveSub(memberId) {
     const day = (state.submissions[memberId] || {})[todayStr()] || { diary: null, shadowing: null };
-    const { error } = await sb.from('submissions').upsert({
+    let req = sb.from('submissions').upsert({
       member_id: memberId, date: todayStr(), diary_url: day.diary, shadowing_url: day.shadowing
     }, { onConflict: 'member_id,date' });
-    if (error) { console.error(error); alert('Failed to save. Try a smaller file.'); }
+    if (window.AbortSignal && AbortSignal.timeout && req.abortSignal) req = req.abortSignal(AbortSignal.timeout(90000));
+    try {
+      const { error } = await req;
+      if (error) { console.error(error); return false; }
+      return true;
+    } catch (e) { console.error(e); return false; }
   }
+  // Uploads used to show as submitted before the server confirmed them, so a
+  // failed upload on a weak connection still looked done. Now the card shows
+  // "Saving..." until it's confirmed, and goes back to empty if it fails.
+  async function saveMedia(memberId, field, value) {
+    const date = todayStr();
+    const prev = getDay(memberId, date)[field];
+    setDay(memberId, date, { [field]: value });
+    state.saving[field] = true; renderApp();
+    const ok = await saveSub(memberId);
+    state.saving[field] = false;
+    if (!ok) setDay(memberId, date, { [field]: prev });
+    renderApp();
+    if (ok) showToast(value ? 'Saved! Your leader can see it now.' : 'Removed.');
+    else showUploadFailedModal(!!value);
+  }
+  function showUploadFailedModal(uploading) {
+    showModal(`
+      <h2 style="font-size:19px;">${uploading ? "Upload didn't go through" : "Couldn't remove it"}</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${uploading ? "Your file wasn't saved, so it doesn't count yet." : 'Nothing changed.'} Please check your internet connection (or turn off your VPN) and try again.</p>
+      <button class="btn btn-primary" id="upload-failed-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    document.getElementById('upload-failed-ok-btn').addEventListener('click', closeModal);
+  }
+  // Under a submitted file: "Saving..." while in flight, then a confirmed "Saved" line with Remove.
+  function savedLine(field, removeAttr) {
+    if (state.saving[field]) return `<p class="dz-save-status saving" role="status">Saving... please keep this page open.</p>`;
+    return `<div class="dz-save-row"><p class="dz-save-status" role="status">✓ Saved</p><button class="dz-btn danger" ${removeAttr}="1">Remove</button></div>`;
+  }
+  window.addEventListener('beforeunload', (e) => {
+    if (state.saving.diary || state.saving.shadowing) { e.preventDefault(); e.returnValue = ''; }
+  });
   // Save just persists a draft, no email. Submit persists AND notifies the
   // member, so editing/re-saving while drafting doesn't spam their inbox.
   async function saveDayFeedback(memberId, date, field, text) {
@@ -1852,14 +1896,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (!file) return;
     // 2560px at 90% keeps handwriting sharp when the leader zooms in (it used to
     // be 480px, which blurred the writing), while staying around 0.5 to 1MB.
-    try { const dataUrl = await compressImageFile(file, 2560, 0.9); setDay(memberId, todayStr(), { diary: dataUrl }); renderApp(); await saveSub(memberId); }
-    catch (e) { alert('Could not process that image.'); }
+    let dataUrl;
+    try { dataUrl = await compressImageFile(file, 2560, 0.9); }
+    catch (e) { alert('Could not process that image.'); return; }
+    await saveMedia(memberId, 'diary', dataUrl);
   }
   async function handleShadowUploadFile(memberId, file) {
     if (!file) return;
     // Uploaded files are stored as-is (no re-encoding), so keep them small.
     if (file.size > 4 * 1024 * 1024) { alert('File too large. Please choose an audio file under 4MB (about 3 minutes).'); return; }
-    const dataUrl = await blobToDataURL(file); setDay(memberId, todayStr(), { shadowing: dataUrl }); renderApp(); await saveSub(memberId);
+    const dataUrl = await blobToDataURL(file);
+    await saveMedia(memberId, 'shadowing', dataUrl);
   }
   async function startRecording(memberId) {
     state.recError = null;
@@ -1881,7 +1928,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
         const dataUrl = await blobToDataURL(blob);
-        setDay(memberId, todayStr(), { shadowing: dataUrl }); state.recording = false; renderApp(); await saveSub(memberId);
+        state.recording = false;
+        await saveMedia(memberId, 'shadowing', dataUrl);
       };
       mediaRecorder.start(); state.recording = true; state.recSeconds = 0; renderApp();
       recInterval = setInterval(() => { state.recSeconds++; renderApp(); }, 1000);
@@ -1889,8 +1937,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     } catch (e) { state.recError = 'Mic access blocked. Please upload a file instead.'; renderApp(); }
   }
   function stopRecording() { if (recTimer) clearTimeout(recTimer); if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); }
-  function removeDiary(memberId) { setDay(memberId, todayStr(), { diary: null }); renderApp(); saveSub(memberId); }
-  function removeShadow(memberId) { setDay(memberId, todayStr(), { shadowing: null }); renderApp(); saveSub(memberId); }
+  function removeDiary(memberId) { saveMedia(memberId, 'diary', null); }
+  function removeShadow(memberId) { saveMedia(memberId, 'shadowing', null); }
 
   // ---- auth ----
   let authMode = 'login'; // 'login' | 'signup'
@@ -2996,12 +3044,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <h2 class="dz-section" style="margin-top:0;">Today's Check-in</h2>
         <div class="dz-cards">
           <div class="dz-task-card">
-            <div class="title"><b>Writing</b><span class="dz-status-dot ${today.diary ? 'done' : ''}"></span></div>
-            ${today.diary ? mediaBlock(today.diary, 'diary') + '<button class="dz-btn danger" data-remove-diary="1">Remove</button>' : `<div class="dz-drop" id="diary-drop">Click to select a screenshot</div><input type="file" id="diary-file" accept="image/*" style="display:none;" />`}
+            <div class="title"><b>Writing</b><span class="dz-status-dot ${today.diary && !state.saving.diary ? 'done' : ''}"></span></div>
+            ${today.diary ? mediaBlock(today.diary, 'diary') + savedLine('diary', 'data-remove-diary') : `<div class="dz-drop" id="diary-drop">Click to select a screenshot</div><input type="file" id="diary-file" accept="image/*" style="display:none;" />`}
           </div>
           <div class="dz-task-card">
-            <div class="title"><b>Speaking</b><span class="dz-status-dot ${today.shadowing ? 'done' : ''}"></span></div>
-            ${today.shadowing ? mediaBlock(today.shadowing, 'shadowing') + '<button class="dz-btn danger" data-remove-shadow="1">Remove</button>' : `
+            <div class="title"><b>Speaking</b><span class="dz-status-dot ${today.shadowing && !state.saving.shadowing ? 'done' : ''}"></span></div>
+            ${today.shadowing ? mediaBlock(today.shadowing, 'shadowing') + savedLine('shadowing', 'data-remove-shadow') : `
               <div style="display:flex; gap:8px; align-items:center;">
                 <button class="dz-btn" id="rec-btn">${state.recording ? 'Stop recording' : 'Start recording'}</button>
                 ${state.recording ? '<span class="dz-muted">' + fmtRecTime(state.recSeconds) + ' / ' + fmtRecTime(MAX_REC_SECONDS) + '</span>' : ''}
