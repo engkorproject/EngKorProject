@@ -1334,7 +1334,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode });
   }
 
-  function renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode }) {
+  function renderPaypalButton({ name, timezone, birthdate, monthOffset, referralCode, renewal = false }) {
     const container = document.getElementById('paypal-button-container');
     if (!container || !window.paypal) return;
     if (paypalButtonsInstance) { try { paypalButtonsInstance.close(); } catch (e) {} }
@@ -1373,7 +1373,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         const res = await fetch(CREATE_ORDER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
-          body: JSON.stringify({ intent: monthOffset === 1 ? 'renewal' : 'initial', name, timezone, birthdate, monthOffset, referralCode }),
+          body: JSON.stringify({ intent: renewal ? 'renewal' : 'initial', name, timezone, birthdate, monthOffset, referralCode }),
         });
         const data = await res.json();
         if (!data.id) throw new Error('Could not start checkout.');
@@ -1412,17 +1412,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         }
 
         currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
-        state.hasEverApplied = true;
-        if (monthOffset === 0) {
-          currentProfile.cohort_id = result.cohort.id;
-          state.hasCurrentApplication = true;
-          state.readOnly = false;
-          renderNav();
+        await refreshMemberState();
+        if (!renewal) {
           showApp('member');
           showToast('Payment complete! Welcome to the challenge 🎉');
         } else {
-          state.showRenewalBanner = false;
-          renderNav();
           renderApp();
           showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
         }
@@ -1459,10 +1453,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     cohort: null,             // the cohort currently open for applications (cohorts.is_open = true)
     applications: [],         // this member's application rows across all cohorts
     hasEverApplied: false,    // has at least one application ever -> dashboard button visible, past history viewable
-    hasCurrentApplication: false, // applied for THIS month's cohort -> full read/write dashboard
-    readOnly: false,          // true = dashboard shown but check-in form replaced by a reapply prompt
-    notYetStarted: false,     // applied for the current cohort, but its start_date hasn't arrived yet
-    showRenewalBanner: false, nextCohort: null
+    hasCurrentApplication: false, // applied for the cohort that's open for applications
+    activeCohort: null,       // the joined challenge running today -> check-ins allowed
+    upcomingCohort: null,     // a joined challenge that hasn't started yet
+    lastCohort: null,         // the most recent joined challenge that has already ended
+    openCohortEnded: false,   // the open cohort's dates are over (next month not opened yet)
+    readOnly: false,          // true = dashboard shown but check-in form replaced by a banner
+    notYetStarted: false,     // only joined a challenge that hasn't started, no history yet
+    showRenewalBanner: false, nextCohort: null, renewOffset: null, renewalEndsSoon: false
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
@@ -1531,7 +1529,19 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // Uploads used to show as submitted before the server confirmed them, so a
   // failed upload on a weak connection still looked done. Now the card shows
   // "Saving..." until it's confirmed, and goes back to empty if it fails.
+  // Check-ins only count inside a joined challenge. Re-checked at save time too,
+  // for a dashboard left open past the challenge's last day.
+  function canCheckInToday() {
+    const c = state.activeCohort;
+    return !!(c && todayStr() <= c.end_date);
+  }
   async function saveMedia(memberId, field, value) {
+    if (!canCheckInToday()) {
+      await refreshMemberState();
+      await loadAll();
+      showToast('Your challenge has ended, so new check-ins are closed. Your past work is still here.', true);
+      return;
+    }
     const date = todayStr();
     const prev = getDay(memberId, date)[field];
     setDay(memberId, date, { [field]: value });
@@ -2142,6 +2152,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (location.hash !== '#/login') location.hash = '#/login';
   }
 
+  // Re-reads the member's challenges after an enrollment, so the dashboard
+  // state (check-ins open, starts soon, renewal banner) matches the database.
+  async function refreshMemberState() {
+    const { data: { session } } = await sb.auth.getSession();
+    await handleSession(session);
+  }
+
   async function handleSession(session) {
     if (session && session.user) {
       currentUser = session.user;
@@ -2165,8 +2182,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       }
 
       // Figure out where this member stands re: the challenge gate. Which cohort is
-      // "open" is a manual leader decision (cohorts.is_open), not derived from
-      // today's calendar date -- see engkor-supabase-schema.sql for why.
+      // "open" for applications is a manual leader decision (cohorts.is_open), but
+      // whether someone can check in today comes from the dates of the challenges
+      // they actually joined, so it doesn't depend on when the leader flips is_open.
       const [{ data: cohort }, { data: applications }] = await Promise.all([
         sb.from('cohorts').select('*').eq('is_open', true).maybeSingle(),
         sb.from('applications').select('cohort_id,status,is_beta').eq('member_id', currentUser.id)
@@ -2174,32 +2192,51 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.cohort = cohort || null;
       state.applications = applications || [];
       state.hasEverApplied = state.applications.length > 0;
+      // Enrolled in the cohort that's open for applications (so Apply just goes to the dashboard).
       state.hasCurrentApplication = !!(cohort && state.applications.some(a => a.cohort_id === cohort.id && a.status === 'active'));
-      state.readOnly = state.hasEverApplied && !state.hasCurrentApplication;
-      // Applications open ahead of time, but the check-in dashboard itself only
-      // unlocks once the cohort's month actually begins (start_date is always the
-      // 1st, so this is exactly "from the 1st at local midnight").
-      state.notYetStarted = !!(state.hasCurrentApplication && cohort && cohort.start_date && new Date() < new Date(cohort.start_date + 'T00:00:00'));
-      // QA-only: let the test account into the dashboard immediately, without
-      // waiting for the cohort's actual start_date. See TEST_BYPASS_EMAIL below.
-      if (currentUser.email === TEST_BYPASS_EMAIL) state.notYetStarted = false;
-      // Beta testers (joined with a referral code) start checking in right away,
-      // even before the cohort's start_date. Check-ins before then still save and
-      // show on their calendar, but the leaderboard only counts the cohort's dates.
-      const currentApplication = cohort && state.applications.find(a => a.cohort_id === cohort.id && a.status === 'active');
-      if (currentApplication && currentApplication.is_beta) state.notYetStarted = false;
 
-      // Renewal banner: only relevant once someone is actually inside this month's
-      // challenge and its end is within a week -- and only if they haven't already
-      // locked in next month (avoids nagging someone who already renewed).
+      const activeApps = state.applications.filter(a => a.status === 'active');
+      const myCohortIds = [...new Set(activeApps.map(a => a.cohort_id))];
+      const { data: myCohorts } = myCohortIds.length
+        ? await sb.from('cohorts').select('id,label,start_date,end_date').in('id', myCohortIds)
+        : { data: [] };
+      const today = todayStr();
+      const joined = (myCohorts || [])
+        .map(c => ({ cohort: c, app: activeApps.find(a => a.cohort_id === c.id) }))
+        .sort((a, b) => a.cohort.start_date.localeCompare(b.cohort.start_date));
+      const nowJ = joined.find(j => j.cohort.start_date <= today && today <= j.cohort.end_date);
+      const nextJ = joined.find(j => j.cohort.start_date > today);
+      const pastJ = joined.filter(j => j.cohort.end_date < today).pop();
+      // Beta testers (joined with a referral code) and the QA test account can start
+      // checking in before their challenge's start_date. Check-ins before then still
+      // save and show on their calendar, but the leaderboard only counts the cohort's dates.
+      const earlyAccess = !nowJ && nextJ && (nextJ.app.is_beta || currentUser.email === TEST_BYPASS_EMAIL);
+      state.activeCohort = nowJ ? nowJ.cohort : (earlyAccess ? nextJ.cohort : null);
+      state.upcomingCohort = !state.activeCohort && nextJ ? nextJ.cohort : null;
+      state.lastCohort = pastJ ? pastJ.cohort : null;
+      // Past challenges stay viewable (read-only); new check-ins only inside a joined challenge.
+      state.readOnly = state.hasEverApplied && !state.activeCohort;
+      // Joined only a challenge that hasn't started and has no history yet: show the "starts soon" screen.
+      state.notYetStarted = !!(state.upcomingCohort && !state.activeCohort && !state.lastCohort);
+      // The leader hasn't opened the next month yet, so the open cohort is already over.
+      state.openCohortEnded = !!(cohort && cohort.end_date < today);
+
+      // Renewal banner: shown inside a running challenge when it ends within a week,
+      // or as soon as the leader opens a later month, unless they already joined it.
       state.showRenewalBanner = false;
       state.nextCohort = null;
-      if (state.hasCurrentApplication && cohort && cohort.end_date) {
-        const daysLeft = Math.ceil((new Date(cohort.end_date + 'T00:00:00') - new Date()) / 86400000);
-        if (daysLeft >= 0 && daysLeft <= 7) {
-          const { data: nextCohort } = await sb.rpc('get_next_cohort', { p_after_cohort_id: cohort.id });
+      state.renewOffset = null;
+      state.renewalEndsSoon = false;
+      if (state.activeCohort && nowJ) {
+        const daysLeft = Math.ceil((new Date(state.activeCohort.end_date + 'T00:00:00') - new Date()) / 86400000);
+        const laterMonthOpen = !!(cohort && cohort.start_date > state.activeCohort.end_date);
+        state.renewalEndsSoon = daysLeft >= 0 && daysLeft <= 7;
+        if (state.renewalEndsSoon || laterMonthOpen) {
+          const { data: nextCohort } = await sb.rpc('get_next_cohort', { p_after_cohort_id: state.activeCohort.id });
           state.nextCohort = nextCohort || null;
-          state.showRenewalBanner = !!(nextCohort && !state.applications.some(a => a.cohort_id === nextCohort.id && a.status === 'active'));
+          // Enrollment RPCs count months from the open cohort: 0 = the open one, 1 = the month after it.
+          if (nextCohort && cohort) state.renewOffset = nextCohort.id === cohort.id ? 0 : (cohort.id === state.activeCohort.id ? 1 : null);
+          state.showRenewalBanner = !!(nextCohort && state.renewOffset !== null && !activeApps.some(a => a.cohort_id === nextCohort.id));
         }
       }
 
@@ -2220,6 +2257,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       currentUser = null; currentProfile = null;
       state.cohort = null; state.applications = []; state.hasEverApplied = false;
       state.hasCurrentApplication = false; state.readOnly = false; state.notYetStarted = false; state.showRenewalBanner = false;
+      state.activeCohort = null; state.upcomingCohort = null; state.lastCohort = null; state.openCohortEnded = false;
       renderNav();
       updateApplyButtonLabel();
       if (state.view === 'member' || state.view === 'leader' || state.view === 'apply' || state.view === 'account') showLanding();
@@ -2389,7 +2427,19 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     }
     if (isPendingDeletion()) { showRestoreModal(); return; }
     if (state.hasCurrentApplication) { showApp('member'); return; }
+    if (currentProfile && currentProfile.role !== 'leader' && (!state.cohort || state.openCohortEnded)) { showApplicationsClosedModal(); return; }
     showApplyView();
+  }
+
+  // The open cohort is missing or already over (the leader hasn't opened the
+  // next month yet), so applying now would enroll someone into a finished month.
+  function showApplicationsClosedModal() {
+    showModal(`
+      <h2 style="font-size:19px;">Applications open soon</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">The next challenge isn't open for applications yet. Please check back in a few days.</p>
+      <button class="btn btn-primary" id="apply-closed-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    document.getElementById('apply-closed-ok-btn').addEventListener('click', closeModal);
   }
 
   function showApplyView() {
@@ -2560,11 +2610,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     }
     applyDraft = null;
     currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
-    state.hasEverApplied = true;
-    currentProfile.cohort_id = data.id;
-    state.hasCurrentApplication = true;
-    state.readOnly = false;
-    renderNav();
+    await refreshMemberState();
     showApp('member');
     showToast('Application submitted! Welcome to the challenge 🎉');
   }
@@ -2601,7 +2647,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         addKoreaPayNote('kr-pay-note-slot');
         renderPaypalButton({
           name: currentProfile.name, timezone: currentProfile.timezone,
-          birthdate: currentProfile.birthdate, monthOffset: 1
+          birthdate: currentProfile.birthdate, monthOffset: state.renewOffset, renewal: true
         });
       });
     }
@@ -2615,7 +2661,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const { data, error } = await sb.rpc('apply_with_code', {
       p_code: document.getElementById('renew-code').value.trim(),
       p_name: currentProfile.name, p_timezone: currentProfile.timezone,
-      p_birthdate: currentProfile.birthdate, p_month_offset: 1
+      p_birthdate: currentProfile.birthdate, p_month_offset: state.renewOffset
     });
     btn.disabled = false; btn.textContent = 'Use code';
     if (error) {
@@ -2625,8 +2671,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       return;
     }
     closeModal();
-    state.showRenewalBanner = false;
-    renderNav();
+    await refreshMemberState();
     renderApp();
     showToast(`You're locked in for ${cohortMonthLabel(data)}! 🎉`);
   }
@@ -2681,14 +2726,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     let challenge;
     if (isLeader) {
       challenge = `<div class="account-status"><span><b>Leader account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
-    } else if (state.hasCurrentApplication && state.cohort) {
-      const [y] = state.cohort.label.split('-');
-      const current = state.applications.find(a => a.cohort_id === state.cohort.id && a.status === 'active');
-      const pill = state.notYetStarted
-        ? `Starts ${new Date(state.cohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
+    } else if (state.activeCohort || state.upcomingCohort) {
+      const shown = state.activeCohort || state.upcomingCohort;
+      const [y] = shown.label.split('-');
+      const current = state.applications.find(a => a.cohort_id === shown.id && a.status === 'active');
+      const pill = shown.start_date > todayStr()
+        ? `Starts ${new Date(shown.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
         : (current && current.is_beta ? 'Enrolled (beta)' : 'Enrolled');
-      challenge = `<div class="account-status"><span><b>${cohortMonthLabel(state.cohort)} ${y}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
-    } else if (state.cohort) {
+      challenge = `<div class="account-status"><span><b>${cohortMonthLabel(shown)} ${y}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
+    } else if (state.cohort && !state.openCohortEnded) {
       challenge = `<div class="account-status"><span>You're not enrolled in the ${cohortMonthLabel(state.cohort)} challenge yet.</span><button type="button" class="btn-sm" id="account-apply">Apply for ${cohortMonthLabel(state.cohort)}</button></div>`;
     } else {
       challenge = `<div class="account-status"><span>Applications are closed right now. Check back soon.</span></div>`;
@@ -2734,8 +2780,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
 
   function openDeleteAccountModal() {
-    const enrolledLine = state.hasCurrentApplication && state.cohort
-      ? `<p style="margin:10px 0 0;"><b>You're enrolled in the ${cohortMonthLabel(state.cohort)} challenge. Deleting your account ends your participation.</b></p>`
+    const enrolledIn = state.activeCohort || state.upcomingCohort;
+    const enrolledLine = enrolledIn
+      ? `<p style="margin:10px 0 0;"><b>You're enrolled in the ${cohortMonthLabel(enrolledIn)} challenge. Deleting your account ends your participation.</b></p>`
       : '';
     showModal(`
       <h2>Delete your account?</h2>
@@ -2853,6 +2900,32 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
   window.addEventListener('resize', fitDashboardHeight);
 
+  // Shown instead of Today's Check-in when no joined challenge is running today.
+  // Past check-ins and feedback stay viewable below it either way.
+  function readOnlyBanner() {
+    const dateLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    let title, text, button = '';
+    if (state.upcomingCohort) {
+      title = `Your ${cohortMonthLabel(state.upcomingCohort)} challenge starts ${dateLabel(state.upcomingCohort.start_date)}`;
+      text = "You're locked in. Check-ins open on that day. Your past check-ins and feedback are below.";
+    } else {
+      title = state.lastCohort ? `Your ${cohortMonthLabel(state.lastCohort)} challenge has ended` : "You're not enrolled in this month's challenge";
+      if (state.cohort && !state.openCohortEnded) {
+        text = 'Your past check-ins and feedback are still here below. Apply again to start submitting new ones.';
+        button = `<button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>`;
+      } else {
+        text = 'Your past check-ins and feedback are still here below. Applications for the next challenge open soon.';
+      }
+    }
+    return `
+        <div class="dz-detail-panel dz-banner" style="margin:0 0 20px;">
+          <p style="font-weight:800; margin-bottom:6px;">${title}</p>
+          <p class="dz-muted" style="${button ? 'margin-bottom:14px;' : 'margin:0;'}">${text}</p>
+          ${button}
+        </div>
+      `;
+  }
+
   function renderApp() {
     if (state.view === 'landing' || state.view === 'auth') return;
     const isLeader = state.view === 'leader';
@@ -2863,10 +2936,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     let body = '';
 
     if (!isLeader && state.notYetStarted) {
-      const startLabel = new Date(state.cohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      const startLabel = new Date(state.upcomingCohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
       body = `
         <div class="dz-detail-panel" style="text-align:center; padding:48px 24px;">
-          <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your ${cohortMonthLabel(state.cohort)} Challenge starts soon</p>
+          <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your ${cohortMonthLabel(state.upcomingCohort)} Challenge starts soon</p>
           <p class="dz-muted">You're locked in. Come back on ${startLabel} to start your streak.</p>
         </div>
       `;
@@ -2995,10 +3068,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       if (!state.newFbKeys) state.newFbKeys = computeNewFeedback(me.id);
       const newKeys = state.newFbKeys;
 
-      // Use the open cohort's own month, not the viewer's real "today" -- someone
-      // in read-only mode viewing a past cohort shouldn't get today's day count.
-      const [cohortYear, cohortMonth] = state.cohort
-        ? state.cohort.start_date.split('-').map(Number)
+      // The leaderboard counts the challenge running today, so use that month's
+      // length (falling back to the open cohort, then the calendar month).
+      const boardCohort = state.activeCohort || state.cohort;
+      const [cohortYear, cohortMonth] = boardCohort
+        ? boardCohort.start_date.split('-').map(Number)
         : [new Date().getFullYear(), new Date().getMonth() + 1];
       const totalDays = daysInMonth(cohortYear, cohortMonth - 1);
 
@@ -3028,19 +3102,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
       const renewalBanner = state.showRenewalBanner ? `
         <div class="dz-detail-panel dz-banner renewal" style="margin-bottom:20px;">
-          <p style="font-weight:800; margin-bottom:4px;">Your challenge wraps up soon</p>
+          <p style="font-weight:800; margin-bottom:4px;">${state.renewalEndsSoon ? 'Your challenge wraps up soon' : `${cohortMonthLabel(state.nextCohort)} applications are open`}</p>
           <p class="dz-muted" style="margin-bottom:12px;">Keep your streak going into ${cohortMonthLabel(state.nextCohort)}?</p>
           <button class="btn btn-primary" id="continue-next-month-btn" style="justify-content:center; display:inline-flex;">Continue Next Month</button>
         </div>
       ` : '';
 
-      const checkinBlock = state.readOnly ? `
-        <div class="dz-detail-panel dz-banner" style="margin:0 0 20px;">
-          <p style="font-weight:800; margin-bottom:6px;">You're not enrolled in this month's challenge</p>
-          <p class="dz-muted" style="margin-bottom:14px;">Your past check-ins and feedback are still here below. Apply again to start submitting new ones.</p>
-          <button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>
-        </div>
-      ` : `
+      const checkinBlock = state.readOnly ? readOnlyBanner() : `
         <h2 class="dz-section" style="margin-top:0;">Today's Check-in</h2>
         <div class="dz-cards">
           <div class="dz-task-card">
