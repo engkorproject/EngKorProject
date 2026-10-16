@@ -531,6 +531,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .account-help p { font-size: 14px; margin-bottom: 6px; }
   .account-help a { color: var(--btn-primary); font-weight: 600; }
   .account-danger { text-align: right; padding: 10px 6px 0; font-size: 12.5px; color: var(--muted); }
+  .account-note { font-size: 13.5px; color: var(--muted); margin: -6px 0 12px; line-height: 1.5; }
+  .account-rows dd select { font: inherit; font-weight: 600; padding: 6px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--canvas); color: var(--foreground); max-width: 220px; }
+  .account-rows dd select:disabled { opacity: 0.5; }
+  .account-rows > div.center { align-items: center; }
+  .rem-switch { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
+  .rem-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .rem-switch span { position: absolute; inset: 0; border-radius: 9999px; background: var(--hairline); transition: background 180ms var(--ease-standard); pointer-events: none; }
+  .rem-switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 180ms var(--ease-standard); }
+  .rem-switch input:checked + span { background: var(--primary); }
+  .rem-switch input:checked + span::after { transform: translateX(18px); }
+  .rem-switch input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
   @media (max-width: 560px) {
     #account-view { padding: 28px 16px 60px; }
     .account-title { font-size: 26px; }
@@ -2735,7 +2746,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <dl class="account-rows">
           <div><dt>Name</dt><dd>${escapeHtml(p.name || '')}</dd></div>
           <div><dt>Email</dt><dd>${escapeHtml(currentUser.email || '')}</dd></div>
-          <div><dt>Time zone</dt><dd>${escapeHtml(p.timezone || 'Not set')}</dd></div>
+          <div class="center"><dt>Time zone</dt><dd>${timezoneSelectHtml(p.timezone)}</dd></div>
           <div><dt>Date of birth</dt><dd>${birthLabel}</dd></div>
         </dl>
       </section>
@@ -2744,6 +2755,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <h2>Challenge</h2>
         ${challenge}
       </section>
+
+      ${isLeader ? '' : `<section class="account-card" id="account-reminder" hidden>
+        <h2>Daily reminder</h2>
+        <p class="account-note">We'll email you at this time (in your time zone) if today's check-in isn't done yet.</p>
+        <dl class="account-rows">
+          <div class="center"><dt>Email reminder</dt><dd><label class="rem-switch"><input type="checkbox" id="rem-enabled" aria-label="Daily reminder email" /><span></span></label></dd></div>
+          <div class="center"><dt>Time</dt><dd><select id="rem-hour" aria-label="Reminder time">${REMINDER_HOURS.map(h => `<option value="${h}">${hourLabel(h)}</option>`).join('')}</select></dd></div>
+        </dl>
+      </section>`}
 
       <section class="account-card account-help">
         <h2>Help</h2>
@@ -2764,6 +2784,59 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (applyBtn) applyBtn.addEventListener('click', openApply);
     const del = document.getElementById('open-delete-account');
     if (del) del.addEventListener('click', openDeleteAccountModal);
+    bindTimezoneSelect();
+    if (!isLeader) loadReminderSettings();
+  }
+
+  // ---- daily reminder + time zone (My Account) ----
+  const REMINDER_HOURS = [12, 15, 18, 21];
+  const hourLabel = (h) => `${h === 12 ? 12 : h - 12} PM`;
+  // Every IANA zone the browser knows, with the member's current one kept even if missing.
+  function timezoneSelectHtml(current) {
+    const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : []).slice();
+    if (current && !zones.includes(current)) zones.unshift(current);
+    if (!zones.length) return escapeHtml(current || 'Not set');
+    return `<select id="account-tz" aria-label="Time zone">${zones.map(z => `<option value="${escapeHtml(z)}"${z === current ? ' selected' : ''}>${escapeHtml(z.replace(/_/g, ' '))}</option>`).join('')}</select>`;
+  }
+  function bindTimezoneSelect() {
+    const sel = document.getElementById('account-tz');
+    if (!sel) return;
+    sel.addEventListener('change', async () => {
+      const prev = currentProfile.timezone;
+      const { error } = await sb.rpc('set_my_timezone', { p_timezone: sel.value });
+      if (error) { console.error(error); sel.value = prev; showToast("Couldn't save your time zone. Please try again.", true); return; }
+      currentProfile.timezone = sel.value;
+      showToast('Time zone saved.');
+    });
+  }
+  // Loaded separately so My Account still works if the reminder columns aren't there yet.
+  async function loadReminderSettings() {
+    const section = document.getElementById('account-reminder');
+    if (!section) return;
+    const { data, error } = await sb.from('profiles').select('daily_reminder_enabled,daily_reminder_hour').eq('id', currentProfile.id).single();
+    if (error || !data) { if (error) console.error(error); return; }
+    const enabledEl = document.getElementById('rem-enabled');
+    const hourEl = document.getElementById('rem-hour');
+    enabledEl.checked = data.daily_reminder_enabled;
+    hourEl.value = String(data.daily_reminder_hour);
+    hourEl.disabled = !data.daily_reminder_enabled;
+    section.hidden = false;
+    let saved = { enabled: data.daily_reminder_enabled, hour: data.daily_reminder_hour };
+    const save = async () => {
+      const next = { enabled: enabledEl.checked, hour: Number(hourEl.value) };
+      hourEl.disabled = !next.enabled;
+      const { error: saveErr } = await sb.rpc('set_daily_reminder', { p_enabled: next.enabled, p_hour: next.hour });
+      if (saveErr) {
+        console.error(saveErr);
+        enabledEl.checked = saved.enabled; hourEl.value = String(saved.hour); hourEl.disabled = !saved.enabled;
+        showToast("Couldn't save your reminder settings. Please try again.", true);
+        return;
+      }
+      saved = next;
+      showToast(next.enabled ? `Daily reminder on: ${hourLabel(next.hour)}.` : 'Daily reminder turned off.');
+    };
+    enabledEl.addEventListener('change', save);
+    hourEl.addEventListener('change', save);
   }
 
   function openDeleteAccountModal() {
@@ -3641,6 +3714,25 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     authMode = 'reset'; authError = "That reset link has expired or was already used. Enter your email and we'll send a new one."; authMessage = null;
     renderAuth();
     history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
+  // "Turn off reminders" link in the daily reminder email: works without logging
+  // in, using the private token from that email.
+  const reminderOffMatch = initialUrlHash.match(/^#\/reminders-off\?token=([0-9a-f-]{36})$/i);
+  if (reminderOffMatch) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    sb.rpc('unsubscribe_daily_reminder', { p_token: reminderOffMatch[1] }).then(({ data, error }) => {
+      if (error) console.error(error);
+      const done = !error && data === true;
+      showModal(`
+        <h2 style="font-size:19px;">${done ? 'Daily reminders are off' : "We couldn't turn off reminders"}</h2>
+        <p class="dz-muted" style="margin:10px 0 20px;">${done
+          ? "You won't get check-in reminder emails anymore. You can turn them back on anytime in My Account."
+          : 'This link may be out of date. You can turn reminders off in My Account, or email us at engkorproject@gmail.com.'}</p>
+        <button class="btn btn-primary" id="reminder-off-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+      `);
+      document.getElementById('reminder-off-ok-btn').addEventListener('click', closeModal);
+    });
   }
 
   sb.auth.getSession().then(({ data: { session } }) => {
