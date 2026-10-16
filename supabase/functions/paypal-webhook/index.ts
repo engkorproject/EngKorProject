@@ -17,7 +17,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const BUSINESS_ERRORS = ["COHORT_FULL", "DUPLICATE_PERSON", "NO_OPEN_COHORT"];
+const BUSINESS_ERRORS = ["DUPLICATE_PERSON", "MEMBER_NOT_FOUND"];
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -114,20 +114,21 @@ Deno.serve(async (req) => {
   // No pending row means capture-order already handled this order normally.
   if (!pending) return new Response("ok");
 
-  const { data: cohort, error } = await sb.rpc("_apply_for_challenge_core", {
+  // Same order ID as capture-order, so enrolling twice still gives one 30-day pass.
+  const { data: pass, error } = await sb.rpc("_enroll_30day_core", {
     p_member_id: pending.member_id,
     p_name: pending.name,
     p_timezone: pending.timezone,
     p_birthdate: pending.birthdate,
-    p_month_offset: pending.month_offset,
     p_referral_code: pending.referral_code || null,
+    p_order_id: orderId,
   });
 
   // Retrying only helps for unexpected failures (DB hiccup, timeout). For those
   // we keep the pending row and answer 500 so PayPal redelivers the event later
-  // and enrollment is tried again. Business errors (cohort full, duplicate
-  // person, no open cohort) won't change on retry, and a unique-key clash means
-  // capture-order already enrolled them, so those end here like a success.
+  // and enrollment is tried again. Business errors (duplicate person) won't
+  // change on retry, and a unique-key clash means capture-order enrolled this
+  // same order at the same moment, so those end here like a success.
   const message = error?.message || "";
   const alreadyEnrolled = message.includes("duplicate key");
   const done = !error || alreadyEnrolled || BUSINESS_ERRORS.some((code) => message.includes(code));
@@ -141,10 +142,10 @@ Deno.serve(async (req) => {
 
   if (error && !alreadyEnrolled) {
     console.error(`Webhook-driven enrollment failed for order ${orderId}:`, message);
-  } else if (cohort?.id) {
+  } else if (pass?.id) {
     await sb
       .from("payment_records")
-      .update({ cohort_id: cohort.id, cohort_label: cohort.label ?? null })
+      .update({ starts_on: pass.starts_on, ends_on: pass.ends_on })
       .eq("paypal_order_id", orderId);
   }
 

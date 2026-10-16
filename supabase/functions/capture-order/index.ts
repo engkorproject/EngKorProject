@@ -1,18 +1,20 @@
 // Captures a PayPal order and, only once PayPal confirms the charge, enrolls
-// the member through _apply_for_challenge_core using the service role. The
+// the member through _enroll_30day_core using the service role: a 30-day pass
+// from the member's local today, or right after the pass they already have.
+// The order ID is passed along, so if paypal-webhook also enrolls the same
+// order, the member still gets exactly one pass. The
 // member is identified from their own access token *before* anything is
 // captured, so a bad or expired session can never end in a charge with no
 // enrollment attempt.
 //
-// Enrollment deliberately goes through the service role rather than
-// apply_for_challenge: that function is being locked down so the only ways
-// into a cohort are a confirmed payment here, a valid beta code
-// (apply_for_challenge_beta), or the QA test account (apply_for_challenge_test).
+// Enrollment deliberately goes through the service role: the only ways to get
+// a pass are a confirmed payment here, a valid code (enroll_with_code), or the
+// QA test account (enroll_for_challenge_test).
 //
-// If enrollment fails for a business reason (cohort full, duplicate person,
-// no open cohort), retrying won't help: the member has been charged with no
-// seat, which is surfaced as applyError so the frontend shows the "contact us
-// for a refund" message, and the pending_paypal_orders row is cleared. For any
+// If enrollment fails for a business reason (duplicate person), retrying won't
+// help: the member has been charged with no pass, which is surfaced as
+// applyError so the frontend shows the "contact us for a refund" message, and
+// the pending_paypal_orders row is cleared. For any
 // other failure the pending row is kept, so paypal-webhook can still finish
 // enrollment once PayPal reports the capture.
 
@@ -24,7 +26,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const BUSINESS_ERRORS = ["COHORT_FULL", "DUPLICATE_PERSON", "NO_OPEN_COHORT"];
+const BUSINESS_ERRORS = ["DUPLICATE_PERSON", "MEMBER_NOT_FOUND"];
 
 // Paid enrollment is closed to EU and UK buyers until we've confirmed how VAT
 // applies to EngKor there (non-EU sellers can owe it from the first sale).
@@ -62,7 +64,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { orderID, name, timezone, birthdate, monthOffset, referralCode } = await req.json();
+    const { orderID, name, timezone, birthdate, referralCode } = await req.json();
     if (!orderID || !name || !timezone || !birthdate) {
       return new Response(JSON.stringify({ error: "orderID, name, timezone, and birthdate are all required" }), {
         status: 400,
@@ -149,19 +151,25 @@ Deno.serve(async (req) => {
     );
     if (recordError) console.error(`Could not write payment_records for order ${orderID}:`, recordError.message);
 
-    const { data: cohort, error: applyError } = await adminClient.rpc("_apply_for_challenge_core", {
+    let { data: pass, error: applyError } = await adminClient.rpc("_enroll_30day_core", {
       p_member_id: userData.user.id,
       p_name: name,
       p_timezone: timezone,
       p_birthdate: birthdate,
-      p_month_offset: monthOffset === 1 ? 1 : 0,
       p_referral_code: referralCode || null,
+      p_order_id: orderID,
     });
 
-    if (!applyError && cohort?.id) {
+    // paypal-webhook may have enrolled this exact order a moment earlier: that's a success.
+    if (applyError && applyError.message.includes("duplicate key")) {
+      const { data: existing } = await adminClient.from("applications").select("*").eq("paypal_order_id", orderID).maybeSingle();
+      if (existing) { pass = existing; applyError = null; }
+    }
+
+    if (!applyError && pass?.id) {
       await adminClient
         .from("payment_records")
-        .update({ cohort_id: cohort.id, cohort_label: cohort.label ?? null })
+        .update({ starts_on: pass.starts_on, ends_on: pass.ends_on })
         .eq("paypal_order_id", orderID);
     }
 
@@ -183,7 +191,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ paid: true, enrolled: true, cohort, capture }), {
+    return new Response(JSON.stringify({ paid: true, enrolled: true, pass, capture }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -1,4 +1,4 @@
-// Creates a PayPal order for one month of the challenge (Orders API v2, not
+// Creates a PayPal order for one 30-day challenge pass (Orders API v2, not
 // Subscriptions -- members pay fresh each time they apply, see the PayPal
 // handoff doc in EngKor_Resources for why). PAYPAL_CLIENT_ID/SECRET/API_BASE
 // are Supabase secrets; never hardcode them here.
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
         purchase_units: [
           {
             // Shown to the buyer and to us on PayPal receipts (was blank before).
-            description: "EngKor Monthly Challenge (1 month)",
+            description: "EngKor 30-Day Challenge",
             amount: {
               currency_code: "USD",
               value: CURRENT_PRICE,
@@ -99,15 +99,15 @@ Deno.serve(async (req) => {
             },
             items: [
               {
-                name: "EngKor Monthly Challenge",
-                description: "One month of daily practice with weekly staff feedback",
+                name: "EngKor 30-Day Challenge",
+                description: "30 days of daily practice with weekly staff feedback",
                 quantity: "1",
                 category: "DIGITAL_GOODS",
                 unit_amount: { currency_code: "USD", value: CURRENT_PRICE },
               },
             ],
-            // e.g. initial_2026-10, renewal_2026-11: tracking only, not read by capture-order/webhook
-            custom_id: `${intent}_${new Date().toISOString().slice(0, 7)}`,
+            // e.g. initial_2026-10-16, renewal_2026-11-02: tracking only, not read by capture-order/webhook
+            custom_id: `${intent}_${new Date().toISOString().slice(0, 10)}`,
           },
         ],
         // Nothing is shipped, so don't ask for or pass along a shipping address.
