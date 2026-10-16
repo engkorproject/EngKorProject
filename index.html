@@ -1307,10 +1307,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (btn) btn.addEventListener('click', closeModal);
   }
 
-  // Opens a modal with a mounted PayPal button for one month's payment. Applying
-  // and paying now happen together: capture-order only calls apply_for_challenge
-  // after PayPal confirms the charge, so no one occupies a cohort seat without
-  // paying, and no one is charged without an enrollment attempt.
+  // Opens a modal with a mounted PayPal button for one 30-day pass. Applying
+  // and paying happen together: capture-order only calls _enroll_30day_core
+  // after PayPal confirms the charge, so no one gets a pass without paying,
+  // and no one is charged without an enrollment attempt.
   let paypalButtonsInstance = null;
   // Shown under every PayPal button so terms and the refund window are disclosed
   // before payment (a refund limit only holds if it was shown up front).
@@ -2508,7 +2508,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
             <select id="apply-birth-year" aria-label="Birth year" required><option value="">Year</option>${yearOpts}</select>
           </div>
         </div>
-        <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
+        <div class="auth-field"><label for="apply-timezone">Time zone</label>${timezoneSelectHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone, 'apply-timezone')}</div>
         <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" value="${escapeHtml(d.referralCode || '')}" /></div>
         <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : 'Start My Challenge'}</button>
         ${CONSENT_NOTE_HTML}
@@ -2522,11 +2522,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // charge each time. Remove once we no longer need it.
   const TEST_BYPASS_EMAIL = '2asy.su@gmail.com';
 
-  // Blank referral code: opens the PayPal payment modal for this month
-  // (p_month_offset 0), and enrollment happens inside capture-order once PayPal
+  // Blank referral code: opens the PayPal payment modal for a 30-day pass that
+  // starts today, and enrollment happens inside capture-order once PayPal
   // confirms the charge. With a referral code: no payment, the code is checked
-  // server-side by apply_for_challenge_beta (the valid code never ships in this
-  // file), and a wrong code shows an error instead of falling through to payment.
+  // server-side by enroll_with_code (the valid code never ships in this file),
+  // and a wrong code shows an error instead of falling through to payment.
   function handleApplySubmit(e) {
     e.preventDefault();
     const name = document.getElementById('apply-name').value.trim();
@@ -2792,11 +2792,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   const REMINDER_HOURS = [12, 15, 18, 21];
   const hourLabel = (h) => `${h === 12 ? 12 : h - 12} PM`;
   // Every IANA zone the browser knows, with the member's current one kept even if missing.
-  function timezoneSelectHtml(current) {
+  // Used in My Account and on the apply form. Without the zone list (very old
+  // browsers) My Account just shows the value and the form falls back to a text box.
+  function timezoneSelectHtml(current, id = 'account-tz') {
     const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : []).slice();
     if (current && !zones.includes(current)) zones.unshift(current);
-    if (!zones.length) return escapeHtml(current || 'Not set');
-    return `<select id="account-tz" aria-label="Time zone">${zones.map(z => `<option value="${escapeHtml(z)}"${z === current ? ' selected' : ''}>${escapeHtml(z.replace(/_/g, ' '))}</option>`).join('')}</select>`;
+    if (!zones.length) {
+      return id === 'account-tz'
+        ? escapeHtml(current || 'Not set')
+        : `<input type="text" id="${id}" required value="${escapeHtml(current || '')}" />`;
+    }
+    return `<select id="${id}" aria-label="Time zone" required>${zones.map(z => `<option value="${escapeHtml(z)}"${z === current ? ' selected' : ''}>${escapeHtml(z.replace(/_/g, ' '))}</option>`).join('')}</select>`;
   }
   function bindTimezoneSelect() {
     const sel = document.getElementById('account-tz');
