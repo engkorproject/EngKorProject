@@ -791,6 +791,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-btn.ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 5px 12px; }
   .dz-btn.ghost:hover { background: var(--primary-tint); }
   .dz-btn.danger { background: transparent; color: var(--error); border: 1px solid var(--error); padding: 4px 10px; font-size: 11.5px; border-radius: 9999px; }
+  .pass-start-note { margin: 0 0 18px; padding: 10px 14px; border-radius: 12px; background: var(--primary-tint); color: var(--foreground); font-size: 13.5px; font-weight: 700; line-height: 1.5; }
+  .dz-pass-day { margin-left: 8px; font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
   .dz-save-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .dz-save-status { margin: 0; font-size: 13px; font-weight: 700; color: var(--success); }
   .dz-save-status.saving { color: #B5652E; animation: dz-save-pulse 1.2s ease-in-out infinite; }
@@ -1303,6 +1305,20 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // before payment (a refund limit only holds if it was shown up front).
   const PAYMENT_CONSENT_HTML = `<p class="dz-muted" style="text-align:center; margin:12px 0 0; line-height:1.5;">By completing payment, you agree to our <a href="terms.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Terms of Service</a> and <a href="refund.html" target="_blank" rel="noopener" style="color:var(--btn-primary); font-weight:600;">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>`;
 
+  // Tells the member exactly which 30 days they're paying for before they pay.
+  function passStartNoteHtml(startDate, isRenewal) {
+    const pass = { start_date: startDate, end_date: addDaysStr(startDate, PASS_DAYS - 1) };
+    const text = isRenewal
+      ? `Your next 30 days run from ${shortDate(pass.start_date)} to ${shortDate(pass.end_date)}.`
+      : `Your 30-day challenge runs from ${shortDate(pass.start_date)} to ${shortDate(pass.end_date)}. Today is Day 1.`;
+    return `<p class="pass-start-note">${text}</p>`;
+  }
+  // A renewal starts the day after the current pass ends (or today if nothing is running).
+  function renewalStartDate() {
+    const c = state.activeCohort;
+    return c && c.end_date >= todayStr() ? addDaysStr(c.end_date, 1) : todayStr();
+  }
+
   function openPaymentModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     if (!PAYMENT_ENABLED) { showPaymentUnavailableModal(); return; }
     paymentBlockedHere().then((blocked) => {
@@ -1324,7 +1340,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function showPayModal({ name, timezone, birthdate, monthOffset, referralCode }) {
     showModal(`
       <h2 style="font-size:19px;">Confirm & Pay</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">$5.50 for this month's challenge, handled securely by PayPal.</p>
+      <p class="dz-muted" style="margin:10px 0 12px;">$5.50 for 30 days, handled securely by PayPal.</p>
+      ${passStartNoteHtml(todayStr(), false)}
       <div id="kr-pay-note-slot"></div>
       <p class="pay-status" id="pay-status" role="status">Connecting to PayPal...</p>
       <div id="paypal-button-container"></div>
@@ -1418,7 +1435,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           showToast('Payment complete! Welcome to the challenge 🎉');
         } else {
           renderApp();
-          showToast(`You're locked in for ${cohortMonthLabel(result.cohort)}! 🎉`);
+          showToast(state.queuedPass ? `You're all set! Your next 30 days run ${passRange(state.queuedPass)}. 🎉` : "You're all set! 🎉");
         }
     }
   }
@@ -1429,6 +1446,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // midnight for anyone outside UTC.
   const localDateStr = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   const todayStr = () => localDateStr(new Date());
+  // 30-day passes: every date is a local YYYY-MM-DD string.
+  const PASS_DAYS = 30;
+  const addDaysStr = (dateStr, n) => { const [y, m, d] = dateStr.split('-').map(Number); return localDateStr(new Date(y, m - 1, d + n)); };
+  const daysBetween = (a, b) => { const [ay, am, ad] = a.split('-').map(Number); const [by, bm, bd] = b.split('-').map(Number); return Math.round((new Date(by, bm - 1, bd) - new Date(ay, am - 1, ad)) / 86400000); };
+  const shortDate = (dateStr) => new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const passRange = (pass) => `${shortDate(pass.start_date)} to ${shortDate(pass.end_date)}`;
+  const passLength = (pass) => daysBetween(pass.start_date, pass.end_date) + 1;
+  // Day N of the pass today (1 on the start day).
+  const passDay = (pass) => Math.min(passLength(pass), Math.max(1, daysBetween(pass.start_date, todayStr()) + 1));
 
   let currentUser = null;   // Supabase auth user
   let currentProfile = null; // { id, name, role } from public.profiles
@@ -1450,17 +1476,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     saving: { diary: false, shadowing: false }, // upload sent, server hasn't confirmed yet
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     // ---- challenge application gate ----
-    cohort: null,             // the cohort currently open for applications (cohorts.is_open = true)
+    cohort: null,             // no longer used (monthly cohorts were replaced by 30-day passes)
     applications: [],         // this member's application rows across all cohorts
     hasEverApplied: false,    // has at least one application ever -> dashboard button visible, past history viewable
-    hasCurrentApplication: false, // applied for the cohort that's open for applications
-    activeCohort: null,       // the joined challenge running today -> check-ins allowed
-    upcomingCohort: null,     // a joined challenge that hasn't started yet
-    lastCohort: null,         // the most recent joined challenge that has already ended
-    openCohortEnded: false,   // the open cohort's dates are over (next month not opened yet)
+    hasCurrentApplication: false, // has a pass running now or still to come
+    activeCohort: null,       // the member's pass running today { id, start_date, end_date } -> check-ins allowed
+    upcomingCohort: null,     // a pass that hasn't started yet
+    lastCohort: null,         // the most recent pass that has already ended
+    openCohortEnded: false,   // no longer used (passes start any day)
     readOnly: false,          // true = dashboard shown but check-in form replaced by a banner
     notYetStarted: false,     // only joined a challenge that hasn't started, no history yet
-    showRenewalBanner: false, nextCohort: null, renewOffset: null, renewalEndsSoon: false
+    showRenewalBanner: false, renewalEndsSoon: false, queuedPass: null
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
@@ -1476,15 +1502,18 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       if (state.leaderView !== 'all' && state.leaderView !== 'none' && !state.leaders.some(l => l.id === state.leaderView)) state.leaderView = 'all';
       if (membersErr) console.error(membersErr);
       state.members = members || [];
-      // "This month" in the member list = the cohort for the current calendar
-      // month (label YYYY-MM), not whichever cohort is open for applications.
+      // "Active" in the member list = members whose 30-day pass covers today.
+      // The rings below still count the calendar month (leaders' monthly workload).
       state.monthCohortLabel = todayStr().slice(0, 7);
       state.monthMemberIds = new Set();
-      const { data: monthCohort } = await sb.from('cohorts').select('id').eq('label', state.monthCohortLabel).maybeSingle();
-      if (monthCohort) {
-        const { data: apps } = await sb.from('applications').select('member_id').eq('cohort_id', monthCohort.id).eq('status', 'active');
-        (apps || []).forEach(a => state.monthMemberIds.add(a.member_id));
-      }
+      state.memberPasses = {};
+      const leaderToday = todayStr();
+      const { data: activeApps } = await sb.from('applications').select('member_id,starts_on,ends_on')
+        .eq('status', 'active').lte('starts_on', leaderToday).gte('ends_on', leaderToday);
+      (activeApps || []).forEach(a => {
+        state.monthMemberIds.add(a.member_id);
+        state.memberPasses[a.member_id] = { start_date: a.starts_on, end_date: a.ends_on };
+      });
       const memberIds = state.members.map(m => m.id);
       state.members.forEach(m => { state.submissions[m.id] = {}; });
       if (memberIds.length) {
@@ -1628,8 +1657,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const cur = state.submissions[memberId][date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' };
     state.submissions[memberId][date] = Object.assign({}, cur, patch);
   }
+  // Completion = full days (Writing + Speaking) inside the member's current pass,
+  // out of the pass length. Falls back to the calendar month without a pass.
   function completionRate(memberId) {
     const sub = state.submissions[memberId] || {};
+    const pass = (currentProfile && memberId === currentProfile.id) ? state.activeCohort : (state.memberPasses || {})[memberId];
+    if (pass) {
+      const done = Object.keys(sub).filter(d => d >= pass.start_date && d <= pass.end_date && sub[d].diary && sub[d].shadowing).length;
+      return Math.round((done / passLength(pass)) * 100);
+    }
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth();
     const totalDaysInMonth = daysInMonth(y, m);
@@ -1975,7 +2011,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       bindAccountMenu();
     } else {
       // Never applied -> no dashboard button at all. Applying is the only door in.
-      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>${accountMenuHtml()}`;
+      el.innerHTML = `<button class="btn-sm" id="nav-apply-btn">Start 30-Day Challenge</button>${accountMenuHtml()}`;
       document.getElementById('nav-apply-btn').addEventListener('click', openApply);
       bindAccountMenu();
     }
@@ -2181,63 +2217,43 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         return;
       }
 
-      // Figure out where this member stands re: the challenge gate. Which cohort is
-      // "open" for applications is a manual leader decision (cohorts.is_open), but
-      // whether someone can check in today comes from the dates of the challenges
-      // they actually joined, so it doesn't depend on when the leader flips is_open.
-      const [{ data: cohort }, { data: applications }] = await Promise.all([
-        sb.from('cohorts').select('*').eq('is_open', true).maybeSingle(),
-        sb.from('applications').select('cohort_id,status,is_beta').eq('member_id', currentUser.id)
-      ]);
-      state.cohort = cohort || null;
+      // Each application is its own pass (starts_on to ends_on, the member's
+      // local dates): new passes run 30 days from the payment day, and a renewal
+      // starts the day after the current one ends. Older monthly applications
+      // got their cohort's dates copied in, so they read the same way.
+      const { data: applications } = await sb.from('applications').select('id,cohort_id,status,is_beta,starts_on,ends_on').eq('member_id', currentUser.id);
+      state.cohort = null;
       state.applications = applications || [];
       state.hasEverApplied = state.applications.length > 0;
-      // Enrolled in the cohort that's open for applications (so Apply just goes to the dashboard).
-      state.hasCurrentApplication = !!(cohort && state.applications.some(a => a.cohort_id === cohort.id && a.status === 'active'));
-
-      const activeApps = state.applications.filter(a => a.status === 'active');
-      const myCohortIds = [...new Set(activeApps.map(a => a.cohort_id))];
-      const { data: myCohorts } = myCohortIds.length
-        ? await sb.from('cohorts').select('id,label,start_date,end_date').in('id', myCohortIds)
-        : { data: [] };
       const today = todayStr();
-      const joined = (myCohorts || [])
-        .map(c => ({ cohort: c, app: activeApps.find(a => a.cohort_id === c.id) }))
-        .sort((a, b) => a.cohort.start_date.localeCompare(b.cohort.start_date));
-      const nowJ = joined.find(j => j.cohort.start_date <= today && today <= j.cohort.end_date);
-      const nextJ = joined.find(j => j.cohort.start_date > today);
-      const pastJ = joined.filter(j => j.cohort.end_date < today).pop();
-      // Beta testers (joined with a referral code) and the QA test account can start
-      // checking in before their challenge's start_date. Check-ins before then still
-      // save and show on their calendar, but the leaderboard only counts the cohort's dates.
-      const earlyAccess = !nowJ && nextJ && (nextJ.app.is_beta || currentUser.email === TEST_BYPASS_EMAIL);
-      state.activeCohort = nowJ ? nowJ.cohort : (earlyAccess ? nextJ.cohort : null);
-      state.upcomingCohort = !state.activeCohort && nextJ ? nextJ.cohort : null;
-      state.lastCohort = pastJ ? pastJ.cohort : null;
-      // Past challenges stay viewable (read-only); new check-ins only inside a joined challenge.
+      const passes = state.applications
+        .filter(a => a.status === 'active' && a.starts_on && a.ends_on)
+        .map(a => ({ id: a.id, start_date: a.starts_on, end_date: a.ends_on, is_beta: !!a.is_beta }))
+        .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      const nowP = passes.find(p => p.start_date <= today && today <= p.end_date);
+      const nextP = passes.find(p => p.start_date > today);
+      const pastP = passes.filter(p => p.end_date < today).pop();
+      // Beta testers and the QA test account may check in before a pass starts.
+      const earlyAccess = !nowP && nextP && (nextP.is_beta || currentUser.email === TEST_BYPASS_EMAIL);
+      state.activeCohort = nowP || (earlyAccess ? nextP : null);
+      state.upcomingCohort = !state.activeCohort && nextP ? nextP : null;
+      state.lastCohort = pastP || null;
+      // The next 30 days, if they're already paid for.
+      state.queuedPass = state.activeCohort ? (passes.find(p => p.start_date > state.activeCohort.end_date) || null) : null;
+      // "Already enrolled" = a pass that's running now or still to come.
+      state.hasCurrentApplication = !!(state.activeCohort || state.upcomingCohort);
+      // Past passes stay viewable (read-only); new check-ins only inside a pass.
       state.readOnly = state.hasEverApplied && !state.activeCohort;
-      // Joined only a challenge that hasn't started and has no history yet: show the "starts soon" screen.
+      // Only a pass that hasn't started and no history yet: show the "starts soon" screen.
       state.notYetStarted = !!(state.upcomingCohort && !state.activeCohort && !state.lastCohort);
-      // The leader hasn't opened the next month yet, so the open cohort is already over.
-      state.openCohortEnded = !!(cohort && cohort.end_date < today);
+      state.openCohortEnded = false;
 
-      // Renewal banner: shown inside a running challenge when it ends within a week,
-      // or as soon as the leader opens a later month, unless they already joined it.
+      // Renewal banner: in a pass's last 7 days, unless the next 30 days are already booked.
       state.showRenewalBanner = false;
-      state.nextCohort = null;
-      state.renewOffset = null;
       state.renewalEndsSoon = false;
-      if (state.activeCohort && nowJ) {
-        const daysLeft = Math.ceil((new Date(state.activeCohort.end_date + 'T00:00:00') - new Date()) / 86400000);
-        const laterMonthOpen = !!(cohort && cohort.start_date > state.activeCohort.end_date);
-        state.renewalEndsSoon = daysLeft >= 0 && daysLeft <= 7;
-        if (state.renewalEndsSoon || laterMonthOpen) {
-          const { data: nextCohort } = await sb.rpc('get_next_cohort', { p_after_cohort_id: state.activeCohort.id });
-          state.nextCohort = nextCohort || null;
-          // Enrollment RPCs count months from the open cohort: 0 = the open one, 1 = the month after it.
-          if (nextCohort && cohort) state.renewOffset = nextCohort.id === cohort.id ? 0 : (cohort.id === state.activeCohort.id ? 1 : null);
-          state.showRenewalBanner = !!(nextCohort && state.renewOffset !== null && !activeApps.some(a => a.cohort_id === nextCohort.id));
-        }
+      if (nowP && !state.queuedPass) {
+        state.renewalEndsSoon = daysBetween(today, nowP.end_date) <= 7;
+        state.showRenewalBanner = state.renewalEndsSoon;
       }
 
       renderNav();
@@ -2273,7 +2289,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     justSignedUp = false;
     showModal(`
       <h2 style="font-size:19px;">Welcome to EngKor! 🎉</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">Your account is ready. Apply for the ${cohortMonthLabel(state.cohort)} challenge to get your dashboard and start your streak.</p>
+      <p class="dz-muted" style="margin:10px 0 20px;">Your account is ready. Start your 30-day challenge to get your dashboard and begin your streak.</p>
       <button class="btn btn-primary" id="welcome-apply-btn" style="width:100%; justify-content:center; display:flex;">Apply for the Challenge</button>
     `);
     const btn = document.getElementById('welcome-apply-btn');
@@ -2388,29 +2404,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // loading state or an error doesn't wipe their input.
   let applyLoading = false, applyDraft = null;
 
-  // Shown to signed-out visitors (and anyone before their cohort data loads), who
-  // never trigger a query against cohorts.is_open. Previously this fell back to
-  // the browser's current calendar month, which drifted from whatever month the
-  // team actually had open for applications -- update this by hand each time a
-  // new cohort opens (cohorts.is_open in Supabase still controls real enrollment).
+  // Landing copy still names a month until the team rewrites it for 30-day
+  // passes. Update this by hand meanwhile; it no longer controls enrollment.
   const CURRENT_CHALLENGE_MONTH = 'October';
-
-  function cohortMonthLabel(cohort) {
-    if (cohort && cohort.label) {
-      const [y, m] = cohort.label.split('-').map(Number);
-      return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'long' });
-    }
-    return CURRENT_CHALLENGE_MONTH;
-  }
-  // The landing page's hero CTA advertises the current month by name even to
-  // signed-out visitors, using the browser's own date until the real cohort
-  // (with its exact label from the DB) is fetched after login.
   function updateApplyButtonLabel() {
-    const label = cohortMonthLabel(state.cohort);
     const heroBtn = document.getElementById('apply-btn-hero');
-    if (heroBtn) heroBtn.textContent = `Apply for ${label} Challenge →`;
+    if (heroBtn) heroBtn.textContent = `Apply for ${CURRENT_CHALLENGE_MONTH} Challenge →`;
     const bannerMonth = document.getElementById('apply-banner-month');
-    if (bannerMonth) bannerMonth.textContent = label;
+    if (bannerMonth) bannerMonth.textContent = CURRENT_CHALLENGE_MONTH;
   }
 
   // Signed out -> push into signup, signed in and already enrolled this month
@@ -2426,20 +2427,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       return;
     }
     if (isPendingDeletion()) { showRestoreModal(); return; }
+    // Already has a running or booked pass: renewing happens from the dashboard.
     if (state.hasCurrentApplication) { showApp('member'); return; }
-    if (currentProfile && currentProfile.role !== 'leader' && (!state.cohort || state.openCohortEnded)) { showApplicationsClosedModal(); return; }
     showApplyView();
-  }
-
-  // The open cohort is missing or already over (the leader hasn't opened the
-  // next month yet), so applying now would enroll someone into a finished month.
-  function showApplicationsClosedModal() {
-    showModal(`
-      <h2 style="font-size:19px;">Applications open soon</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">The next challenge isn't open for applications yet. Please check back in a few days.</p>
-      <button class="btn btn-primary" id="apply-closed-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
-    `);
-    document.getElementById('apply-closed-ok-btn').addEventListener('click', closeModal);
   }
 
   function showApplyView() {
@@ -2461,12 +2451,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function renderPricingStep() {
     const card = document.getElementById('apply-card');
     card.style.cssText = 'max-width:none; margin:0; background:none; border:none; box-shadow:none; padding:0;';
-    const monthLabel = cohortMonthLabel(state.cohort);
     card.innerHTML = `
       <div class="price-card">
         <div class="badge">Pilot Price</div>
-        <div>Monthly Challenge</div>
-        <div class="amount"><span class="strike">$11</span> $5.5<span>/mo</span></div>
+        <div>30-Day Challenge</div>
+        <div class="amount"><span class="strike">$11</span> $5.5<span>/30 days</span></div>
         <p class="price-note">Pilot test participants get 50% off the regular price.</p>
         <div class="price-list">
           <div class="item">Speaking + Writing challenge</div>
@@ -2474,7 +2463,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Personal streak & completion dashboard</div>
           <div class="item">Community leaderboard</div>
         </div>
-        <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Apply for ${monthLabel}</button>
+        <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Continue</button>
         ${CONSENT_NOTE_HTML}
       </div>
     `;
@@ -2484,7 +2473,6 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function renderApplyForm() {
     const card = document.getElementById('apply-card');
     card.style.cssText = '';
-    const monthLabel = cohortMonthLabel(state.cohort);
     // Month/Day/Year dropdowns instead of <input type="date">, whose placeholder
     // and picker follow the browser's language (e.g. Korean) whatever the page
     // says. Years stop at 14 years ago (our Terms' minimum age); the exact
@@ -2497,8 +2485,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const dayOpts = Array.from({ length: 31 }, (_, i) => opt(pad2(i + 1), i + 1, bd === pad2(i + 1))).join('');
     const yearOpts = Array.from({ length: thisYear - 14 - 1925 + 1 }, (_, i) => thisYear - 14 - i).map((y) => opt(y, y, by === String(y))).join('');
     card.innerHTML = `
-      <h2>Apply for the ${monthLabel} Challenge</h2>
+      <h2>Start Your 30-Day Challenge</h2>
       <p class="sub">Fill this out once and our staff will start reviewing your daily check-ins.</p>
+      ${passStartNoteHtml(todayStr(), false)}
       <form id="apply-form">
         <div class="auth-field"><label>Name</label><input type="text" id="apply-name" required value="${escapeHtml((d.name ?? currentProfile.name) || '')}" /></div>
         <div class="auth-field"><label id="apply-birth-label">Birthdate</label>
@@ -2510,7 +2499,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         </div>
         <div class="auth-field"><label>Timezone</label><input type="text" id="apply-timezone" required value="${escapeHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone)}" /></div>
         <div class="auth-field"><label>Referral code (optional)</label><input type="text" id="apply-referral-code" value="${escapeHtml(d.referralCode || '')}" /></div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : `Apply for ${monthLabel}`}</button>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : 'Start My Challenge'}</button>
         ${CONSENT_NOTE_HTML}
       </form>
     `;
@@ -2586,18 +2575,18 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
 
   // Mirrors the enrollment half of renderPaypalButton's onApprove, minus the
-  // payment. viaReferral uses apply_with_code, which checks the code in the DB:
-  // either the shared beta code or a one-time coupon. Otherwise it's the QA test
-  // account via apply_for_challenge_test, which checks the account server-side.
+  // payment. viaReferral uses enroll_with_code, which checks the code in the DB:
+  // either the shared beta code (once per account) or a one-time coupon. Otherwise
+  // it's the QA test account via enroll_for_challenge_test, checked server-side.
   async function submitApplicationWithoutPayment({ name, timezone, birthdate, referralCode, viaReferral }) {
     applyDraft = { name, timezone, birthdate, referralCode };
     applyLoading = true; renderApplyForm();
     const { data, error } = viaReferral
-      ? await sb.rpc('apply_with_code', {
-          p_code: referralCode, p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_month_offset: 0
+      ? await sb.rpc('enroll_with_code', {
+          p_code: referralCode, p_name: name, p_timezone: timezone, p_birthdate: birthdate
         })
-      : await sb.rpc('apply_for_challenge_test', {
-          p_name: name, p_timezone: timezone, p_birthdate: birthdate, p_referral_code: referralCode || null
+      : await sb.rpc('enroll_for_challenge_test', {
+          p_name: name, p_timezone: timezone, p_birthdate: birthdate
         });
     applyLoading = false;
     if (error) {
@@ -2625,8 +2614,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       return;
     }
     showModal(`
-      <h2 style="font-size:19px;">Continue into ${cohortMonthLabel(state.nextCohort)}</h2>
-      <p class="dz-muted" style="margin:10px 0 14px;">Have a free-month code? Enter it here.</p>
+      <h2 style="font-size:19px;">Keep going for 30 more days</h2>
+      ${passStartNoteHtml(renewalStartDate(), true)}
+      <p class="dz-muted" style="margin:10px 0 14px;">Have a free 30-day code? Enter it here.</p>
       <form id="renew-code-form">
         <div class="auth-field"><input type="text" id="renew-code" placeholder="Code" required /></div>
         <button type="submit" class="btn btn-primary" id="renew-code-btn" style="width:100%; justify-content:center; display:flex;">Use code</button>
@@ -2647,7 +2637,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         addKoreaPayNote('kr-pay-note-slot');
         renderPaypalButton({
           name: currentProfile.name, timezone: currentProfile.timezone,
-          birthdate: currentProfile.birthdate, monthOffset: state.renewOffset, renewal: true
+          // monthOffset 1 is only read by the old payment functions during the switch.
+          birthdate: currentProfile.birthdate, monthOffset: 1, renewal: true
         });
       });
     }
@@ -2658,10 +2649,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const btn = document.getElementById('renew-code-btn');
     const errEl = document.getElementById('renew-code-error');
     errEl.hidden = true; btn.disabled = true; btn.textContent = '...';
-    const { data, error } = await sb.rpc('apply_with_code', {
+    const { data, error } = await sb.rpc('enroll_with_code', {
       p_code: document.getElementById('renew-code').value.trim(),
       p_name: currentProfile.name, p_timezone: currentProfile.timezone,
-      p_birthdate: currentProfile.birthdate, p_month_offset: state.renewOffset
+      p_birthdate: currentProfile.birthdate
     });
     btn.disabled = false; btn.textContent = 'Use code';
     if (error) {
@@ -2673,7 +2664,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     closeModal();
     await refreshMemberState();
     renderApp();
-    showToast(`You're locked in for ${cohortMonthLabel(data)}! 🎉`);
+    showToast(data && data.starts_on ? `You're all set! Your next 30 days run ${passRange({ start_date: data.starts_on, end_date: data.ends_on })}. 🎉` : "You're all set! 🎉");
   }
 
   // ---- generic modal (welcome popup, cohort-full notice) ----
@@ -2728,16 +2719,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       challenge = `<div class="account-status"><span><b>Leader account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
     } else if (state.activeCohort || state.upcomingCohort) {
       const shown = state.activeCohort || state.upcomingCohort;
-      const [y] = shown.label.split('-');
-      const current = state.applications.find(a => a.cohort_id === shown.id && a.status === 'active');
       const pill = shown.start_date > todayStr()
-        ? `Starts ${new Date(shown.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`
-        : (current && current.is_beta ? 'Enrolled (beta)' : 'Enrolled');
-      challenge = `<div class="account-status"><span><b>${cohortMonthLabel(shown)} ${y}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
-    } else if (state.cohort && !state.openCohortEnded) {
-      challenge = `<div class="account-status"><span>You're not enrolled in the ${cohortMonthLabel(state.cohort)} challenge yet.</span><button type="button" class="btn-sm" id="account-apply">Apply for ${cohortMonthLabel(state.cohort)}</button></div>`;
+        ? `Starts ${shortDate(shown.start_date)}`
+        : `Day ${passDay(shown)} of ${passLength(shown)}${shown.is_beta ? ' (beta)' : ''}`;
+      challenge = `<div class="account-status"><span><b>${passRange(shown)}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
     } else {
-      challenge = `<div class="account-status"><span>Applications are closed right now. Check back soon.</span></div>`;
+      challenge = `<div class="account-status"><span>You don't have an active challenge.</span><button type="button" class="btn-sm" id="account-apply">Start a 30-Day Challenge</button></div>`;
     }
 
     document.getElementById('account-root').innerHTML = `
@@ -2782,7 +2769,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function openDeleteAccountModal() {
     const enrolledIn = state.activeCohort || state.upcomingCohort;
     const enrolledLine = enrolledIn
-      ? `<p style="margin:10px 0 0;"><b>You're enrolled in the ${cohortMonthLabel(enrolledIn)} challenge. Deleting your account ends your participation.</b></p>`
+      ? `<p style="margin:10px 0 0;"><b>You have an active challenge (${passRange(enrolledIn)}). Deleting your account ends your participation.</b></p>`
       : '';
     showModal(`
       <h2>Delete your account?</h2>
@@ -2906,16 +2893,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const dateLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     let title, text, button = '';
     if (state.upcomingCohort) {
-      title = `Your ${cohortMonthLabel(state.upcomingCohort)} challenge starts ${dateLabel(state.upcomingCohort.start_date)}`;
+      title = `Your next challenge starts ${dateLabel(state.upcomingCohort.start_date)}`;
       text = "You're locked in. Check-ins open on that day. Your past check-ins and feedback are below.";
     } else {
-      title = state.lastCohort ? `Your ${cohortMonthLabel(state.lastCohort)} challenge has ended` : "You're not enrolled in this month's challenge";
-      if (state.cohort && !state.openCohortEnded) {
-        text = 'Your past check-ins and feedback are still here below. Apply again to start submitting new ones.';
-        button = `<button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Apply for ${cohortMonthLabel(state.cohort)} Challenge</button>`;
-      } else {
-        text = 'Your past check-ins and feedback are still here below. Applications for the next challenge open soon.';
-      }
+      title = state.lastCohort ? `Your 30-day challenge ended on ${dateLabel(state.lastCohort.end_date)}` : "You don't have an active challenge";
+      text = 'Your past check-ins and feedback are still here below. Start a new 30-day challenge anytime to keep submitting.';
+      button = `<button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Start a New 30-Day Challenge</button>`;
     }
     return `
         <div class="dz-detail-panel dz-banner" style="margin:0 0 20px;">
@@ -2939,7 +2922,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const startLabel = new Date(state.upcomingCohort.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
       body = `
         <div class="dz-detail-panel" style="text-align:center; padding:48px 24px;">
-          <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your ${cohortMonthLabel(state.upcomingCohort)} Challenge starts soon</p>
+          <p style="font-weight:800; font-size:18px; margin-bottom:8px;">Your 30-day challenge starts soon</p>
           <p class="dz-muted">You're locked in. Come back on ${startLabel} to start your streak.</p>
         </div>
       `;
@@ -2951,9 +2934,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.leaderFocusId = focusId;
       const focusInfo = rows.find(r => r.m.id === focusId);
       const focusMember = focusInfo ? focusInfo.m : null;
-      const monthName = monthLabelOf(state.monthCohortLabel);
       const monthCount = state.members.filter(m => state.monthMemberIds.has(m.id)).length;
-      const rowMeta = (r) => `${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
+      const passTag = (id) => { const p = state.memberPasses[id]; return p ? `Day ${passDay(p)}/${passLength(p)} · ` : ''; };
+      const rowMeta = (r) => `${passTag(r.m.id)}${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
       const listHtml = rows.map(r => `
         <button class="dz-lead-row ${r.m.id === focusId ? 'active' : ''}" data-focus="${r.m.id}">
           <span style="min-width:0;"><div class="nmline"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div>${leaderTagHtml(r.m.assigned_leader_id, r.m.id)}</div><div class="meta">${rowMeta(r)}</div></span>
@@ -2962,14 +2945,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const emptyHtml = state.leaderSearch.trim()
         ? `<p class="dz-lead-empty">No members match "${escapeHtml(state.leaderSearch.trim())}".</p>`
         : (state.leaderScope === 'month'
-          ? `<p class="dz-lead-empty">No one has joined the ${monthName} challenge yet. <button id="lead-show-all">Show all members</button></p>`
+          ? `<p class="dz-lead-empty">No one has an active challenge right now. <button id="lead-show-all">Show all members</button></p>`
           : `<p class="dz-lead-empty">No members yet.</p>`);
       const mobileOptions = rows.map(r => `<option value="${r.m.id}" ${r.m.id === focusId ? 'selected' : ''}>${escapeHtml(r.m.name || 'Unnamed')} · ${rowMeta(r)}${r.pending ? ` · ${r.pending} to review` : ''}</option>`).join('');
       const sideHtml = `
         <aside class="dz-lead-side">
           <div class="dz-lead-scope" role="group" aria-label="Which members to show" data-pos="${state.leaderScopeFrom || state.leaderScope}">
             <span class="dz-scope-thumb" aria-hidden="true"></span>
-            <button id="lead-scope-month" aria-pressed="${state.leaderScope === 'month'}" class="${state.leaderScope === 'month' ? 'on' : ''}">${monthName} (${monthCount})</button>
+            <button id="lead-scope-month" aria-pressed="${state.leaderScope === 'month'}" class="${state.leaderScope === 'month' ? 'on' : ''}">Active (${monthCount})</button>
             <button id="lead-scope-all" aria-pressed="${state.leaderScope === 'all'}" class="${state.leaderScope === 'all' ? 'on' : ''}">All (${state.members.length})</button>
           </div>
           <div class="dz-lead-tools">
@@ -3041,7 +3024,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
                     ${state.leaders.map(l => `<option value="${l.id}" ${focusMember.assigned_leader_id === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}</option>`).join('')}
                   </select>
                 </label>
-                <span class="dz-lead-pill">${focusInfo.rate}% this month</span>
+                ${state.memberPasses[focusMember.id] ? `<span class="dz-lead-pill">Day ${passDay(state.memberPasses[focusMember.id])} of ${passLength(state.memberPasses[focusMember.id])} · ends ${shortDate(state.memberPasses[focusMember.id].end_date)}</span>` : '<span class="dz-lead-pill">No active challenge</span>'}
+                <span class="dz-lead-pill">${focusInfo.rate}% complete</span>
                 <span class="dz-lead-pill">Last: ${timeAgo(focusInfo.lastAt, focusInfo.lastDate)}</span>
                 ${focusInfo.pending ? `<span class="dz-lead-pill todo">${focusInfo.pending} to review</span>` : '<span class="dz-lead-pill">All reviewed</span>'}
               </div>
@@ -3068,20 +3052,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       if (!state.newFbKeys) state.newFbKeys = computeNewFeedback(me.id);
       const newKeys = state.newFbKeys;
 
-      // The leaderboard counts the challenge running today, so use that month's
-      // length (falling back to the open cohort, then the calendar month).
-      const boardCohort = state.activeCohort || state.cohort;
-      const [cohortYear, cohortMonth] = boardCohort
-        ? boardCohort.start_date.split('-').map(Number)
-        : [new Date().getFullYear(), new Date().getMonth() + 1];
-      const totalDays = daysInMonth(cohortYear, cohortMonth - 1);
+      // Each leaderboard row carries its own pass dates (30 days, or a whole
+      // month for older monthly passes), so % is out of that member's own pass.
+      const totalDays = state.activeCohort ? passLength(state.activeCohort) : PASS_DAYS;
+      const rowDays = (m) => (m.starts_on && m.ends_on) ? passLength({ start_date: m.starts_on, end_date: m.ends_on }) : totalDays;
 
       // Leaderboard: everyone, most days first. People on the same count share a rank.
       const sortedBoard = [...state.leaderboard].sort((a, b) => b.completed_days - a.completed_days);
       let rankNow = 0, prevDays = null;
       const ranked = sortedBoard.map((m, i) => {
         if (m.completed_days !== prevDays) { rankNow = i + 1; prevDays = m.completed_days; }
-        return { id: m.member_id, name: m.name, rank: rankNow, pct: Math.round((m.completed_days / totalDays) * 100) };
+        return { id: m.member_id, name: m.name, rank: rankNow, pct: Math.round((m.completed_days / rowDays(m)) * 100) };
       });
       const myRank = ranked.find(r => r.id === me.id);
       const rankBadge = (rank) => rank <= 5
@@ -3102,14 +3083,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
       const renewalBanner = state.showRenewalBanner ? `
         <div class="dz-detail-panel dz-banner renewal" style="margin-bottom:20px;">
-          <p style="font-weight:800; margin-bottom:4px;">${state.renewalEndsSoon ? 'Your challenge wraps up soon' : `${cohortMonthLabel(state.nextCohort)} applications are open`}</p>
-          <p class="dz-muted" style="margin-bottom:12px;">Keep your streak going into ${cohortMonthLabel(state.nextCohort)}?</p>
-          <button class="btn btn-primary" id="continue-next-month-btn" style="justify-content:center; display:inline-flex;">Continue Next Month</button>
+          <p style="font-weight:800; margin-bottom:4px;">Your challenge ends ${shortDate(state.activeCohort.end_date)}</p>
+          <p class="dz-muted" style="margin-bottom:12px;">Keep your streak going for 30 more days? Your next 30 days start the day after this one ends.</p>
+          <button class="btn btn-primary" id="continue-next-month-btn" style="justify-content:center; display:inline-flex;">Extend 30 Days</button>
         </div>
       ` : '';
 
       const checkinBlock = state.readOnly ? readOnlyBanner() : `
-        <h2 class="dz-section" style="margin-top:0;">Today's Check-in</h2>
+        <h2 class="dz-section" style="margin-top:0;">Today's Check-in <span class="dz-pass-day">Day ${passDay(state.activeCohort)} of ${passLength(state.activeCohort)} · ends ${shortDate(state.activeCohort.end_date)}</span></h2>
         <div class="dz-cards">
           <div class="dz-task-card">
             <div class="title"><b>Writing</b><span class="dz-status-dot ${today.diary && !state.saving.diary ? 'done' : ''}"></span></div>
