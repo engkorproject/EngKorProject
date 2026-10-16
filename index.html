@@ -532,6 +532,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .account-help a { color: var(--btn-primary); font-weight: 600; }
   .account-danger { text-align: right; padding: 10px 6px 0; font-size: 12.5px; color: var(--muted); }
   .account-note { font-size: 13.5px; color: var(--muted); margin: -6px 0 12px; line-height: 1.5; }
+  .nick-note { margin: -8px 4px 16px; }
+  .nick-form { display: flex; gap: 8px; justify-content: flex-end; }
+  .nick-form input { font: inherit; font-weight: 600; width: 160px; padding: 6px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--canvas); color: var(--foreground); }
+  .nick-form input:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: var(--primary); }
+  .dz-link-btn { background: none; border: none; padding: 0; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--btn-primary); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .dz-acct-details .dz-link-btn { margin-left: 6px; }
   .account-rows dd select { font: inherit; font-weight: 600; padding: 6px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--canvas); color: var(--foreground); max-width: 220px; }
   .account-rows dd select:disabled { opacity: 0.5; }
   .account-rows > div.center { align-items: center; }
@@ -1457,6 +1463,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // midnight for anyone outside UTC.
   const localDateStr = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   const todayStr = () => localDateStr(new Date());
+  // The name other members (and greetings) see: the nickname if set, else the real name.
+  const displayNameOf = (p) => (p && (p.nickname || p.name)) || '';
   // 30-day passes: every date is a local YYYY-MM-DD string.
   const PASS_DAYS = 30;
   const addDaysStr = (dateStr, n) => { const [y, m, d] = dateStr.split('-').map(Number); return localDateStr(new Date(y, m - 1, d + n)); };
@@ -1479,6 +1487,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     // leader member list: 'month' = this calendar month's cohort only
     leaderScope: 'month', leaderSearch: '', leaderSort: 'latest',
     leaderDayOpen: {}, // "memberId|date" -> true/false once the leader opens or closes a day
+    leaderShowDetails: null, // member id whose real name + email the leader chose to reveal
     mediaLoaded: new Set(), mediaLoading: new Set(), // leader: whose photos/recordings are fetched
     leaders: [], // leader accounts, for assigning members and the progress rings
     leaderView: (() => { try { return localStorage.getItem('engkor_leader_view') || 'all'; } catch (e) { return 'all'; } })(), // 'all' | 'none' | leader id
@@ -1507,7 +1516,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
     if (currentProfile.role === 'leader') {
       // Members who requested account deletion are hidden during their 7-day grace period.
-      const { data: members, error: membersErr } = await sb.from('profiles').select('id,name,email,assigned_leader_id').eq('role', 'member').is('deletion_requested_at', null).order('name');
+      const memberQuery = (cols) => sb.from('profiles').select(cols).eq('role', 'member').is('deletion_requested_at', null).order('name');
+      let { data: members, error: membersErr } = await memberQuery('id,name,nickname,email,assigned_leader_id');
+      if (membersErr && /nickname/.test(membersErr.message || '')) ({ data: members, error: membersErr } = await memberQuery('id,name,email,assigned_leader_id'));
       const { data: leaders } = await sb.from('profiles').select('id,name').eq('role', 'leader').is('deletion_requested_at', null).order('name');
       state.leaders = leaders || [];
       if (state.leaderView !== 'all' && state.leaderView !== 'none' && !state.leaders.some(l => l.id === state.leaderView)) state.leaderView = 'all';
@@ -1539,7 +1550,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       }
     } else {
       const memberId = currentProfile.id;
-      state.members = [{ id: memberId, name: currentProfile.name }];
+      state.members = [{ id: memberId, name: displayNameOf(currentProfile) }];
       state.submissions[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
       // Members only see feedback the leader has sent; saved drafts stay hidden.
@@ -1644,7 +1655,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     showModal(`
       <h2 style="font-size:19px;">Feedback sent!</h2>
-      <p class="dz-muted" style="margin:10px 0 20px;">${escapeHtml((member && member.name) || 'The member')} can now see your ${taskLabel} feedback for ${dayLabel}, and we've emailed them about it.</p>
+      <p class="dz-muted" style="margin:10px 0 20px;">${escapeHtml(displayNameOf(member) || 'The member')} can now see your ${taskLabel} feedback for ${dayLabel}, and we've emailed them about it.</p>
       <button class="btn btn-primary" id="fb-sent-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
     `);
     document.getElementById('fb-sent-ok-btn').addEventListener('click', closeModal);
@@ -1658,7 +1669,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       await fetch(NOTIFY_FEEDBACK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
-        body: JSON.stringify({ to: member.email, memberName: member.name, feedbackText: text })
+        body: JSON.stringify({ to: member.email, memberName: member.nickname || member.name, feedbackText: text })
       });
     } catch (e) { console.error('notifyFeedback failed', e); }
   }
@@ -1838,10 +1849,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const q = state.leaderSearch.trim().toLowerCase();
     const inScope = (state.leaderScope === 'all' ? state.members : state.members.filter(m => state.monthMemberIds.has(m.id))).filter(inLeaderView);
     const rows = inScope
-      .filter(m => !q || (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q))
+      // Leaders search by the name members chose to show, so a nickname never leads back to a real name.
+      .filter(m => !q || displayNameOf(m).toLowerCase().includes(q))
       .map(memberListInfo);
     const byLatest = (a, b) => (b.lastDate || '').localeCompare(a.lastDate || '') || (b.lastAt || '').localeCompare(a.lastAt || '');
-    const byName = (a, b) => (a.m.name || '').localeCompare(b.m.name || '');
+    const byName = (a, b) => displayNameOf(a.m).localeCompare(displayNameOf(b.m));
     const sorters = {
       latest: (a, b) => byLatest(a, b) || byName(a, b),
       pending: (a, b) => b.pending - a.pending || byLatest(a, b) || byName(a, b),
@@ -2030,7 +2042,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
   // Avatar button with a small menu: who's signed in, My Account, Log out.
   function accountMenuHtml() {
-    const name = currentProfile.name || '';
+    const name = displayNameOf(currentProfile);
     const initial = (name.trim()[0] || (currentUser.email || '?')[0]).toUpperCase();
     return `
       <div class="nav-avatar-wrap">
@@ -2209,7 +2221,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   async function handleSession(session) {
     if (session && session.user) {
       currentUser = session.user;
-      const { data: profile, error } = await sb.from('profiles').select('id,name,role,timezone,birthdate,cohort_id,deletion_requested_at').eq('id', currentUser.id).single();
+      const profileCols = 'id,name,role,timezone,birthdate,cohort_id,deletion_requested_at';
+      let { data: profile, error } = await sb.from('profiles').select(profileCols + ',nickname').eq('id', currentUser.id).single();
+      // Before the nickname column exists, load the profile without it.
+      if (error && /nickname/.test(error.message || '')) ({ data: profile, error } = await sb.from('profiles').select(profileCols).eq('id', currentUser.id).single());
       if (error || !profile) { console.error(error); currentProfile = null; renderNav(); return; }
       currentProfile = profile;
 
@@ -2744,12 +2759,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       <section class="account-card">
         <h2>Profile</h2>
         <dl class="account-rows">
-          <div><dt>Name</dt><dd>${escapeHtml(p.name || '')}</dd></div>
+          <div><dt>Real name</dt><dd>${escapeHtml(p.name || '')}</dd></div>
+          ${isLeader || !('nickname' in p) ? '' : `<div class="center nick-row"><dt>Nickname</dt><dd><form id="nick-form" class="nick-form"><input type="text" id="nick-input" maxlength="20" placeholder="Optional" value="${escapeHtml(p.nickname || '')}" aria-label="Nickname" /><button type="submit" class="btn-sm" id="nick-save">Save</button></form></dd></div>`}
           <div><dt>Email</dt><dd>${escapeHtml(currentUser.email || '')}</dd></div>
           <div class="center"><dt>Time zone</dt><dd>${timezoneSelectHtml(p.timezone)}</dd></div>
           <div><dt>Date of birth</dt><dd>${birthLabel}</dd></div>
         </dl>
       </section>
+
+      ${isLeader || !('nickname' in p) ? '' : `<p class="account-note nick-note">If you set a nickname, other members and your leaders will see it instead of your real name. Your real name is kept only for payments and account support.</p>`}
 
       <section class="account-card">
         <h2>Challenge</h2>
@@ -2785,7 +2803,38 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const del = document.getElementById('open-delete-account');
     if (del) del.addEventListener('click', openDeleteAccountModal);
     bindTimezoneSelect();
+    bindNicknameForm();
     if (!isLeader) loadReminderSettings();
+  }
+
+  // ---- nickname (My Account) ----
+  function bindNicknameForm() {
+    const form = document.getElementById('nick-form');
+    if (!form) return;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('nick-input');
+      const btn = document.getElementById('nick-save');
+      const value = input.value.replace(/\s+/g, ' ').trim();
+      if (value && (value.length < 2 || /[<>@\/"`\\]/.test(value))) {
+        showToast('Nicknames need 2 to 20 characters, without < > @ / " ` or \\.', true);
+        return;
+      }
+      btn.disabled = true;
+      const { data, error } = await sb.rpc('set_my_nickname', { p_nickname: value });
+      btn.disabled = false;
+      if (error) {
+        const msg = error.message || '';
+        showToast(msg.includes('NICKNAME_TAKEN') ? 'That nickname is already taken. Try another one.'
+          : msg.includes('INVALID_NICKNAME') ? 'Nicknames need 2 to 20 characters, without < > @ / " ` or \\.'
+          : "Couldn't save your nickname. Please try again.", true);
+        return;
+      }
+      currentProfile.nickname = data || null;
+      input.value = data || '';
+      renderNav();
+      showToast(data ? `Nickname saved. You'll show up as ${data}.` : 'Nickname removed. Your real name will be shown.');
+    });
   }
 
   // ---- daily reminder + time zone (My Account) ----
@@ -3018,7 +3067,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const rowMeta = (r) => `${passTag(r.m.id)}${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
       const listHtml = rows.map(r => `
         <button class="dz-lead-row ${r.m.id === focusId ? 'active' : ''}" data-focus="${r.m.id}">
-          <span style="min-width:0;"><div class="nmline"><div class="nm">${escapeHtml(r.m.name || 'Unnamed')}</div>${leaderTagHtml(r.m.assigned_leader_id, r.m.id)}</div><div class="meta">${rowMeta(r)}</div></span>
+          <span style="min-width:0;"><div class="nmline"><div class="nm">${escapeHtml(displayNameOf(r.m) || 'Unnamed')}</div>${leaderTagHtml(r.m.assigned_leader_id, r.m.id)}</div><div class="meta">${rowMeta(r)}</div></span>
           ${r.pending ? `<span class="dz-lead-badge" title="${r.pending} without feedback">${r.pending}</span>` : ''}
         </button>`).join('');
       const emptyHtml = state.leaderSearch.trim()
@@ -3026,7 +3075,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         : (state.leaderScope === 'month'
           ? `<p class="dz-lead-empty">No one has an active challenge right now. <button id="lead-show-all">Show all members</button></p>`
           : `<p class="dz-lead-empty">No members yet.</p>`);
-      const mobileOptions = rows.map(r => `<option value="${r.m.id}" ${r.m.id === focusId ? 'selected' : ''}>${escapeHtml(r.m.name || 'Unnamed')} · ${rowMeta(r)}${r.pending ? ` · ${r.pending} to review` : ''}</option>`).join('');
+      const mobileOptions = rows.map(r => `<option value="${r.m.id}" ${r.m.id === focusId ? 'selected' : ''}>${escapeHtml(displayNameOf(r.m) || 'Unnamed')} · ${rowMeta(r)}${r.pending ? ` · ${r.pending} to review` : ''}</option>`).join('');
       const sideHtml = `
         <aside class="dz-lead-side">
           <div class="dz-lead-scope" role="group" aria-label="Which members to show" data-pos="${state.leaderScopeFrom || state.leaderScope}">
@@ -3095,7 +3144,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const detailHtml = focusMember ? `
           <div class="dz-detail-panel">
             <div class="dz-lead-head">
-              <div><h2>${escapeHtml(focusMember.name || 'Unnamed')}</h2><p class="dz-muted" style="margin-top:2px;">${escapeHtml(focusMember.email || '')}</p></div>
+              <div><h2>${escapeHtml(displayNameOf(focusMember) || 'Unnamed')}</h2>${state.leaderShowDetails === focusMember.id
+                ? `<p class="dz-muted dz-acct-details" style="margin-top:2px;">${focusMember.nickname ? `Real name: <b>${escapeHtml(focusMember.name || '')}</b> · ` : ''}${escapeHtml(focusMember.email || '')} <button type="button" class="dz-link-btn" id="lead-hide-details">Hide</button></p>`
+                : `<p style="margin-top:2px;"><button type="button" class="dz-link-btn" id="lead-show-details">Show account details</button></p>`}</div>
               <div class="stats">
                 <label class="dz-owner">Leader
                   <select class="dz-owner-select" id="lead-owner-select" data-member="${focusMember.id}" aria-label="Assigned leader">
@@ -3292,7 +3343,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       `;
     }
 
-    const displayName = currentProfile ? currentProfile.name : '';
+    const displayName = displayNameOf(currentProfile);
     const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
     dzRoot.innerHTML = `
@@ -3427,6 +3478,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         el.addEventListener('toggle', () => { state.leaderDayOpen[el.dataset.dayKey] = el.open; if (el.open) el.querySelectorAll('textarea.dz-ta').forEach(grow); });
       });
       const setAllDays = (open) => document.querySelectorAll('.dz-leader details.dz-day').forEach(el => { el.open = open; state.leaderDayOpen[el.dataset.dayKey] = open; });
+      // Real name + email stay hidden unless the leader needs them (refunds, account support).
+      const showDetailsBtn = document.getElementById('lead-show-details');
+      if (showDetailsBtn) showDetailsBtn.addEventListener('click', () => { state.leaderShowDetails = state.leaderFocusId; renderApp(); });
+      const hideDetailsBtn = document.getElementById('lead-hide-details');
+      if (hideDetailsBtn) hideDetailsBtn.addEventListener('click', () => { state.leaderShowDetails = null; renderApp(); });
       const openAll = document.getElementById('lead-open-all');
       if (openAll) openAll.addEventListener('click', () => setAllDays(true));
       const closeAll = document.getElementById('lead-close-all');
