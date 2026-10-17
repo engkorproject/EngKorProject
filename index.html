@@ -864,6 +864,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     .dz-member-side .dz-board-row .name { font-size: 13px; }
   }
   .dz-side-card { background: var(--canvas); border-radius: 24px; padding: 20px; box-shadow: var(--shadow-soft); }
+  .dz-qa-card { background: var(--primary-tint); }
+  .dz-member-side .dz-side-card.dz-qa-card { background: var(--primary-tint); border-color: transparent; }
+  .dz-qa-title { font-weight: 800; font-size: 15px; margin: 0 0 4px; }
+  .dz-qa-text { font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; color: var(--foreground); }
+  .dz-qa-btn { width: 100%; justify-content: center; display: flex; }
+  .dz-qa-join { font-size: 12.5px; color: var(--muted); text-align: center; margin: 10px 0 0; }
+  .dz-qa-join a { color: var(--btn-primary); font-weight: 700; }
   .dz-side-card h2.dz-section { margin: 0; }
   .dz-member-side > .dz-side-card { flex: 0 0 auto; }
   /* big calendar */
@@ -1449,7 +1456,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         await refreshMemberState();
         if (!renewal) {
           showApp('member');
-          showToast('Payment complete! Welcome to the challenge 🎉');
+          showWelcomeDiscordModal('Payment complete! Welcome to the challenge 🎉');
         } else {
           renderApp();
           showToast(state.queuedPass ? `You're all set! Your next 30 days run ${passRange(state.queuedPass)}. 🎉` : "You're all set! 🎉");
@@ -1463,6 +1470,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // midnight for anyone outside UTC.
   const localDateStr = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   const todayStr = () => localDateStr(new Date());
+  // Discord: the Q&A channel link only opens for people already in the server,
+  // so every Q&A button sits next to the invite link for everyone else.
+  const DISCORD_INVITE_URL = 'https://discord.gg/bj9w884Epk';
+  const DISCORD_QA_URL = 'https://discord.com/channels/1532161860856709170/1546507910077612042';
+  const discordLinkAttrs = 'target="_blank" rel="noopener noreferrer"';
   // The name other members (and greetings) see: the nickname if set, else the real name.
   const displayNameOf = (p) => (p && (p.nickname || p.name)) || '';
   // 30-day passes: every date is a local YYYY-MM-DD string.
@@ -2627,7 +2639,20 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
     await refreshMemberState();
     showApp('member');
-    showToast('Application submitted! Welcome to the challenge 🎉');
+    showWelcomeDiscordModal("You're in! Welcome to the challenge 🎉");
+  }
+
+  // Shown once, right after someone joins: the moment they're most likely to
+  // also join the Discord, where members ask questions in the Q&A channel.
+  function showWelcomeDiscordModal(title) {
+    showModal(`
+      <h2 style="font-size:19px;">${title}</h2>
+      <p class="dz-muted" style="margin:10px 0 18px;">Join our Discord to ask questions in the Q&amp;A channel and meet other members. Leaders answer there too.</p>
+      <a class="btn btn-primary" href="${DISCORD_INVITE_URL}" ${discordLinkAttrs} id="welcome-discord-join" style="width:100%; justify-content:center; display:flex;">Join our Discord</a>
+      <p class="dz-muted" style="text-align:center; margin:12px 0 0; font-size:13px;">Already in? <a href="${DISCORD_QA_URL}" ${discordLinkAttrs} style="color:var(--btn-primary); font-weight:700;">Go to Q&amp;A</a> · <button type="button" class="dz-link-btn" id="welcome-discord-later">Maybe later</button></p>
+    `);
+    document.getElementById('welcome-discord-join').addEventListener('click', closeModal);
+    document.getElementById('welcome-discord-later').addEventListener('click', closeModal);
   }
 
   // Used by the dashboard's renewal banner. Reuses the member's name/timezone/
@@ -2785,7 +2810,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
       <section class="account-card account-help">
         <h2>Help</h2>
-        <p>Questions? Email us at <a href="mailto:engkorproject@gmail.com">engkorproject@gmail.com</a>.</p>
+        <p>Questions about the challenge? Ask in our <a href="${DISCORD_QA_URL}" ${discordLinkAttrs}>Discord Q&amp;A</a> (not in our Discord yet? <a href="${DISCORD_INVITE_URL}" ${discordLinkAttrs}>join here</a>).</p>
+        <p>Account or payment questions? Email us at <a href="mailto:engkorproject@gmail.com">engkorproject@gmail.com</a>.</p>
         <p><a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> · <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> · <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a></p>
       </section>
 
@@ -3319,6 +3345,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           </section>
 
           <aside class="dz-member-side">
+            ${state.activeCohort ? `<section class="dz-side-card dz-qa-card">
+              <p class="dz-qa-title">Got a question?</p>
+              <p class="dz-qa-text">Ask in our Discord Q&amp;A. Leaders and other members answer there.</p>
+              <a class="btn btn-primary dz-qa-btn" href="${DISCORD_QA_URL}" ${discordLinkAttrs}>Open Q&amp;A in Discord</a>
+              <p class="dz-qa-join">Not in our Discord yet? <a href="${DISCORD_INVITE_URL}" ${discordLinkAttrs}>Join first</a></p>
+            </section>` : ''}
             <section class="dz-side-card">
               <h2 class="dz-section" style="margin-top:0;">Calendar</h2>
               ${renderCalendar(me.id)}
