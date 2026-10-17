@@ -34,6 +34,7 @@ type Member = {
   id: string;
   email: string | null;
   name: string | null;
+  nickname: string | null;
   timezone: string | null;
   daily_reminder_hour: number;
   daily_reminder_last_sent_on: string | null;
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
 
     const { data: members, error: memberErr } = await sb
       .from("profiles")
-      .select("id,email,name,timezone,daily_reminder_hour,daily_reminder_last_sent_on,reminder_token")
+      .select("id,email,name,nickname,timezone,daily_reminder_hour,daily_reminder_last_sent_on,reminder_token")
       .eq("role", "member")
       .eq("daily_reminder_enabled", true)
       .is("deletion_requested_at", null);
@@ -152,7 +153,7 @@ Deno.serve(async (req) => {
           to: m.email!,
           subject: `Today's EngKor check-in: ${leftText} left`,
           text:
-            `Hi ${m.name || "there"},\n\n` +
+            `Hi ${m.nickname || m.name || "there"},\n\n` +
             `It's Day ${dayOfPass(pass.starts_on, local.date)} of ${passLength} of your challenge, ` +
             `and today's ${leftText} ${left.length > 1 ? "are" : "is"} still waiting for you.\n\n` +
             `Upload ${left.length > 1 ? "them" : "it"} here before the day ends to keep your streak going:\n${SITE_URL}\n\n` +

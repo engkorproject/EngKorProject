@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
     const { data: members, error: memberErr } = await sb
       .from("profiles")
-      .select("id,email,name,role")
+      .select("id,email,name,nickname,role")
       .in("id", [...new Set(toRemind.map((p) => p.member_id))])
       .eq("role", "member")
       .is("deletion_requested_at", null);
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
           to: member.email,
           subject: `Your EngKor challenge ends ${shortDate(pass.ends_on)}. Keep going for 30 more days?`,
           text:
-            `Hi ${member.name || "there"},\n\n` +
+            `Hi ${member.nickname || member.name || "there"},\n\n` +
             `Your 30-day EngKor challenge ends on ${shortDate(pass.ends_on)}.\n\n` +
             `Want to keep your streak going? Log in and tap "Extend 30 Days" on your dashboard. ` +
             `Your next 30 days would run from ${shortDate(nextStart)} to ${shortDate(nextEnd)}.\n\n` +
