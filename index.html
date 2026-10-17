@@ -1306,6 +1306,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const NOTIFY_FEEDBACK_URL = SUPABASE_URL + '/functions/v1/notify-feedback';
+  const NOTIFY_SUBMISSION_URL = SUPABASE_URL + '/functions/v1/notify-submission';
 
   const CREATE_ORDER_URL = SUPABASE_URL + '/functions/v1/create-order';
   const CAPTURE_ORDER_URL = SUPABASE_URL + '/functions/v1/capture-order';
@@ -1623,6 +1624,19 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const c = state.activeCohort;
     return !!(c && todayStr() <= c.end_date);
   }
+  // Tells the team inbox that a member just submitted Writing or Speaking.
+  // Fire-and-forget like notifyFeedback: a failed email never blocks the member.
+  async function notifySubmission(part) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+      await fetch(NOTIFY_SUBMISSION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ part, date: todayStr() })
+      });
+    } catch (e) { console.error('notifySubmission failed', e); }
+  }
   async function saveMedia(memberId, field, value) {
     if (!canCheckInToday()) {
       await refreshMemberState();
@@ -1639,6 +1653,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (!ok) setDay(memberId, date, { [field]: prev });
     renderApp();
     if (ok) showToast(value ? 'Saved! Your leader can see it now.' : 'Removed.');
+    if (ok && value) notifySubmission(field);
     else showUploadFailedModal(!!value);
   }
   function showUploadFailedModal(uploading) {
