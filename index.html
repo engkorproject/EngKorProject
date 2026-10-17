@@ -351,6 +351,23 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .cta-band h2 { font-family: var(--font-display); font-size: 40px; font-weight: 700; }
   .cta-band p { color: var(--muted); margin-top: 10px; font-size: 18px; line-height: 1.6; font-family: "Geist", sans-serif; }
   .cta-band .hero-ctas { justify-content: center; margin-top: 22px; }
+  /* A peek into the Discord: as wide as the heading above, fully visible, with a
+     soft shadow that pools under the bottom edge (like a card resting on the page).
+     Lifts on hover since it's a link. */
+  .discord-peek { position: relative; display: block; max-width: 650px; margin: 40px auto 0; aspect-ratio: 16 / 8.5; border-radius: 20px; overflow: hidden;
+    border: 1px solid rgba(46,46,46,0.06);
+    box-shadow: 0 22px 40px -26px rgba(87,58,40,0.30), 0 8px 18px -12px rgba(87,58,40,0.12);
+    transition: opacity 250ms var(--ease-enter), transform 220ms var(--ease-standard), box-shadow 220ms var(--ease-standard); }
+  .discord-peek img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; transition: transform 400ms var(--ease-standard); }
+  .discord-peek-tag { position: absolute; top: 14px; right: 14px; z-index: 1; padding: 7px 13px; border-radius: 9999px; background: rgba(255,255,255,0.92);
+    color: var(--foreground); font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    opacity: 0; transform: translateY(-4px); transition: opacity 200ms var(--ease-standard), transform 200ms var(--ease-standard); }
+  .discord-peek.in-view:hover, .discord-peek.in-view:focus-visible { transform: translateY(-4px);
+    box-shadow: 0 30px 48px -28px rgba(87,58,40,0.34), 0 10px 22px -14px rgba(87,58,40,0.14); }
+  .discord-peek:hover img, .discord-peek:focus-visible img { transform: scale(1.02); }
+  .discord-peek:hover .discord-peek-tag, .discord-peek:focus-visible .discord-peek-tag { opacity: 1; transform: translateY(0); }
+  .discord-peek:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+  @media (prefers-reduced-motion: reduce) { .discord-peek img, .discord-peek-tag { transition: none; } .discord-peek:hover img { transform: none; } }
 
   footer { padding: 0; border-top: 1px solid var(--hairline); }
   .footer-inner { max-width: 1180px; margin: 0 auto; padding: 30px 40px; box-sizing: content-box; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
@@ -474,6 +491,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     .price-card { padding: 22px 18px; max-width: 100%; }
     .cta-band { padding: 36px 20px; }
     .cta-band h2 { font-size: 23px; }
+    /* Phones: show the conversation side, where the Korean expression is. */
+    .discord-peek { margin-top: 30px; aspect-ratio: 1 / 1; border-radius: 16px; }
+    .discord-peek img { object-position: 64% top; }
     .cta-band p { font-size: 15px; }
     .footer-inner { flex-direction: column; align-items: flex-start; text-align: left; padding: 26px 20px; }
     .footer-links { gap: 14px; flex-wrap: wrap; }
@@ -1187,6 +1207,11 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     <div class="hero-ctas">
       <a class="btn btn-primary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join the Discord →</a>
     </div>
+    <a class="discord-peek reveal" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer" aria-label="Join the EngKor Discord">
+      <span class="discord-peek-tag" aria-hidden="true">Open Discord ↗</span>
+      <img src="images/discord-preview.webp" width="1600" height="904" loading="lazy" decoding="async"
+        alt="EngKor Discord server with Q&amp;A, chat, and daily Korean expression channels" />
+    </a>
   </div>
 
   <footer>
