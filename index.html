@@ -1672,7 +1672,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     }
     renderApp();
     if (ok) {
-      showToast(value ? 'Saved! Your leader can see it now.' : 'Removed.');
+      showToast(value ? 'Saved! Your mentor can see it now.' : 'Removed.');
       if (value) notifySubmission(field);
     } else {
       showUploadFailedModal(!!value);
@@ -1827,27 +1827,27 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     return when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
   // "Jisoo Leader" / "Hyunho (Leader)" -> "Jisoo" / "Hyunho"
-  function leaderShortName(l) { return ((l && l.name) || 'Leader').replace(/\s*\(?leader\)?\s*$/i, '').trim() || 'Leader'; }
+  function leaderShortName(l) { return ((l && l.name) || 'Mentor').replace(/\s*\(?(leader|mentor)\)?\s*$/i, '').trim() || 'Mentor'; }
   // The tag sits inside the row button, so it's a span acting as a button
   // (a real nested <button> isn't valid HTML). Clicking it opens the leader menu.
   function leaderTagHtml(leaderId, memberId) {
     const i = state.leaders.findIndex(l => l.id === leaderId);
     const cls = i === -1 ? 'none' : `c${i % 4}`;
     const label = i === -1 ? 'Unassigned' : escapeHtml(leaderShortName(state.leaders[i]));
-    return `<span class="dz-ltag ${cls}" role="button" tabindex="0" aria-haspopup="menu" aria-label="Leader: ${label}. Change" data-tag-member="${memberId}">${label}</span>`;
+    return `<span class="dz-ltag ${cls}" role="button" tabindex="0" aria-haspopup="menu" aria-label="Mentor: ${label}. Change" data-tag-member="${memberId}">${label}</span>`;
   }
   async function assignLeader(memberId, leaderId) {
     const { error } = await sb.rpc('set_assigned_leader', { p_member_id: memberId, p_leader_id: leaderId });
     if (error) {
       console.error(error);
-      showToast("Couldn't change the leader. Please try again.", true);
+      showToast("Couldn't change the mentor. Please try again.", true);
       renderApp();
       return;
     }
     const m = state.members.find(x => x.id === memberId);
     if (m) m.assigned_leader_id = leaderId;
     const l = state.leaders.find(x => x.id === leaderId);
-    showToast(l ? `Assigned to ${leaderShortName(l)}.` : 'Leader removed.');
+    showToast(l ? `Assigned to ${leaderShortName(l)}.` : 'Mentor removed.');
     renderApp();
   }
   function closeTagMenu() { const menu = document.getElementById('dz-tag-menu'); if (menu) menu.remove(); }
@@ -1861,7 +1861,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     menu.id = 'dz-tag-menu';
     menu.setAttribute('role', 'menu');
     const opts = [{ id: '', label: 'Unassigned' }].concat(state.leaders.map(l => ({ id: l.id, label: leaderShortName(l) })));
-    menu.innerHTML = `<div class="ttl">Assign leader</div>` + opts.map(o =>
+    menu.innerHTML = `<div class="ttl">Assign mentor</div>` + opts.map(o =>
       `<button role="menuitem" data-pick="${o.id}"><span>${escapeHtml(o.label)}</span>${o.id === current ? '<span class="chk">✓</span>' : ''}</button>`).join('');
     document.body.appendChild(menu);
     const r = tagEl.getBoundingClientRect();
@@ -2769,7 +2769,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function showWelcomeDiscordModal(title) {
     showModal(`
       <h2 style="font-size:19px;">${title}</h2>
-      <p class="dz-muted" style="margin:10px 0 18px;">Join our Discord to ask questions in the Q&amp;A channel and meet other members. Leaders answer there too.</p>
+      <p class="dz-muted" style="margin:10px 0 18px;">Join our Discord to ask questions in the Q&amp;A channel and meet other members. Mentors answer there too.</p>
       <a class="btn btn-primary" href="${DISCORD_INVITE_URL}" ${discordLinkAttrs} id="welcome-discord-join" style="width:100%; justify-content:center; display:flex;">Join our Discord</a>
       <p class="dz-muted" style="text-align:center; margin:12px 0 0; font-size:13px;">Already in? <a href="${DISCORD_QA_URL}" ${discordLinkAttrs} style="color:var(--btn-primary); font-weight:700;">Go to Q&amp;A</a> · <button type="button" class="dz-link-btn" id="welcome-discord-later">Maybe later</button></p>
     `);
@@ -2865,7 +2865,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   }
   function deletionErrorMessage(msg) {
     if (msg.includes('EMAIL_MISMATCH')) return "That email doesn't match your account.";
-    if (msg.includes('LEADER_CANNOT_DELETE')) return "Leader accounts can't be deleted from here. Please contact the EngKor team.";
+    if (msg.includes('LEADER_CANNOT_DELETE')) return "Mentor accounts can't be deleted from here. Please contact the EngKor team.";
     return 'Something went wrong. Please try again, or email us at engkorproject@gmail.com.';
   }
 
@@ -2889,7 +2889,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
     let challenge;
     if (isLeader) {
-      challenge = `<div class="account-status"><span><b>Leader account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
+      challenge = `<div class="account-status"><span><b>Mentor account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
     } else if (state.activeCohort || state.upcomingCohort) {
       const shown = state.activeCohort || state.upcomingCohort;
       const pill = shown.start_date > todayStr()
@@ -2914,7 +2914,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         </dl>
       </section>
 
-      ${isLeader || !('nickname' in p) ? '' : `<p class="account-note nick-note">If you set a nickname, other members and your leaders will see it instead of your real name. Your real name is kept only for payments and account support.</p>`}
+      ${isLeader || !('nickname' in p) ? '' : `<p class="account-note nick-note">If you set a nickname, other members and your mentors will see it instead of your real name. Your real name is kept only for payments and account support.</p>`}
 
       <section class="account-card">
         <h2>Challenge</h2>
@@ -2939,7 +2939,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
       <div class="account-danger">
         ${isLeader
-          ? "Leader accounts can't be deleted here."
+          ? "Mentor accounts can't be deleted here."
           : '<button type="button" class="link-danger" id="open-delete-account">Delete account</button>'}
       </div>
     `;
@@ -3056,7 +3056,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       <ul>
         <li>Your profile: name, email, date of birth, and time zone</li>
         <li>All your Writing and Speaking check-ins, including screenshots and voice recordings</li>
-        <li>Feedback from your leader, your streak, and your leaderboard history</li>
+        <li>Feedback from your mentor, your streak, and your leaderboard history</li>
         <li>Your challenge applications</li>
       </ul>
 
@@ -3296,8 +3296,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
                 ? `<p class="dz-muted dz-acct-details" style="margin-top:2px;">${focusMember.nickname ? `Real name: <b>${escapeHtml(focusMember.name || '')}</b> · ` : ''}${escapeHtml(focusMember.email || '')} <button type="button" class="dz-link-btn" id="lead-hide-details">Hide</button></p>`
                 : `<p style="margin-top:2px;"><button type="button" class="dz-link-btn" id="lead-show-details">Show account details</button></p>`}</div>
               <div class="stats">
-                <label class="dz-owner">Leader
-                  <select class="dz-owner-select" id="lead-owner-select" data-member="${focusMember.id}" aria-label="Assigned leader">
+                <label class="dz-owner">Mentor
+                  <select class="dz-owner-select" id="lead-owner-select" data-member="${focusMember.id}" aria-label="Assigned mentor">
                     <option value="">Unassigned</option>
                     ${state.leaders.map(l => `<option value="${l.id}" ${focusMember.assigned_leader_id === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}</option>`).join('')}
                   </select>
@@ -3312,7 +3312,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           </div>` : `<div class="dz-detail-panel"><p class="dz-lead-note">Pick a member on the left to see their submissions.</p></div>`;
       const monthName2 = monthLabelOf(state.monthCohortLabel);
       const focusedLeader = state.leaders.some(l => l.id === state.leaderView);
-      const ringsHtml = state.leaders.length ? `<div class="dz-rings ${focusedLeader ? 'focused' : ''}" aria-label="${monthName2} feedback progress by leader">${state.leaders.map(l => {
+      const ringsHtml = state.leaders.length ? `<div class="dz-rings ${focusedLeader ? 'focused' : ''}" aria-label="${monthName2} feedback progress by mentor">${state.leaders.map(l => {
         const p = leaderProgress(l.id);
         const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
         return `<div class="dz-ring-card ${state.leaderView === l.id ? 'on' : ''}">
@@ -3406,7 +3406,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <p class="dz-part-title">${title}${isNew ? '<span class="dz-new-tag">NEW</span>' : ''}</p>
           <div class="dz-media-slot">${mediaBlock(media, kind)}</div>
           ${fb ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note">${escapeHtml(fb)}</div>`
-            : (media ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note empty">Waiting for your leader's feedback.</div>` : '')}
+            : (media ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note empty">Waiting for your mentor's feedback.</div>` : '')}
         </div>`;
       };
       const historyHtml = weekKeysDesc.map(wk => {
@@ -3469,7 +3469,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <aside class="dz-member-side">
             ${state.activeCohort ? `<section class="dz-side-card dz-qa-card">
               <p class="dz-qa-title">Got a question?</p>
-              <p class="dz-qa-text">Ask in our Discord Q&amp;A. Leaders and other members answer there.</p>
+              <p class="dz-qa-text">Ask in our Discord Q&amp;A. Mentors and other members answer there.</p>
               <a class="btn btn-primary dz-qa-btn" href="${DISCORD_QA_URL}" ${discordLinkAttrs}>Open Q&amp;A in Discord</a>
               <p class="dz-qa-join">Not in our Discord yet? <a href="${DISCORD_INVITE_URL}" ${discordLinkAttrs}>Join first</a></p>
             </section>` : ''}
@@ -3508,17 +3508,17 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         </div>
         ${isLeader ? `<div class="dz-head-right">
           ${state.leaders.length ? `<select class="dz-view-select" id="lead-view-select" aria-label="Whose members to show">
-            <option value="all" ${state.leaderView === 'all' ? 'selected' : ''}>All leaders</option>
+            <option value="all" ${state.leaderView === 'all' ? 'selected' : ''}>All mentors</option>
             ${state.leaders.map(l => `<option value="${l.id}" ${state.leaderView === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}${currentProfile && l.id === currentProfile.id ? ' (me)' : ''}</option>`).join('')}
             <option value="none" ${state.leaderView === 'none' ? 'selected' : ''}>Unassigned</option>
           </select>` : ''}
-          <span class="dz-tag leader">Leader</span>
+          <span class="dz-tag leader">Mentor</span>
         </div>` : ''}
       </div>
       <div class="dz-body">
         ${body}
         <div class="dz-shared-note">
-          ${isLeader ? 'You are viewing this as an admin: only you can see other members\' submissions.' : 'Your check-ins are private: only you and your challenge leader can see them.'}
+          ${isLeader ? 'You are viewing this as an admin: only you can see other members\' submissions.' : 'Your check-ins are private: only you and your mentors can see them.'}
         </div>
       </div>
     `;
