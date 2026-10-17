@@ -1307,6 +1307,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const NOTIFY_FEEDBACK_URL = SUPABASE_URL + '/functions/v1/notify-feedback';
   const NOTIFY_SUBMISSION_URL = SUPABASE_URL + '/functions/v1/notify-submission';
+  const MEDIA_FN_URL = SUPABASE_URL + '/functions/v1/media';
 
   const CREATE_ORDER_URL = SUPABASE_URL + '/functions/v1/create-order';
   const CAPTURE_ORDER_URL = SUPABASE_URL + '/functions/v1/capture-order';
@@ -1637,6 +1638,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       });
     } catch (e) { console.error('notifySubmission failed', e); }
   }
+  // value: a Blob to upload (new photo or recording) or null to remove.
+  // The file goes straight to R2 through a short-lived link from the media
+  // function; the database row only stores its "r2:..." path. While it's
+  // in flight the card shows the local copy with "Saving...".
   async function saveMedia(memberId, field, value) {
     if (!canCheckInToday()) {
       await refreshMemberState();
@@ -1646,15 +1651,32 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     }
     const date = todayStr();
     const prev = getDay(memberId, date)[field];
-    setDay(memberId, date, { [field]: value });
+    const preview = value ? URL.createObjectURL(value) : null;
+    setDay(memberId, date, { [field]: preview });
     state.saving[field] = true; renderApp();
-    const ok = await saveSub(memberId);
+    let ok = false, uploadedPath = null;
+    try {
+      if (value) {
+        uploadedPath = await uploadToR2(field, value, date);
+        mediaUrlCache.set(uploadedPath, { url: preview, exp: Infinity });
+        setDay(memberId, date, { [field]: uploadedPath });
+      }
+      ok = await saveSub(memberId);
+    } catch (e) { console.error(e); ok = false; }
     state.saving[field] = false;
-    if (!ok) setDay(memberId, date, { [field]: prev });
+    if (!ok) {
+      setDay(memberId, date, { [field]: prev });
+      if (uploadedPath) deleteFromR2(uploadedPath); // uploaded, but the row didn't save
+    } else if (isR2Path(prev) && prev !== uploadedPath) {
+      deleteFromR2(prev); // replaced or removed: the old file isn't referenced anymore
+    }
     renderApp();
-    if (ok) showToast(value ? 'Saved! Your leader can see it now.' : 'Removed.');
-    if (ok && value) notifySubmission(field);
-    else showUploadFailedModal(!!value);
+    if (ok) {
+      showToast(value ? 'Saved! Your leader can see it now.' : 'Removed.');
+      if (value) notifySubmission(field);
+    } else {
+      showUploadFailedModal(!!value);
+    }
   }
   function showUploadFailedModal(uploading) {
     showModal(`
@@ -1923,6 +1945,65 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
   // Stands in for a photo/recording that exists but hasn't been fetched yet.
   const MEDIA_PENDING = 'media:pending';
+
+  // ---- R2 file storage (through the media function) ----
+  // New photos and recordings are stored in R2 and saved in the DB as "r2:<key>".
+  // Older ones are still data: URLs inside the DB and display as before.
+  const isR2Path = (v) => typeof v === 'string' && v.startsWith('r2:');
+  const mediaUrlCache = new Map(); // "r2:..." -> { url, exp }
+  async function callMediaFn(body) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not signed in');
+    const res = await fetch(MEDIA_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('media function ' + res.status));
+    return data;
+  }
+  async function uploadToR2(kind, blob, date) {
+    const contentType = (blob.type || '').split(';')[0];
+    const { uploadUrl, path } = await callMediaFn({ action: 'upload', kind, date, contentType, size: blob.size });
+    const put = { method: 'PUT', body: blob, headers: contentType ? { 'Content-Type': contentType } : {} };
+    if (window.AbortSignal && AbortSignal.timeout) put.signal = AbortSignal.timeout(90000);
+    const res = await fetch(uploadUrl, put);
+    if (!res.ok) throw new Error('R2 upload failed with ' + res.status);
+    return path;
+  }
+  function deleteFromR2(path) {
+    callMediaFn({ action: 'delete', path }).catch(e => console.error('R2 delete failed', e));
+  }
+  // Signed links last an hour; refresh a little before that.
+  function cachedMediaUrl(path) {
+    const hit = mediaUrlCache.get(path);
+    return hit && hit.exp > Date.now() ? hit.url : null;
+  }
+  // Swaps every "Loading..." placeholder for an R2 file inside root with the real
+  // photo/player, asking the media function for links in one batch.
+  async function hydrateR2Media(root) {
+    const slots = [...root.querySelectorAll('[data-r2-path]')];
+    if (!slots.length) return;
+    const missing = [...new Set(slots.map(el => el.dataset.r2Path).filter(p => !cachedMediaUrl(p)))];
+    if (missing.length) {
+      try {
+        for (let i = 0; i < missing.length; i += 100) {
+          const { urls, expiresIn } = await callMediaFn({ action: 'view', paths: missing.slice(i, i + 100) });
+          const exp = Date.now() + ((expiresIn || 3600) - 300) * 1000;
+          Object.entries(urls || {}).forEach(([p, url]) => mediaUrlCache.set(p, { url, exp }));
+        }
+      } catch (e) { console.error('Could not load files', e); }
+    }
+    slots.forEach(el => {
+      if (!el.isConnected) return;
+      const url = cachedMediaUrl(el.dataset.r2Path);
+      el.outerHTML = url
+        ? mediaTag(url, el.dataset.kind)
+        : `<div class="dz-placeholder">Couldn't load this ${el.dataset.kind === 'diary' ? 'photo' : 'recording'}. Refresh to try again.</div>`;
+    });
+    fixAudioDurations(root);
+  }
   async function loadMemberMedia(memberId) {
     if (state.mediaLoaded.has(memberId) || state.mediaLoading.has(memberId)) return;
     state.mediaLoading.add(memberId);
@@ -1937,6 +2018,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       slot.innerHTML = mediaBlock(slot.dataset.kind === 'diary' ? day.diary : day.shadowing, slot.dataset.kind);
     });
     fixAudioDurations(dzRoot);
+    hydrateR2Media(dzRoot);
   }
   function mediaSlot(memberId, date, value, kind) {
     return `<div class="dz-media-slot" data-member="${memberId}" data-date="${date}" data-kind="${kind}">${mediaBlock(value, kind)}</div>`;
@@ -1945,7 +2027,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (!value) return '<p class="dz-muted">No submission</p>';
     if (value === MEDIA_PENDING) return `<div class="dz-placeholder">Loading ${kind === 'diary' ? 'photo' : 'recording'}...</div>`;
     if (value === 'seed') return kind === 'diary' ? '<div class="dz-placeholder">📝 Writing submitted (demo)</div>' : '<div class="dz-placeholder">🎙 Speaking submitted (demo)</div>';
-    return kind === 'diary' ? `<img class="dz-thumb" src="${value}" />` : `<audio controls preload="metadata" src="${value}"></audio>`;
+    if (isR2Path(value)) {
+      const url = cachedMediaUrl(value);
+      if (!url) return `<div class="dz-placeholder" data-r2-path="${escapeHtml(value)}" data-kind="${kind}">Loading ${kind === 'diary' ? 'photo' : 'recording'}...</div>`;
+      return mediaTag(url, kind);
+    }
+    return mediaTag(value, kind);
+  }
+  function mediaTag(src, kind) {
+    return kind === 'diary' ? `<img class="dz-thumb" src="${src}" />` : `<audio controls preload="metadata" src="${src}"></audio>`;
   }
   // Recordings made in the browser (webm) don't store their length up front,
   // so players show 0:00 until played and look empty. Seeking far past the end
@@ -2000,34 +2090,27 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
           const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', quality));
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not compress image')), 'image/jpeg', quality);
         };
         img.onerror = reject; img.src = e.target.result;
       };
       reader.onerror = reject; reader.readAsDataURL(file);
     });
   }
-  function blobToDataURL(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
-    });
-  }
   async function handleDiaryUpload(memberId, file) {
     if (!file) return;
     // 2560px at 90% keeps handwriting sharp when the leader zooms in (it used to
     // be 480px, which blurred the writing), while staying around 0.5 to 1MB.
-    let dataUrl;
-    try { dataUrl = await compressImageFile(file, 2560, 0.9); }
+    let photo;
+    try { photo = await compressImageFile(file, 2560, 0.9); }
     catch (e) { alert('Could not process that image.'); return; }
-    await saveMedia(memberId, 'diary', dataUrl);
+    await saveMedia(memberId, 'diary', photo);
   }
   async function handleShadowUploadFile(memberId, file) {
     if (!file) return;
     // Uploaded files are stored as-is (no re-encoding), so keep them small.
     if (file.size > 4 * 1024 * 1024) { alert('File too large. Please choose an audio file under 4MB (about 3 minutes).'); return; }
-    const dataUrl = await blobToDataURL(file);
-    await saveMedia(memberId, 'shadowing', dataUrl);
+    await saveMedia(memberId, 'shadowing', file);
   }
   async function startRecording(memberId) {
     state.recError = null;
@@ -2048,9 +2131,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         if (recInterval) { clearInterval(recInterval); recInterval = null; }
         const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         stream.getTracks().forEach(t => t.stop());
-        const dataUrl = await blobToDataURL(blob);
         state.recording = false;
-        await saveMedia(memberId, 'shadowing', dataUrl);
+        await saveMedia(memberId, 'shadowing', blob);
       };
       mediaRecorder.start(); state.recording = true; state.recSeconds = 0; renderApp();
       recInterval = setInterval(() => { state.recSeconds++; renderApp(); }, 1000);
@@ -3441,6 +3523,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       </div>
     `;
     fixAudioDurations(dzRoot);
+    hydrateR2Media(dzRoot);
     // Desktop member dashboard: the page itself doesn't scroll, the two panels do (see .dz-shell in the CSS).
     const useShell = !isLeader && !state.notYetStarted;
     dzRoot.classList.toggle('dz-shell', useShell);
