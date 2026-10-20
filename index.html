@@ -224,6 +224,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .trust-grid .reveal:nth-child(1) { transition-delay: 0ms; }
   .trust-grid .reveal:nth-child(2) { transition-delay: 60ms; }
   .trust-grid .reveal:nth-child(3) { transition-delay: 120ms; }
+  .mentor-grid .reveal:nth-child(1) { transition-delay: 0ms; }
+  .mentor-grid .reveal:nth-child(2) { transition-delay: 60ms; }
+  .mentor-grid .reveal:nth-child(3) { transition-delay: 120ms; }
 
   @keyframes spring-scale { 0% { transform: scale(1); } 55% { transform: scale(1.05); } 100% { transform: scale(1); } }
   .spring-badge { animation: spring-scale 400ms var(--ease-standard); animation-delay: 300ms; animation-fill-mode: backwards; }
@@ -347,6 +350,22 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .trust-person .name { font-size: 12.5px; font-weight: 700; }
   .trust-person .role { font-size: 10.5px; color: var(--muted); }
 
+  /* a bit wider than the other sections so each mentor card has more room */
+  section.block#mentors { max-width: 1320px; }
+  /* the subtitle fits on one line on wide screens (the shared heading is capped at 600px) */
+  section.block#mentors .section-head { max-width: 960px; }
+  @media (min-width: 521px) and (max-width: 760px) { section.block#mentors .section-head p { font-size: min(24px, calc((100vw - 60px) / 25.8)); } }
+  .mentor-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
+  .mentor-card { background: var(--surface); border: 5px solid var(--border-accent); border-radius: 20px; padding: 24px; box-shadow: var(--shadow-subtle); }
+  .mentor-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .mentor-avatar { flex: 0 0 auto; width: 112px; height: auto; display: block; }
+  .mentor-card h3 { font-family: var(--font-accent); font-size: 26px; font-weight: 700; margin: 0; }
+  .mentor-card h3 span { color: var(--muted); font-size: 18px; font-weight: 600; margin-left: 4px; }
+  .mentor-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .mentor-card li { display: flex; gap: 8px; font-size: 15px; line-height: 1.55; color: var(--muted); font-family: "Geist", sans-serif; }
+  .mentor-card li::before { content: "✓"; color: var(--primary); font-weight: 800; }
+  .mentor-card .mentor-strength { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--hairline); font-size: 16px; line-height: 1.55; font-weight: 600; color: var(--foreground); font-family: "Geist", sans-serif; }
+
   .cta-band { background: var(--surface); box-shadow: 0 0 0 100vmax var(--surface); clip-path: inset(0 -100vmax); text-align: center; max-width: 1180px; margin: 0 auto; padding: 70px 40px; }
   .cta-band h2 { font-family: var(--font-display); font-size: 40px; font-weight: 700; }
   .cta-band p { color: var(--muted); margin-top: 10px; font-size: 18px; line-height: 1.6; font-family: "Geist", sans-serif; }
@@ -425,7 +444,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   @media (max-width: 900px) {
     .hero { flex-direction: column; padding: 56px 24px 48px; }
     .hero-visual { width: 100%; max-width: none; }
-    .steps, .trust-grid { grid-template-columns: 1fr; }
+    .steps, .trust-grid, .mentor-grid { grid-template-columns: 1fr; }
     section.block { padding: 56px 24px; }
     .cta-band { padding: 44px 24px; }
   }
@@ -1159,7 +1178,45 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     </div>
   </section>
 
-  <section class="block alt-bg" id="pricing">
+  <section class="block alt-bg" id="mentors">
+    <div class="section-head">
+      <div class="kicker">Our mentors</div>
+      <h2>Meet Your Mentors</h2>
+      <p>Real Koreans review your Speaking + Writing every week.</p>
+    </div>
+    <div class="mentor-grid">
+      <div class="mentor-card reveal">
+        <div class="mentor-head"><img class="mentor-avatar" src="images/mentor-jisoo.webp" alt="Jisoo" width="400" height="316" loading="lazy" decoding="async"><h3>지수 <span>Jisoo</span></h3></div>
+        <ul>
+          <li>Majoring in English-Korean translation &amp; interpretation</li>
+          <li>Running a Korean-English language exchange community for 1 year</li>
+          <li>Completed Hansol Education (한솔교육)'s specialized English-teacher training and worked in the field for 1 year</li>
+        </ul>
+        <p class="mentor-strength">Excels at explaining Korean-language feedback clearly and accurately in English!</p>
+      </div>
+      <div class="mentor-card reveal">
+        <div class="mentor-head"><img class="mentor-avatar" src="images/mentor-hyunho.webp" alt="Hyunho" width="400" height="316" loading="lazy" decoding="async"><h3>현호 <span>Hyunho</span></h3></div>
+        <ul>
+          <li>Korean Language &amp; Culture Mentor at the Asian &amp; Pacific Islander Cultural Club, Central Connecticut State University (CCSU)</li>
+          <li>Running a Korean-English language exchange community for 1 year</li>
+          <li>CCSU exchange student (1 semester) &amp; University of Pennsylvania seminar participant</li>
+          <li>OPIc Intermediate High (IH) in English Speaking</li>
+        </ul>
+        <p class="mentor-strength">Helps you learn natural, everyday Korean through personalized feedback and real cultural insights!</p>
+      </div>
+      <div class="mentor-card reveal">
+        <div class="mentor-head"><img class="mentor-avatar" src="images/mentor-dongeun.webp" alt="Dongeun" width="400" height="316" loading="lazy" decoding="async"><h3>동은 <span>Dongeun</span></h3></div>
+        <ul>
+          <li>Running a Korean-English language exchange community for 1 year</li>
+          <li>Erasmus exchange student (1 semester) abroad</li>
+          <li>OPIc Intermediate High (IH)</li>
+        </ul>
+        <p class="mentor-strength">Keeps you motivated and confident in learning Korean!</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="pricing">
     <div class="section-head">
       <div class="kicker">Pricing</div>
       <h2>Start Without The Pressure!</h2>
