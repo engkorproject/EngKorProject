@@ -2416,7 +2416,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     await handleSession(session);
   }
 
+  // Supabase re-announces the session whenever the tab comes back into focus
+  // (e.g. after opening an Instagram link in a new tab). Only the first check
+  // after the page loads, or a fresh log-in from the login screen, should move
+  // someone from the home page to their dashboard; later checks leave them be.
+  let sessionRoutedOnce = false;
   async function handleSession(session) {
+    const routeFromHome = state.view === 'auth' || (state.view === 'landing' && !sessionRoutedOnce);
     if (session && session.user) {
       currentUser = session.user;
       const profileCols = 'id,name,role,timezone,birthdate,cohort_id,deletion_requested_at';
@@ -2437,7 +2443,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       if (profile.role === 'leader') {
         renderNav();
         if (state.view === 'account' || window.location.hash === '#/account') showAccountView();
-        else if (state.view === 'landing' || state.view === 'auth') showApp('leader');
+        else if (routeFromHome) showApp('leader');
+        sessionRoutedOnce = true;
         return;
       }
 
@@ -2485,7 +2492,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
 
       if (state.view === 'account' || window.location.hash === '#/account') {
         showAccountView();
-      } else if (state.view === 'landing' || state.view === 'auth') {
+      } else if (routeFromHome) {
         if (state.hasEverApplied) {
           showApp('member');
         } else {
@@ -2493,6 +2500,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           maybeShowWelcomePopup();
         }
       }
+      sessionRoutedOnce = true;
     } else {
       currentUser = null; currentProfile = null;
       state.cohort = null; state.applications = []; state.hasEverApplied = false;
@@ -3211,6 +3219,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     closeModal();
     showToast('Welcome back! Your account has been restored.');
     const { data: { session } } = await sb.auth.getSession();
+    sessionRoutedOnce = false; // a restored account goes to its dashboard, like a fresh log-in
     await handleSession(session);
   }
 
