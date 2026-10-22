@@ -444,6 +444,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .footer-business .copyright { font-size: 11px; margin-top: 8px; }
 
   @media (max-width: 900px) {
+    /* Leave room under the sticky nav when a Getting Started / Pricing link scrolls here. */
+    #how, #pricing { scroll-margin-top: 32px; }
     .hero { flex-direction: column; padding: 56px 24px 48px; }
     .hero-visual { width: 100%; max-width: none; }
     .steps, .trust-grid, .mentor-grid { grid-template-columns: 1fr; }
@@ -2406,7 +2408,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     window.scrollTo(0, 0);
     authMode = 'login'; authError = null; authMessage = null;
     renderAuth();
-    if (location.hash !== '#/login') location.hash = '#/login';
+    setRouteHash('#/login');
   }
 
   // Re-reads the member's challenges after an enrollment, so the dashboard
@@ -2422,7 +2424,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // someone from the home page to their dashboard; later checks leave them be.
   let sessionRoutedOnce = false;
   async function handleSession(session) {
-    const routeFromHome = state.view === 'auth' || (state.view === 'landing' && !sessionRoutedOnce);
+    // A shared link to a home page section (e.g. /#pricing) stays on the home page.
+    const routeFromHome = state.view === 'auth' || (state.view === 'landing' && !sessionRoutedOnce && !landingSection(initialUrlHash));
     if (session && session.user) {
       currentUser = session.user;
       const profileCols = 'id,name,role,timezone,birthdate,cohort_id,deletion_requested_at';
@@ -2613,11 +2616,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (error) { console.error('marking feedback as seen failed', error); dates.forEach(d => feedbackSeenDone.delete(d)); }
   }
 
-  function showLanding() {
+  // opts.keepHash: leave the address bar alone (used when a #how / #pricing
+  // link brings someone back to the home page from another screen).
+  function showLanding(opts = {}) {
     state.view = 'landing';
     landingView.style.display = 'block'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'none';
     window.scrollTo(0,0);
-    if (location.hash !== '' && location.hash !== '#/') location.hash = '#/';
+    if (!opts.keepHash) setRouteHash('#/');
   }
   function showApp(view) {
     if (isPendingDeletion()) { showLanding(); showRestoreModal(); return; }
@@ -2628,7 +2633,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     state.loaded = false;
     renderApp();
     loadAll();
-    if (location.hash !== '#/dashboard') location.hash = '#/dashboard';
+    setRouteHash('#/dashboard');
   }
 
   // ---- challenge application ----
@@ -2670,7 +2675,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     window.scrollTo(0,0);
     applyLoading = false; applyDraft = null;
     renderPricingStep();
-    if (location.hash !== '#/apply') location.hash = '#/apply';
+    setRouteHash('#/apply');
   }
 
   // Shown first, before the application form -- so pricing is visible however
@@ -2949,7 +2954,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'none'; accountView.style.display = 'block';
     window.scrollTo(0, 0);
     renderAccountView();
-    if (location.hash !== '#/account') location.hash = '#/account';
+    setRouteHash('#/account');
   }
 
   function renderAccountView() {
@@ -3930,6 +3935,22 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // for the landing page) so the address bar reflects what's on screen and the
   // browser's back/forward buttons move between them, instead of every screen
   // living under the one bare site URL.
+  // While Back/Forward is being handled, a screen that sends the visitor
+  // somewhere else (e.g. a signed-out visitor landing on #/account) replaces
+  // the history entry instead of adding one, so Back never gets stuck
+  // bouncing between the same two screens.
+  let replacingRoute = false;
+  function setRouteHash(hash) {
+    if (location.hash === hash || (hash === '#/' && location.hash === '')) return;
+    if (replacingRoute) history.replaceState(null, '', hash);
+    else location.hash = hash;
+  }
+  // Home page sections the nav and footer link to (#how, #pricing).
+  function landingSection(hash) {
+    if (!/^#[A-Za-z][\w-]*$/.test(hash)) return null;
+    const el = document.getElementById(hash.slice(1));
+    return el && landingView.contains(el) ? el : null;
+  }
   function routeFromHash() {
     // The recovery screens strip the token out of the address bar right after
     // showAuth() has already queued a hashchange for '#/login' (see
@@ -3938,7 +3959,20 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     // bounce the member off the "set new password" form the instant it renders.
     if (state.view === 'auth' && (authMode === 'update-password' || authMode === 'reset')) return;
     const hash = window.location.hash;
-    if (hash === '#/login') { if (state.view !== 'auth') showAuth(); return; }
+    if (hash === '#/login') {
+      // Already signed in (Back from the dashboard): the login form has nothing to offer.
+      if (currentUser && state.view !== 'auth') { showLanding(); return; }
+      if (state.view !== 'auth') showAuth();
+      return;
+    }
+    // "Getting Started" / "Pricing" from the dashboard or another screen:
+    // switch to the home page first, then scroll to that section.
+    const section = landingSection(hash);
+    if (section) {
+      if (state.view !== 'landing') showLanding({ keepHash: true });
+      section.scrollIntoView();
+      return;
+    }
     if (hash === '#/apply') { if (state.view !== 'apply') openApply(); return; }
     if (hash === '#/account') {
       if (state.view === 'account') return;
@@ -3959,7 +3993,18 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     // Any other hash (e.g. a password-recovery token) is handled separately
     // below -- leave it alone here.
   }
-  window.addEventListener('hashchange', routeFromHash);
+  window.addEventListener('hashchange', () => {
+    const viewBefore = state.view;
+    const modalBefore = document.getElementById('ek-modal-body').innerHTML;
+    replacingRoute = true;
+    try { routeFromHash(); } finally { replacingRoute = false; }
+    // Moved to another screen: don't leave the old screen's photo viewer or
+    // dialog open on top (a dialog the new screen just opened stays).
+    if (state.view !== viewBefore) {
+      closeLightbox();
+      if (document.getElementById('ek-modal-body').innerHTML === modalBefore) closeModal();
+    }
+  });
   // Handle a bookmarked/shared #/login link immediately on a cold load -- the
   // other routes depend on auth data that isn't available synchronously yet,
   // so those are left to handleSession()'s own routing once the session check
