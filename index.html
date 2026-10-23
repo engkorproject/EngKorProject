@@ -821,6 +821,18 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .dz-leader .dz-part-title, .dz-leader .dz-fb-label { font-size: 15px; font-weight: 700; color: var(--foreground); letter-spacing: -0.01em; }
   .dz-leader .dz-part-title { margin: 2px 0 8px; }
   .dz-leader .dz-fb-label { margin: 16px 0 8px; }
+  /* Speaking feedback voice clips: mentors add up to 3, members hear them under the written feedback */
+  .dz-fb-clips { margin-top: 12px; padding: 12px; border: 1px dashed #E3DAD2; border-radius: 12px; background: #FFFDFB; }
+  .dz-fb-clips .dz-fb-label { margin: 0 0 4px !important; }
+  .dz-fb-clips .dz-fb-label small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+  .dz-fb-guide { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin: 0 0 8px; }
+  .dz-fb-clip { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--hairline); }
+  .dz-fb-clip-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dz-fb-clip-label { font-size: 13px; font-weight: 700; color: var(--foreground); margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+  .dz-fb-clip audio { width: 100%; }
+  .dz-fb-clip-add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .dz-fb-clip-add input[type="text"] { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 13px; border: 1px solid var(--hairline); border-radius: 8px; padding: 7px 9px; background: #fff; color: var(--foreground); }
+  .dz-fb-clip-status { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--primary-hover); margin: 8px 0 0; }
   .dz-leader .dz-media-slot > p.dz-muted { font-size: 14px; font-weight: 700; color: var(--primary-hover); background: #FFF6EE; padding: 16px; border: 1.5px dashed var(--primary); border-radius: 12px; text-align: center; margin: 0; }
   .dz-leader .dz-day-chip { font-size: 13.5px; padding: 4px 11px; }
   .dz-leader .dz-lead-pill { font-size: 14px; padding: 6px 13px; }
@@ -1362,6 +1374,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   const accountView = document.getElementById('account-view');
   const dzRoot = document.getElementById('dz-root');
   const MAX_REC_SECONDS = 120;
+  // Speaking feedback voice clips: up to 3 per check-in day, 30 seconds each,
+  // each with a one-line label so the written feedback stays the main part.
+  const FB_CLIP_MAX = 3, FB_CLIP_SECONDS = 30, FB_CLIP_LABEL_MAX = 120, FB_CLIP_MAX_BYTES = 6 * 1024 * 1024;
 
   const SUPABASE_URL = 'https://duoizboambupvwxyxeid.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_HP2xNGSp_0_0b37YHGlrig_GktQtj4v';
@@ -1594,6 +1609,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     monthCohortLabel: null, monthMemberIds: new Set(),
     recording: false, recError: null, recSeconds: 0,
     saving: { diary: false, shadowing: false }, // upload sent, server hasn't confirmed yet
+    fbTextDrafts: {}, // mentor: feedback being typed ("member|date|field"), kept across re-renders
+    clipLabels: {},   // mentor: voice clip label being typed ("member|date")
+    fbClipBusy: null, // mentor: "member|date" while a voice clip is saving
     calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: todayStr(),
     // ---- challenge application gate ----
     cohort: null,             // no longer used (monthly cohorts were replaced by 30-day passes)
@@ -1642,11 +1660,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         // Just the light columns for everyone: photos and recordings are only
         // fetched for the member the leader opens (loadMemberMedia).
         state.mediaLoaded = new Set(); state.mediaLoading = new Set();
-        const { data: subs, error: subsErr } = await sb.from('submissions')
-          .select('member_id,date,created_at,diary_feedback,shadowing_feedback,diary_feedback_sent_at,shadowing_feedback_sent_at,has_diary,has_shadowing')
-          .in('member_id', memberIds);
+        const lightCols = 'member_id,date,created_at,diary_feedback,shadowing_feedback,diary_feedback_sent_at,shadowing_feedback_sent_at,has_diary,has_shadowing';
+        let { data: subs, error: subsErr } = await sb.from('submissions').select(lightCols + ',shadowing_feedback_audio').in('member_id', memberIds);
+        // Before the voice clip column exists, load without it.
+        if (subsErr && /shadowing_feedback_audio/.test(subsErr.message || '')) ({ data: subs, error: subsErr } = await sb.from('submissions').select(lightCols).in('member_id', memberIds));
         if (subsErr) console.error(subsErr);
-        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.has_diary ? MEDIA_PENDING : null, shadowing: s.has_shadowing ? MEDIA_PENDING : null, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, createdAt: s.created_at }; });
+        (subs || []).forEach(s => { state.submissions[s.member_id][s.date] = { diary: s.has_diary ? MEDIA_PENDING : null, shadowing: s.has_shadowing ? MEDIA_PENDING : null, diaryFeedback: s.diary_feedback || '', shadowingFeedback: s.shadowing_feedback || '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, shadowingFeedbackAudio: s.shadowing_feedback_audio || [], createdAt: s.created_at }; });
       }
     } else {
       const memberId = currentProfile.id;
@@ -1654,7 +1673,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.submissions[memberId] = {};
       const { data: subs } = await sb.from('submissions').select('*').eq('member_id', memberId);
       // Members only see feedback the leader has sent; saved drafts stay hidden.
-      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback_sent_at ? (s.diary_feedback || '') : '', shadowingFeedback: s.shadowing_feedback_sent_at ? (s.shadowing_feedback || '') : '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, feedbackSeenAt: s.feedback_seen_at || null }; });
+      (subs || []).forEach(s => { state.submissions[memberId][s.date] = { diary: s.diary_url, shadowing: s.shadowing_url, diaryFeedback: s.diary_feedback_sent_at ? (s.diary_feedback || '') : '', shadowingFeedback: s.shadowing_feedback_sent_at ? (s.shadowing_feedback || '') : '', diaryFeedbackSentAt: s.diary_feedback_sent_at || null, shadowingFeedbackSentAt: s.shadowing_feedback_sent_at || null, shadowingFeedbackAudio: s.shadowing_feedback_sent_at ? (s.shadowing_feedback_audio || []) : [], feedbackSeenAt: s.feedback_seen_at || null }; });
       // select('*') only carries feedback_seen_at once the column exists, so until the SQL has been run we fall back to the browser-only way.
       state.fbSeenInDb = !(subs && subs.length) || subs.some(s => 'feedback_seen_at' in s);
       const { data: lb } = await sb.from('leaderboard').select('*');
@@ -1762,6 +1781,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const column = field === 'diaryFeedback' ? 'diary_feedback' : 'shadowing_feedback';
     const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text }, { onConflict: 'member_id,date' });
     if (error) { console.error(error); showToast('Failed to save. Try again.', true); return false; }
+    delete state.fbTextDrafts[memberId + '|' + date + '|' + field];
     showToast('Draft saved.');
     renderApp();
     return true;
@@ -1784,7 +1804,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const { error } = await sb.from('submissions').upsert({ member_id: memberId, date, [column]: text, [column + '_sent_at']: sentAt }, { onConflict: 'member_id,date' });
     if (error) { console.error(error); showToast('Failed to send. Try again.', true); return; }
     setDay(memberId, date, { [field]: text, [field + 'SentAt']: sentAt });
-    notifyFeedback(memberId, `${taskLabel} (${date}): ${text}`);
+    delete state.fbTextDrafts[memberId + '|' + date + '|' + field];
+    const clipCount = field === 'shadowingFeedback' ? (getDay(memberId, date).shadowingFeedbackAudio || []).length : 0;
+    const clipNote = clipCount ? `\n\n(Includes ${clipCount} voice clip${clipCount > 1 ? 's' : ''} from your mentor. Listen on your dashboard.)` : '';
+    notifyFeedback(memberId, `${taskLabel} (${date}): ${text}${clipNote}`);
     renderApp();
     const member = state.members.find(m => m.id === memberId);
     const dayLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1812,6 +1835,146 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         body: JSON.stringify({ memberId, feedbackText: text, to: member.email, memberName: member.nickname || member.name })
       });
     } catch (e) { console.error('notifyFeedback failed', e); }
+  }
+  // ---- Speaking feedback voice clips (mentor) ----
+  // For a specific word or sentence only: the written feedback stays the main
+  // part, so members don't need strong listening skills to follow it.
+  const clipKey = (memberId, date) => memberId + '|' + date;
+  let fbRec = null; // the voice clip being recorded right now
+  function clipNotice(title, text) {
+    showModal(`
+      <h2 style="font-size:19px;">${title}</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">${text}</p>
+      <button class="btn btn-primary" id="clip-notice-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+    `);
+    document.getElementById('clip-notice-ok-btn').addEventListener('click', closeModal);
+  }
+  function readClipLabel(memberId, date) {
+    const label = (state.clipLabels[clipKey(memberId, date)] || '').trim().slice(0, FB_CLIP_LABEL_MAX);
+    if (!label) clipNotice('Add a label first', 'Write one line about what this clip shows (for example: "gachi: the t sound turns into ch"), then record or upload.');
+    return label || null;
+  }
+  async function audioSeconds(blob) {
+    lengthAudioCtx = lengthAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    return (await lengthAudioCtx.decodeAudioData(await blob.arrayBuffer())).duration;
+  }
+  // Some systems hand over .m4a files with no type; name it from the extension.
+  function withAudioType(file) {
+    if (file.type) return file;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const type = { m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac', ogg: 'audio/ogg', webm: 'audio/webm' }[ext];
+    return type ? new Blob([file], { type }) : file;
+  }
+  async function addFeedbackClip(memberId, date, blob, label) {
+    const key = clipKey(memberId, date);
+    const clips = getDay(memberId, date).shadowingFeedbackAudio || [];
+    if (clips.length >= FB_CLIP_MAX) return clipNotice('Clip limit reached', `Each check-in can have up to ${FB_CLIP_MAX} voice clips. Remove one to add another.`);
+    if (blob.size > FB_CLIP_MAX_BYTES) return clipNotice('File too large', 'Please use an audio file under 6MB. A 30-second m4a or mp3 is usually well under 1MB.');
+    let sec;
+    try { sec = await audioSeconds(blob); } catch (e) { return clipNotice("Couldn't read that audio file", 'Please try an m4a, mp3 or wav file.'); }
+    if (sec > FB_CLIP_SECONDS + 0.5) return clipNotice('Clip is too long', `This clip is ${fmtLen(sec)} long. Voice clips can be up to ${FB_CLIP_SECONDS} seconds, so please trim it or record just the part you want to show.`);
+    state.fbClipBusy = key; renderApp();
+    let path = null, ok = false;
+    try {
+      path = await uploadFeedbackClip(memberId, date, blob);
+      const next = clips.concat([{ path, label }]);
+      const { error } = await sb.from('submissions').update({ shadowing_feedback_audio: next }).eq('member_id', memberId).eq('date', date);
+      if (error) throw error;
+      mediaUrlCache.set(path, { url: URL.createObjectURL(blob), exp: Infinity });
+      setDay(memberId, date, { shadowingFeedbackAudio: next });
+      delete state.clipLabels[key];
+      ok = true;
+    } catch (e) {
+      console.error(e);
+      if (path) deleteFromR2(path); // uploaded, but the row didn't save
+    }
+    state.fbClipBusy = null;
+    state.leaderDayOpen[key] = true;
+    renderApp();
+    if (!ok) showToast("Couldn't save the voice clip. Check your connection and try again.", true);
+    else showToast(getDay(memberId, date).shadowingFeedbackSentAt ? 'Voice clip added. The member can hear it now.' : 'Voice clip added. It goes out when you send your Speaking feedback.');
+  }
+  function confirmRemoveFeedbackClip(memberId, date, path) {
+    showModal(`
+      <h2 style="font-size:19px;">Remove this voice clip?</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">The member won't be able to hear it anymore.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-sm" id="clip-remove-cancel">Cancel</button>
+        <button type="button" class="btn-danger" id="clip-remove-ok">Remove</button>
+      </div>
+    `);
+    document.getElementById('clip-remove-cancel').addEventListener('click', closeModal);
+    document.getElementById('clip-remove-ok').addEventListener('click', async () => {
+      closeModal();
+      const next = (getDay(memberId, date).shadowingFeedbackAudio || []).filter(c => c.path !== path);
+      const { error } = await sb.from('submissions').update({ shadowing_feedback_audio: next }).eq('member_id', memberId).eq('date', date);
+      if (error) { console.error(error); showToast("Couldn't remove the clip. Try again.", true); return; }
+      setDay(memberId, date, { shadowingFeedbackAudio: next });
+      deleteFromR2(path);
+      renderApp();
+      showToast('Voice clip removed.');
+    });
+  }
+  async function startClipRecording(memberId, date) {
+    if (fbRec) return;
+    const label = readClipLabel(memberId, date);
+    if (!label) return;
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { clipNotice('Microphone blocked', 'Allow microphone access for this site, or record on your phone and upload the file instead.'); return; }
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg'];
+    const type = types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t));
+    const opts = { audioBitsPerSecond: 48000 };
+    if (type) opts.mimeType = type;
+    const rec = { key: clipKey(memberId, date), chunks: [], seconds: 0 };
+    rec.recorder = new MediaRecorder(stream, opts);
+    rec.recorder.ondataavailable = (e) => rec.chunks.push(e.data);
+    rec.recorder.onstop = async () => {
+      clearInterval(rec.interval); clearTimeout(rec.timer);
+      stream.getTracks().forEach(t => t.stop());
+      fbRec = null;
+      const blob = new Blob(rec.chunks, { type: rec.recorder.mimeType || 'audio/webm' });
+      await addFeedbackClip(memberId, date, blob, label);
+    };
+    fbRec = rec;
+    rec.recorder.start();
+    // Only the timer text changes each second, so players and typing elsewhere aren't disturbed.
+    rec.interval = setInterval(() => { rec.seconds++; const t = document.getElementById('fb-rec-time'); if (t) t.textContent = fmtLen(rec.seconds); }, 1000);
+    rec.timer = setTimeout(stopClipRecording, FB_CLIP_SECONDS * 1000);
+    state.leaderDayOpen[rec.key] = true;
+    renderApp();
+  }
+  function stopClipRecording() { if (fbRec && fbRec.recorder.state === 'recording') fbRec.recorder.stop(); }
+  // The voice clip area under a Speaking feedback box on the mentor dashboard.
+  function feedbackClipsEditor(memberId, date, day) {
+    const key = clipKey(memberId, date);
+    const clips = day.shadowingFeedbackAudio || [];
+    const list = clips.map(c => `
+      <div class="dz-fb-clip">
+        <div class="dz-fb-clip-row"><p class="dz-fb-clip-label">${escapeHtml(c.label)}</p><button class="dz-btn danger" data-clip-remove="${key}" data-clip-path="${escapeHtml(c.path)}">Remove</button></div>
+        ${mediaBlock(c.path, 'shadowing')}
+      </div>`).join('');
+    let add;
+    if (fbRec && fbRec.key === key) {
+      add = `<div class="dz-fb-clip-status" role="status">● Recording <span id="fb-rec-time">${fmtLen(fbRec.seconds)}</span> / ${fmtLen(FB_CLIP_SECONDS)} <button class="dz-btn" data-clip-stop="${key}">Stop</button></div>`;
+    } else if (state.fbClipBusy === key) {
+      add = `<p class="dz-fb-clip-status" role="status">Saving voice clip... please keep this page open.</p>`;
+    } else if (clips.length < FB_CLIP_MAX) {
+      add = `<div class="dz-fb-clip-add">
+          <input type="text" maxlength="${FB_CLIP_LABEL_MAX}" placeholder="One-line label (required)" aria-label="Voice clip label" data-clip-label="${key}" value="${escapeHtml(state.clipLabels[key] || '')}">
+          <button class="dz-btn blue" data-clip-rec="${key}" ${fbRec || state.fbClipBusy ? 'disabled' : ''}>🎙 Record</button>
+          <button class="dz-btn blue" data-clip-upload="${key}" ${fbRec || state.fbClipBusy ? 'disabled' : ''}>Upload file</button>
+          <input type="file" accept="audio/*,.m4a,.mp3,.wav,.aac" data-clip-file="${key}" hidden>
+        </div>`;
+    } else {
+      add = `<p class="dz-fb-guide" style="margin:8px 0 0;">${FB_CLIP_MAX} of ${FB_CLIP_MAX} clips added. Remove one to add another.</p>`;
+    }
+    return `
+      <div class="dz-fb-clips">
+        <p class="dz-fb-label">Voice clips<small>Optional · up to ${FB_CLIP_MAX} per day, ${FB_CLIP_SECONDS} sec each</small></p>
+        <p class="dz-fb-guide">Only for a word or sentence that's hard to explain in writing; your written feedback stays the main part. Say it slowly once, then at natural speed. Each clip needs a one-line label, e.g. "gachi: the t sound turns into ch". Record here or upload from your phone (m4a, mp3, wav).</p>
+        ${list}${add}
+      </div>`;
   }
   function getDay(memberId, date) { const sub = state.submissions[memberId] || {}; return sub[date] || { diary: null, shadowing: null, diaryFeedback: '', shadowingFeedback: '' }; }
   function setDay(memberId, date, patch) {
@@ -2029,13 +2192,23 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (!res.ok) throw new Error(data.error || ('media function ' + res.status));
     return data;
   }
-  async function uploadToR2(kind, blob, date) {
-    const contentType = (blob.type || '').split(';')[0];
-    const { uploadUrl, path } = await callMediaFn({ action: 'upload', kind, date, contentType, size: blob.size });
+  async function putToR2(uploadUrl, blob, contentType) {
     const put = { method: 'PUT', body: blob, headers: contentType ? { 'Content-Type': contentType } : {} };
     if (window.AbortSignal && AbortSignal.timeout) put.signal = AbortSignal.timeout(90000);
     const res = await fetch(uploadUrl, put);
     if (!res.ok) throw new Error('R2 upload failed with ' + res.status);
+  }
+  async function uploadToR2(kind, blob, date) {
+    const contentType = (blob.type || '').split(';')[0];
+    const { uploadUrl, path } = await callMediaFn({ action: 'upload', kind, date, contentType, size: blob.size });
+    await putToR2(uploadUrl, blob, contentType);
+    return path;
+  }
+  // A mentor's voice clip goes into the member's own folder.
+  async function uploadFeedbackClip(memberId, date, blob) {
+    const contentType = (blob.type || '').split(';')[0];
+    const { uploadUrl, path } = await callMediaFn({ action: 'feedback-upload', memberId, date, contentType, size: blob.size });
+    await putToR2(uploadUrl, blob, contentType);
     return path;
   }
   function deleteFromR2(path) {
@@ -3336,8 +3509,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         const existing = day[field] || '';
         return `
           <p class="dz-fb-label">${label} feedback</p>
-          <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${existing ? escapeHtml(existing) : ''}</textarea>
-          <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:4px;">
+          <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${escapeHtml(state.fbTextDrafts[focusId + '|' + date + '|' + field] ?? existing)}</textarea>
+          ${kind === 'shadowing' ? feedbackClipsEditor(focusId, date, day) : ''}
+          <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
             <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save draft</button>
             <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Send feedback</button>
           </div>`;
@@ -3478,12 +3652,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const dayChip = (label, media) => media
         ? `<span class="dz-day-chip">${label} ✓</span>`
         : `<span class="dz-day-chip none">${label}: none</span>`;
-      const partBody = (title, media, fb, kind, date) => {
+      const clipsHtml = (clips) => !(clips && clips.length) ? '' : `
+        <div class="dz-fb-clips"><p class="dz-fb-label">Voice notes from your mentor</p>${clips.map(c => `<div class="dz-fb-clip"><p class="dz-fb-clip-label">${escapeHtml(c.label)}</p>${mediaBlock(c.path, 'shadowing')}</div>`).join('')}</div>`;
+      const partBody = (title, media, fb, kind, date, clips) => {
         const isNew = newKeys.has(date + '|' + kind);
         return `<div>
           <p class="dz-part-title">${title}${isNew ? '<span class="dz-new-tag">NEW</span>' : ''}</p>
           <div class="dz-media-slot">${mediaBlock(media, kind)}</div>
-          ${fb ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note">${escapeHtml(fb)}</div>`
+          ${fb ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note">${escapeHtml(fb)}</div>${clipsHtml(clips)}`
             : (media ? `<p class="dz-fb-label">${title} feedback</p><div class="dz-feedback-note empty">Waiting for your mentor's feedback.</div>` : '')}
         </div>`;
       };
@@ -3501,7 +3677,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
             <summary><span class="dl">${label}</span><span class="dz-day-chips">${dayChip('Writing', day.diary)}${dayChip('Speaking', day.shadowing)}${fbChip}</span></summary>
             <div class="dz-day-body"><div class="dz-cards" style="margin:0;">
               ${partBody('Writing', day.diary, day.diaryFeedback, 'diary', d)}
-              ${partBody('Speaking', day.shadowing, day.shadowingFeedback, 'shadowing', d)}
+              ${partBody('Speaking', day.shadowing, day.shadowingFeedback, 'shadowing', d, day.shadowingFeedbackAudio)}
             </div></div>
           </details>`;
         }).join('');
@@ -3749,6 +3925,29 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         const again = document.getElementById('lead-search');
         if (again) { again.focus(); again.setSelectionRange(pos, pos); }
       });
+      // Typed feedback and clip labels survive re-renders (e.g. while a clip records).
+      document.querySelectorAll('textarea[data-fb-day-member]').forEach(ta => ta.addEventListener('input', () => {
+        state.fbTextDrafts[ta.dataset.fbDayMember + '|' + ta.dataset.fbDayDate + '|' + ta.dataset.fbDayField] = ta.value;
+      }));
+      document.querySelectorAll('[data-clip-label]').forEach(inp => inp.addEventListener('input', () => { state.clipLabels[inp.dataset.clipLabel] = inp.value; }));
+      document.querySelectorAll('[data-clip-rec]').forEach(btn => btn.addEventListener('click', () => { const [m, d] = btn.dataset.clipRec.split('|'); startClipRecording(m, d); }));
+      document.querySelectorAll('[data-clip-stop]').forEach(btn => btn.addEventListener('click', stopClipRecording));
+      document.querySelectorAll('[data-clip-upload]').forEach(btn => btn.addEventListener('click', () => {
+        const [m, d] = btn.dataset.clipUpload.split('|');
+        if (!readClipLabel(m, d)) return;
+        document.querySelector(`input[data-clip-file="${btn.dataset.clipUpload}"]`).click();
+      }));
+      document.querySelectorAll('[data-clip-file]').forEach(inp => inp.addEventListener('change', () => {
+        const [m, d] = inp.dataset.clipFile.split('|');
+        const file = inp.files && inp.files[0];
+        inp.value = '';
+        const label = file && readClipLabel(m, d);
+        if (label) addFeedbackClip(m, d, withAudioType(file), label);
+      }));
+      document.querySelectorAll('[data-clip-remove]').forEach(btn => btn.addEventListener('click', () => {
+        const [m, d] = btn.dataset.clipRemove.split('|');
+        confirmRemoveFeedbackClip(m, d, btn.dataset.clipPath);
+      }));
       document.querySelectorAll('[data-save-day-fb]').forEach(btn => {
         btn.addEventListener('click', () => {
           const mid = btn.getAttribute('data-save-day-fb');

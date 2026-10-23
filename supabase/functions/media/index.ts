@@ -5,8 +5,12 @@
 //
 //   upload  -> a 10-minute PUT link, only for the member's own check-in on a
 //              date their 30-day pass allows (same rule as the DB trigger).
+//   feedback-upload -> a 10-minute PUT link for a mentor's voice clip (Speaking
+//              feedback, 30 seconds or less), stored in the member's own folder so
+//              it's deleted together with the member's account.
 //   view    -> 1-hour GET links: members only for their own files, leaders for anyone's.
-//   delete  -> removes one of the member's own files (Remove, or a replaced upload).
+//   delete  -> removes one of the member's own check-in files (Remove, or a
+//              replaced upload); mentors can also remove voice clips they added.
 //
 // Secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
 // Deploy with "Enforce JWT verification" on: callers send their own login token.
@@ -28,17 +32,17 @@ const MAX_VIEW_PATHS = 200;
 const PATH_PREFIX = "r2:";
 
 // What each check-in part may be, and the file extension it's stored under.
+const AUDIO_TYPES: Record<string, string> = {
+  "audio/webm": "webm", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/aac": "aac",
+  "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/x-wav": "wav",
+  "video/webm": "webm", "video/mp4": "m4a", "": "audio",
+};
 const KINDS: Record<string, { maxBytes: number; types: Record<string, string> }> = {
   diary: { maxBytes: 8 * 1024 * 1024, types: { "image/jpeg": "jpg" } },
-  shadowing: {
-    maxBytes: 6 * 1024 * 1024,
-    types: {
-      "audio/webm": "webm", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/m4a": "m4a", "audio/aac": "aac",
-      "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/x-wav": "wav",
-      "video/webm": "webm", "video/mp4": "m4a", "": "audio",
-    },
-  },
+  shadowing: { maxBytes: 6 * 1024 * 1024, types: AUDIO_TYPES },
+  feedback: { maxBytes: 6 * 1024 * 1024, types: AUDIO_TYPES },
 };
+const MEMBER_KINDS = ["diary", "shadowing"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,7 +73,7 @@ async function signedLink(method: "GET" | "PUT", key: string, seconds: number): 
 function keyFromPath(path: unknown): string | null {
   if (typeof path !== "string" || !path.startsWith(PATH_PREFIX)) return null;
   const key = path.slice(PATH_PREFIX.length);
-  return /^[0-9a-f-]{36}\/\d{4}-\d{2}-\d{2}\/(diary|shadowing)-[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(key) ? key : null;
+  return /^[0-9a-f-]{36}\/\d{4}-\d{2}-\d{2}\/(diary|shadowing|feedback)-[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(key) ? key : null;
 }
 
 Deno.serve(async (req) => {
@@ -86,8 +90,15 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
 
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const isLeader = async () => {
+    const { data: me } = await admin.from("profiles").select("role").eq("id", uid).maybeSingle();
+    return me?.role === "leader";
+  };
+
   try {
     if (body.action === "upload") {
+      if (!MEMBER_KINDS.includes(body.kind)) return json({ error: "INVALID_KIND" }, 400);
       const kind = KINDS[body.kind];
       if (!kind) return json({ error: "INVALID_KIND" }, 400);
       if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) return json({ error: "INVALID_DATE" }, 400);
@@ -107,16 +118,34 @@ Deno.serve(async (req) => {
       return json({ path: PATH_PREFIX + key, uploadUrl: await signedLink("PUT", key, UPLOAD_LINK_SECONDS) });
     }
 
+    if (body.action === "feedback-upload") {
+      if (!(await isLeader())) return json({ error: "MENTORS_ONLY" }, 403);
+      const memberId = String(body.memberId || "");
+      if (!/^[0-9a-f-]{36}$/.test(memberId)) return json({ error: "INVALID_MEMBER" }, 400);
+      if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) return json({ error: "INVALID_DATE" }, 400);
+      const type = String(body.contentType || "").split(";")[0].trim().toLowerCase();
+      const ext = KINDS.feedback.types[type];
+      if (!ext) return json({ error: "UNSUPPORTED_FILE_TYPE" }, 400);
+      const size = Number(body.size);
+      if (!Number.isFinite(size) || size <= 0 || size > KINDS.feedback.maxBytes) return json({ error: "FILE_TOO_LARGE" }, 400);
+
+      // Only for a Speaking check-in that actually exists.
+      const { data: sub } = await admin.from("submissions").select("has_shadowing")
+        .eq("member_id", memberId).eq("date", body.date).maybeSingle();
+      if (!sub?.has_shadowing) return json({ error: "NO_SPEAKING_CHECKIN" }, 404);
+
+      const key = `${memberId}/${body.date}/feedback-${crypto.randomUUID()}.${ext}`;
+      return json({ path: PATH_PREFIX + key, uploadUrl: await signedLink("PUT", key, UPLOAD_LINK_SECONDS) });
+    }
+
     if (body.action === "view") {
       const paths: unknown[] = Array.isArray(body.paths) ? body.paths.slice(0, MAX_VIEW_PATHS) : [];
-      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const { data: me } = await admin.from("profiles").select("role").eq("id", uid).maybeSingle();
-      const isLeader = me?.role === "leader";
+      const leader = await isLeader();
       const urls: Record<string, string> = {};
       for (const path of paths) {
         const key = keyFromPath(path);
         if (!key) continue;
-        if (!isLeader && !key.startsWith(uid + "/")) continue;
+        if (!leader && !key.startsWith(uid + "/")) continue;
         urls[path as string] = await signedLink("GET", key, VIEW_LINK_SECONDS);
       }
       return json({ urls, expiresIn: VIEW_LINK_SECONDS });
@@ -124,7 +153,11 @@ Deno.serve(async (req) => {
 
     if (body.action === "delete") {
       const key = keyFromPath(body.path);
-      if (!key || !key.startsWith(uid + "/")) return json({ error: "NOT_YOUR_FILE" }, 403);
+      if (!key) return json({ error: "NOT_YOUR_FILE" }, 403);
+      // Members remove their own check-in files; mentors remove voice clips.
+      const isClip = key.split("/")[2].startsWith("feedback-");
+      const allowed = isClip ? await isLeader() : key.startsWith(uid + "/");
+      if (!allowed) return json({ error: "NOT_YOUR_FILE" }, 403);
       const res = await r2.fetch(objectUrl(key), { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw new Error(`R2 delete failed with ${res.status}`);
       return json({ ok: true });
