@@ -154,7 +154,9 @@ Deno.serve(async (req) => {
           subject: `Today's EngKor check-in: ${leftText} left`,
           text:
             `Hi ${m.nickname || m.name || "there"},\n\n` +
-            `It's Day ${dayOfPass(pass.starts_on, local.date)} of ${passLength} of your challenge, ` +
+            (passLength === 1
+              ? `It's your free trial day, `
+              : `It's Day ${dayOfPass(pass.starts_on, local.date)} of ${passLength} of your challenge, `) +
             `and today's ${leftText} ${left.length > 1 ? "are" : "is"} still waiting for you.\n\n` +
             `Upload ${left.length > 1 ? "them" : "it"} here before the day ends to keep your streak going:\n${SITE_URL}\n\n` +
             `---\n` +

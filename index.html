@@ -340,6 +340,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   #checkout-btn { font-family: var(--font-accent); font-weight: 600; text-transform: uppercase; box-shadow: var(--shadow-subtle); }
   .consent-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 12px; text-align: center; font-family: "Geist", sans-serif; }
   .consent-note a { color: var(--btn-primary); text-decoration: underline; }
+  /* "Try 1 day free" links: only shown to people who haven't joined before */
+  .trial-link { display: inline-block; margin-top: 14px; font-size: 15px; font-weight: 700; color: var(--btn-primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; }
+  .trial-link[hidden] { display: none; }
+  .price-card .trial-link { display: block; width: 100%; text-align: center; margin-top: 12px; font-size: 14px; }
   .price-list .item::before { content: "✓"; color: var(--primary); font-weight: 800; }
 
   .trust-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
@@ -1098,6 +1102,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <a class="btn btn-primary" href="#" id="apply-btn-hero">Start Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
       </div>
+      <button type="button" class="trial-link" id="trial-link-hero" data-trial-link>New here? Try 1 day free, no payment →</button>
       <div class="hero-stats">
         <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>Weekly</b><span>guaranteed correction</span></div></div>
         <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>100%</b><span>real human feedback</span></div></div>
@@ -1252,6 +1257,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Private unlimited Q&amp;A channel for paid users</div>
         </div>
         <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
+        <button type="button" class="trial-link" id="trial-link-pricing" data-trial-link>Not sure yet? Try 1 day free</button>
         <p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>
       </div>
     </div>
@@ -1440,6 +1446,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       : `Your 30-day challenge runs from ${shortDate(pass.start_date)} to ${shortDate(pass.end_date)}. Today is Day 1.`;
     return `<p class="pass-start-note">${text}</p>`;
   }
+  // Free trial: one day of check-ins without paying, once per account. Mentors
+  // send feedback within TRIAL_FEEDBACK_DAYS days of the trial day.
+  const TRIAL_FEEDBACK_DAYS = 2;
+  const trialFeedbackDue = (trial) => addDaysStr(trial.end_date, TRIAL_FEEDBACK_DAYS);
   // A renewal starts the day after the current pass ends (or today if nothing is running).
   function renewalStartDate() {
     const c = state.activeCohort;
@@ -1624,7 +1634,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     openCohortEnded: false,   // no longer used (passes start any day)
     readOnly: false,          // true = dashboard shown but check-in form replaced by a banner
     notYetStarted: false,     // only joined a challenge that hasn't started, no history yet
-    showRenewalBanner: false, renewalEndsSoon: false, queuedPass: null
+    showRenewalBanner: false, renewalEndsSoon: false, queuedPass: null,
+    trialPass: null,          // the member's free 1-day trial, if they used it
+    trialEligible: true,      // never joined before -> can start the free trial
+    memberTrials: {},         // mentor: member id -> free trial still inside its 2-day feedback window
   };
   let mediaRecorder = null, recChunks = [], recTimer = null, recInterval = null;
   const fmtRecTime = (s) => Math.floor(s / 60) + ':' + pad2(s % 60);
@@ -1648,11 +1661,27 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.monthMemberIds = new Set();
       state.memberPasses = {};
       const leaderToday = todayStr();
+      state.memberTrials = {};
       const { data: activeApps } = await sb.from('applications').select('member_id,starts_on,ends_on')
         .eq('status', 'active').lte('starts_on', leaderToday).gte('ends_on', leaderToday);
+      // Free trials stay in "Active" until their feedback is due (2 days after the trial day).
+      const { data: trialApps } = await sb.from('applications').select('member_id,starts_on,ends_on')
+        .eq('status', 'active').eq('is_trial', true).gte('ends_on', addDaysStr(leaderToday, -TRIAL_FEEDBACK_DAYS));
+      (trialApps || []).forEach(a => {
+        state.monthMemberIds.add(a.member_id);
+        state.memberTrials[a.member_id] = { start_date: a.starts_on, end_date: a.ends_on };
+      });
       (activeApps || []).forEach(a => {
         state.monthMemberIds.add(a.member_id);
+        // A 30-day pass bought on the trial day wins over the trial.
+        const trial = state.memberTrials[a.member_id];
+        if (trial && trial.start_date === a.starts_on && trial.end_date === a.ends_on && state.memberPasses[a.member_id]) return;
         state.memberPasses[a.member_id] = { start_date: a.starts_on, end_date: a.ends_on };
+      });
+      // Someone who paid after their trial is a regular member again.
+      Object.keys(state.memberTrials).forEach(id => {
+        const p = state.memberPasses[id];
+        if (p && passLength(p) > 1) delete state.memberTrials[id];
       });
       const memberIds = state.members.map(m => m.id);
       state.members.forEach(m => { state.submissions[m.id] = {}; });
@@ -2628,27 +2657,36 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       // local dates): new passes run 30 days from the payment day, and a renewal
       // starts the day after the current one ends. Older monthly applications
       // got their cohort's dates copied in, so they read the same way.
-      const { data: applications } = await sb.from('applications').select('id,cohort_id,status,is_beta,starts_on,ends_on').eq('member_id', currentUser.id);
+      const appCols = 'id,cohort_id,status,is_beta,starts_on,ends_on';
+      let { data: applications, error: appsErr } = await sb.from('applications').select(appCols + ',is_trial').eq('member_id', currentUser.id);
+      // Before the free trial column exists, load without it.
+      if (appsErr && /is_trial/.test(appsErr.message || '')) ({ data: applications } = await sb.from('applications').select(appCols).eq('member_id', currentUser.id));
       state.cohort = null;
       state.applications = applications || [];
       state.hasEverApplied = state.applications.length > 0;
+      state.trialEligible = !state.hasEverApplied;
       const today = todayStr();
-      const passes = state.applications
+      const allPasses = state.applications
         .filter(a => a.status === 'active' && a.starts_on && a.ends_on)
-        .map(a => ({ id: a.id, start_date: a.starts_on, end_date: a.ends_on, is_beta: !!a.is_beta }))
+        .map(a => ({ id: a.id, start_date: a.starts_on, end_date: a.ends_on, is_beta: !!a.is_beta, is_trial: !!a.is_trial }))
         .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      // The free trial day counts for check-ins, but not as being "enrolled":
+      // a trial member can still buy a 30-day pass, which starts that same day.
+      state.trialPass = allPasses.find(p => p.is_trial) || null;
+      const passes = allPasses.filter(p => !p.is_trial);
+      const trialNow = state.trialPass && state.trialPass.start_date <= today && today <= state.trialPass.end_date ? state.trialPass : null;
       const nowP = passes.find(p => p.start_date <= today && today <= p.end_date);
       const nextP = passes.find(p => p.start_date > today);
-      const pastP = passes.filter(p => p.end_date < today).pop();
+      const pastP = passes.filter(p => p.end_date < today).pop() || (state.trialPass && state.trialPass.end_date < today ? state.trialPass : null);
       // Beta testers and the QA test account may check in before a pass starts.
       const earlyAccess = !nowP && nextP && (nextP.is_beta || currentUser.email === TEST_BYPASS_EMAIL);
-      state.activeCohort = nowP || (earlyAccess ? nextP : null);
+      state.activeCohort = nowP || (earlyAccess ? nextP : null) || trialNow;
       state.upcomingCohort = !state.activeCohort && nextP ? nextP : null;
       state.lastCohort = pastP || null;
       // The next 30 days, if they're already paid for.
-      state.queuedPass = state.activeCohort ? (passes.find(p => p.start_date > state.activeCohort.end_date) || null) : null;
+      state.queuedPass = state.activeCohort && !state.activeCohort.is_trial ? (passes.find(p => p.start_date > state.activeCohort.end_date) || null) : null;
       // "Already enrolled" = a pass that's running now or still to come.
-      state.hasCurrentApplication = !!(state.activeCohort || state.upcomingCohort);
+      state.hasCurrentApplication = !!(nowP || state.upcomingCohort || (state.activeCohort && !state.activeCohort.is_trial));
       // Past passes stay viewable (read-only); new check-ins only inside a pass.
       state.readOnly = state.hasEverApplied && !state.activeCohort;
       // Only a pass that hasn't started and no history yet: show the "starts soon" screen.
@@ -2671,6 +2709,9 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       } else if (routeFromHome) {
         if (state.hasEverApplied) {
           showApp('member');
+        } else if (takeTrialIntent()) {
+          justSignedUp = false;
+          openTrial();
         } else {
           showLanding();
           maybeShowWelcomePopup();
@@ -2682,6 +2723,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.cohort = null; state.applications = []; state.hasEverApplied = false;
       state.hasCurrentApplication = false; state.readOnly = false; state.notYetStarted = false; state.showRenewalBanner = false;
       state.activeCohort = null; state.upcomingCohort = null; state.lastCohort = null; state.openCohortEnded = false;
+      state.trialPass = null; state.trialEligible = true;
       renderNav();
       updateApplyButtonLabel();
       if (state.view === 'member' || state.view === 'leader' || state.view === 'apply' || state.view === 'account') showLanding();
@@ -2699,9 +2741,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       <h2 style="font-size:19px;">Welcome to EngKor! 🎉</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">Your account is ready. Start your 30-day challenge to get your dashboard and begin your streak.</p>
       <button class="btn btn-primary" id="welcome-apply-btn" style="width:100%; justify-content:center; display:flex;">Apply for the Challenge</button>
+      <p style="text-align:center; margin:12px 0 0;"><button type="button" class="trial-link" id="welcome-trial-btn" style="margin:0;">Or try 1 day free first</button></p>
     `);
     const btn = document.getElementById('welcome-apply-btn');
     if (btn) btn.addEventListener('click', () => { closeModal(); openApply(); });
+    const trialBtn = document.getElementById('welcome-trial-btn');
+    if (trialBtn) trialBtn.addEventListener('click', () => { closeModal(); openTrial(); });
   }
 
   // ---- calendar ----
@@ -2822,6 +2867,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (heroBtn) heroBtn.textContent = `Apply for ${CURRENT_CHALLENGE_MONTH} Challenge →`;
     const bannerMonth = document.getElementById('apply-banner-month');
     if (bannerMonth) bannerMonth.textContent = CURRENT_CHALLENGE_MONTH;
+    // The free trial is only for people who haven't joined before.
+    document.querySelectorAll('[data-trial-link]').forEach(el => { el.hidden = !state.trialEligible; });
   }
 
   // Signed out -> push into signup, signed in and already enrolled this month
@@ -2840,6 +2887,102 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     // Already has a running or booked pass: renewing happens from the dashboard.
     if (state.hasCurrentApplication) { showApp('member'); return; }
     showApplyView();
+  }
+
+  // ---- free 1-day trial ----
+  // Someone who clicks "Try 1 day free" while signed out is sent to sign up;
+  // this remembers that, so they land on the trial form once they're in
+  // (even after confirming their email in another tab).
+  const TRIAL_INTENT_KEY = 'engkor_trial_intent';
+  function setTrialIntent() { try { localStorage.setItem(TRIAL_INTENT_KEY, String(Date.now())); } catch (e) {} }
+  function takeTrialIntent() {
+    try {
+      const at = Number(localStorage.getItem(TRIAL_INTENT_KEY));
+      localStorage.removeItem(TRIAL_INTENT_KEY);
+      return !!at && Date.now() - at < 3 * 86400000;
+    } catch (e) { return false; }
+  }
+  function openTrial() {
+    if (!currentUser) {
+      setTrialIntent();
+      showAuth();
+      authMode = 'signup';
+      authMessage = 'Create a free account first. Your free day starts right after.';
+      renderAuth();
+      return;
+    }
+    if (isPendingDeletion()) { showRestoreModal(); return; }
+    if (!state.trialEligible) {
+      if (state.hasEverApplied) showApp('member');
+      showToast('The free trial is for first-time members only.', true);
+      return;
+    }
+    state.view = 'apply';
+    landingView.style.display = 'none'; appView.style.display = 'none'; authView.style.display = 'none'; applyView.style.display = 'block'; accountView.style.display = 'none';
+    window.scrollTo(0, 0);
+    applyLoading = false; applyDraft = null;
+    renderTrialForm();
+    setRouteHash('#/trial');
+  }
+  function renderTrialForm() {
+    const card = document.getElementById('apply-card');
+    card.style.cssText = '';
+    const d = applyDraft || {};
+    const [by, bm, bd] = ((d.birthdate ?? currentProfile.birthdate) || '').split('-').map((v) => v || '');
+    const thisYear = new Date().getFullYear();
+    const opt = (value, label, selected) => `<option value="${value}"${selected ? ' selected' : ''}>${label}</option>`;
+    const monthOpts = BIRTH_MONTHS.map((m, i) => opt(pad2(i + 1), m, bm === pad2(i + 1))).join('');
+    const dayOpts = Array.from({ length: 31 }, (_, i) => opt(pad2(i + 1), i + 1, bd === pad2(i + 1))).join('');
+    const yearOpts = Array.from({ length: thisYear - 14 - 1925 + 1 }, (_, i) => thisYear - 14 - i).map((y) => opt(y, y, by === String(y))).join('');
+    card.innerHTML = `
+      <h2>Try EngKor Free for 1 Day</h2>
+      <p class="sub">Upload one day of Writing and Speaking, and a Korean mentor will send you feedback on both within ${TRIAL_FEEDBACK_DAYS} days. No payment needed.</p>
+      <p class="pass-start-note">Your free day is today, ${shortDate(todayStr())}. Start when you're ready to check in today.</p>
+      <form id="trial-form">
+        <div class="auth-field"><label>Name</label><input type="text" id="apply-name" required value="${escapeHtml((d.name ?? currentProfile.name) || '')}" /></div>
+        <div class="auth-field"><label id="apply-birth-label">Birthdate</label>
+          <div class="birth-row" role="group" aria-labelledby="apply-birth-label">
+            <select id="apply-birth-month" aria-label="Birth month" required><option value="">Month</option>${monthOpts}</select>
+            <select id="apply-birth-day" aria-label="Birth day" required><option value="">Day</option>${dayOpts}</select>
+            <select id="apply-birth-year" aria-label="Birth year" required><option value="">Year</option>${yearOpts}</select>
+          </div>
+        </div>
+        <div class="auth-field"><label for="apply-timezone">Time zone</label>${timezoneSelectHtml((d.timezone ?? currentProfile.timezone) || Intl.DateTimeFormat().resolvedOptions().timeZone, 'apply-timezone')}</div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; display:flex;" ${applyLoading ? 'disabled' : ''}>${applyLoading ? '...' : 'Start My Free Day'}</button>
+        ${CONSENT_NOTE_HTML}
+      </form>
+    `;
+    document.getElementById('trial-form').addEventListener('submit', handleTrialSubmit);
+  }
+  async function handleTrialSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('apply-name').value.trim();
+    const birthParts = ['apply-birth-year', 'apply-birth-month', 'apply-birth-day'].map((id) => document.getElementById(id).value);
+    const birthdate = birthParts.join('-');
+    const timezone = document.getElementById('apply-timezone').value.trim();
+    const birthError = birthdateError(birthParts);
+    if (birthError) { showApplyErrorModal('Please check your birthdate', birthError, 'apply-birth-month'); return; }
+    applyDraft = { name, timezone, birthdate };
+    applyLoading = true; renderTrialForm();
+    const { error } = await sb.rpc('start_free_trial', { p_name: name, p_timezone: timezone, p_birthdate: birthdate });
+    applyLoading = false;
+    if (error) {
+      console.error('Free trial failed:', error);
+      renderTrialForm();
+      const msg = error.message || '';
+      showApplyErrorModal("We couldn't start your free day", msg.includes('TRIAL_NOT_AVAILABLE') ? 'The free trial is for first-time members only, and this account has already joined before.' : applyErrorMessage(msg));
+      return;
+    }
+    applyDraft = null;
+    currentProfile.name = name; currentProfile.timezone = timezone; currentProfile.birthdate = birthdate;
+    await refreshMemberState();
+    showApp('member');
+    showModal(`
+      <h2 style="font-size:19px;">Your free day has started 🎉</h2>
+      <p class="dz-muted" style="margin:10px 0 20px;">Upload today's Writing and Speaking before the day ends. A Korean mentor will send you feedback on both within ${TRIAL_FEEDBACK_DAYS} days.</p>
+      <button class="btn btn-primary" id="trial-start-ok-btn" style="width:100%; justify-content:center; display:flex;">Let's go</button>
+    `);
+    document.getElementById('trial-start-ok-btn').addEventListener('click', closeModal);
   }
 
   function showApplyView() {
@@ -2874,10 +3017,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Community leaderboard</div>
         </div>
         <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Continue</button>
+        ${state.trialEligible ? '<button type="button" class="trial-link" id="pricing-trial-btn">Not sure yet? Try 1 day free</button>' : ''}
         ${CONSENT_NOTE_HTML}
       </div>
     `;
     document.getElementById('pricing-continue-btn').addEventListener('click', renderApplyForm);
+    const pricingTrial = document.getElementById('pricing-trial-btn');
+    if (pricingTrial) pricingTrial.addEventListener('click', openTrial);
   }
 
   function renderApplyForm() {
@@ -3142,10 +3288,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       challenge = `<div class="account-status"><span><b>Mentor account</b></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to Admin Dashboard</button></div>`;
     } else if (state.activeCohort || state.upcomingCohort) {
       const shown = state.activeCohort || state.upcomingCohort;
-      const pill = shown.start_date > todayStr()
-        ? `Starts ${shortDate(shown.start_date)}`
+      const pill = shown.is_trial ? 'Free trial'
+        : shown.start_date > todayStr() ? `Starts ${shortDate(shown.start_date)}`
         : `Day ${passDay(shown)} of ${passLength(shown)}${shown.is_beta ? ' (beta)' : ''}`;
-      challenge = `<div class="account-status"><span><b>${passRange(shown)}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
+      challenge = `<div class="account-status"><span><b>${shown.is_trial ? shortDate(shown.start_date) : passRange(shown)}</b><span class="status-pill">${pill}</span></span><button type="button" class="btn-sm" id="account-go-dashboard">Go to dashboard</button></div>`;
     } else {
       challenge = `<div class="account-status"><span>You don't have an active challenge.</span><button type="button" class="btn-sm" id="account-apply">Start a 30-Day Challenge</button></div>`;
     }
@@ -3419,7 +3565,24 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   function readOnlyBanner() {
     const dateLabel = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     let title, text, button = '';
-    if (state.upcomingCohort) {
+    const lastWasTrial = state.lastCohort && state.lastCohort.is_trial;
+    if (lastWasTrial && !state.upcomingCohort) {
+      // Free trial day is over: point to the feedback, then to the 30-day challenge.
+      const trialDay = (state.submissions[currentProfile.id] || {})[state.lastCohort.start_date];
+      const submitted = !!(trialDay && (trialDay.diary || trialDay.shadowing));
+      const feedbackIn = !!(trialDay && (trialDay.diaryFeedback || trialDay.shadowingFeedback));
+      if (feedbackIn) {
+        title = 'Your mentor feedback is ready below';
+        text = 'Liked it? Keep going with a 30-day challenge: Writing and Speaking every day, with feedback from a Korean mentor.';
+      } else if (submitted) {
+        title = 'Your free day is done';
+        text = `A Korean mentor will send your feedback by ${dateLabel(trialFeedbackDue(state.lastCohort))}. Want to keep going meanwhile? Start your 30-day challenge anytime.`;
+      } else {
+        title = 'Your free day has ended';
+        text = 'The free trial can be used once, but you can start a 30-day challenge anytime.';
+      }
+      button = `<button class="btn btn-primary" id="reapply-btn" style="justify-content:center; display:inline-flex;">Start 30-Day Challenge</button>`;
+    } else if (state.upcomingCohort) {
       title = `Your next challenge starts ${dateLabel(state.upcomingCohort.start_date)}`;
       text = "You're locked in. Check-ins open on that day. Your past check-ins and feedback are below.";
     } else {
@@ -3462,7 +3625,10 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       const focusInfo = rows.find(r => r.m.id === focusId);
       const focusMember = focusInfo ? focusInfo.m : null;
       const monthCount = state.members.filter(m => state.monthMemberIds.has(m.id)).length;
-      const passTag = (id) => { const p = state.memberPasses[id]; return p ? `Day ${passDay(p)}/${passLength(p)} · ` : ''; };
+      const passTag = (id) => {
+        if (state.memberTrials[id]) return `🎁 Free trial · `;
+        const p = state.memberPasses[id]; return p ? `Day ${passDay(p)}/${passLength(p)} · ` : '';
+      };
       const rowMeta = (r) => `${passTag(r.m.id)}${timeAgo(r.lastAt, r.lastDate)} · ${r.rate}%`;
       const listHtml = rows.map(r => `
         <button class="dz-lead-row ${r.m.id === focusId ? 'active' : ''}" data-focus="${r.m.id}">
@@ -3554,7 +3720,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
                     ${state.leaders.map(l => `<option value="${l.id}" ${focusMember.assigned_leader_id === l.id ? 'selected' : ''}>${escapeHtml(leaderShortName(l))}</option>`).join('')}
                   </select>
                 </label>
-                ${state.memberPasses[focusMember.id] ? `<span class="dz-lead-pill">Day ${passDay(state.memberPasses[focusMember.id])} of ${passLength(state.memberPasses[focusMember.id])} · ends ${shortDate(state.memberPasses[focusMember.id].end_date)}</span>` : '<span class="dz-lead-pill">No active challenge</span>'}
+                ${state.memberTrials[focusMember.id] ? `<span class="dz-lead-pill todo">🎁 Free trial ${shortDate(state.memberTrials[focusMember.id].start_date)} · feedback due ${shortDate(trialFeedbackDue(state.memberTrials[focusMember.id]))}</span>`
+                  : state.memberPasses[focusMember.id] ? `<span class="dz-lead-pill">Day ${passDay(state.memberPasses[focusMember.id])} of ${passLength(state.memberPasses[focusMember.id])} · ends ${shortDate(state.memberPasses[focusMember.id].end_date)}</span>` : '<span class="dz-lead-pill">No active challenge</span>'}
                 <span class="dz-lead-pill">${focusInfo.rate}% complete</span>
                 <span class="dz-lead-pill">Last: ${timeAgo(focusInfo.lastAt, focusInfo.lastDate)}</span>
                 ${focusInfo.pending ? `<span class="dz-lead-pill todo">${focusInfo.pending} to review</span>` : '<span class="dz-lead-pill">All reviewed</span>'}
@@ -3620,7 +3787,12 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       ` : '';
 
       const checkinBlock = state.readOnly ? readOnlyBanner() : `
-        <h2 class="dz-section" style="margin-top:0;">Today's Check-in <span class="dz-pass-day">Day ${passDay(state.activeCohort)} of ${passLength(state.activeCohort)} · ends ${shortDate(state.activeCohort.end_date)}</span></h2>
+        ${state.activeCohort.is_trial ? `
+        <div class="dz-detail-panel dz-banner renewal" style="margin-bottom:20px;">
+          <p style="font-weight:800; margin-bottom:4px;">This is your free trial day</p>
+          <p class="dz-muted" style="margin:0;">Upload today's Writing and Speaking before the day ends. A Korean mentor will send you feedback on both by ${shortDate(trialFeedbackDue(state.activeCohort))}.</p>
+        </div>` : ''}
+        <h2 class="dz-section" style="margin-top:0;">Today's Check-in <span class="dz-pass-day">${state.activeCohort.is_trial ? 'Free trial · today only' : `Day ${passDay(state.activeCohort)} of ${passLength(state.activeCohort)} · ends ${shortDate(state.activeCohort.end_date)}`}</span></h2>
         <div class="dz-cards">
           <div class="dz-task-card">
             <div class="title"><b>Writing</b><span class="dz-status-dot ${today.diary && !state.saving.diary ? 'done' : ''}"></span></div>
@@ -3980,6 +4152,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   document.getElementById('cookie-settings-link').addEventListener('click', (e) => { e.preventDefault(); window.EngKorConsent.openSettings(); });
   document.getElementById('checkout-btn').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.getElementById('apply-btn-hero').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
+  document.querySelectorAll('[data-trial-link]').forEach(el => el.addEventListener('click', openTrial));
   document.getElementById('apply-btn-banner').addEventListener('click', (e) => { e.preventDefault(); openApply(); });
   document.addEventListener('click', (e) => { if (e.target.id === 'ek-modal') closeModal(); });
   updateApplyButtonLabel();
@@ -4173,6 +4346,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       return;
     }
     if (hash === '#/apply') { if (state.view !== 'apply') openApply(); return; }
+    if (hash === '#/trial') { if (state.view !== 'apply') openTrial(); return; }
     if (hash === '#/account') {
       if (state.view === 'account') return;
       if (currentProfile) showAccountView();

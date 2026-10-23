@@ -13,7 +13,7 @@
 //
 // Members who requested account deletion (profiles.deletion_requested_at set)
 // are skipped: they are in their 7-day grace period and shouldn't be asked to
-// renew. Leaders are skipped too.
+// renew. Leaders are skipped too, and so are free 1-day trials.
 
 import nodemailer from "npm:nodemailer@^7";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
       .from("applications")
       .select("id,member_id,starts_on,ends_on")
       .eq("status", "active")
+      .eq("is_trial", false)
       .is("renewal_reminded_at", null)
       .gte("ends_on", today)
       .lte("ends_on", windowEnd);

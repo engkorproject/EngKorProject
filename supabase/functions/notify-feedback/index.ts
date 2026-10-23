@@ -62,6 +62,15 @@ Deno.serve(async (req) => {
       return json({ error: "MEMBER_NOT_FOUND" }, 404);
     }
 
+    // Free trial members who haven't bought a 30-day pass get a short invite.
+    const { data: paidPasses, error: paidErr } = await admin
+      .from("applications")
+      .select("id")
+      .eq("member_id", memberId)
+      .eq("is_trial", false)
+      .limit(1);
+    const trialOnly = !paidErr && (paidPasses || []).length === 0;
+
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
@@ -77,7 +86,10 @@ Deno.serve(async (req) => {
         `Hi ${member.nickname || member.name || "there"},\n\n` +
         `Your mentor just left new feedback on your challenge:\n\n` +
         `"${text}"\n\n` +
-        `Log in to see it: ${SITE_URL}`,
+        `Log in to see it: ${SITE_URL}` +
+        (trialOnly
+          ? `\n\nEnjoyed your free day? Keep going with a 30-day challenge: Writing and Speaking every day, with feedback from a Korean mentor. Start anytime from your dashboard.`
+          : ""),
     });
 
     return json({ ok: true });
