@@ -1961,7 +1961,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       add = `<p class="dz-fb-clip-status" role="status">Saving voice clip... please keep this page open.</p>`;
     } else if (clips.length < FB_CLIP_MAX) {
       add = `<div class="dz-fb-clip-add">
-          <input type="text" maxlength="${FB_CLIP_LABEL_MAX}" placeholder="One-line label (required)" aria-label="Voice clip label" data-clip-label="${key}" value="${escapeHtml(state.clipLabels[key] || '')}">
+          <input type="text" maxlength="${FB_CLIP_LABEL_MAX}" placeholder='One-line label, e.g. "gachi: t sounds like ch"' aria-label="Voice clip label" data-clip-label="${key}" value="${escapeHtml(state.clipLabels[key] || '')}">
           <button class="dz-btn blue" data-clip-rec="${key}" ${fbRec || state.fbClipBusy ? 'disabled' : ''}>🎙 Record</button>
           <button class="dz-btn blue" data-clip-upload="${key}" ${fbRec || state.fbClipBusy ? 'disabled' : ''}>Upload file</button>
           <input type="file" accept="audio/*,.m4a,.mp3,.wav,.aac" data-clip-file="${key}" hidden>
@@ -1972,7 +1972,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     return `
       <div class="dz-fb-clips">
         <p class="dz-fb-label">Voice clips<small>Optional · up to ${FB_CLIP_MAX} per day, ${FB_CLIP_SECONDS} sec each</small></p>
-        <p class="dz-fb-guide">Only for a word or sentence that's hard to explain in writing; your written feedback stays the main part. Say it slowly once, then at natural speed. Each clip needs a one-line label, e.g. "gachi: the t sound turns into ch". Record here or upload from your phone (m4a, mp3, wav).</p>
+        <p class="dz-fb-guide">For a word or sentence that's hard to explain in writing. Say it slowly, then at natural speed.</p>
         ${list}${add}
       </div>`;
   }
