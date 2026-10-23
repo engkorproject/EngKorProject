@@ -342,8 +342,13 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   .consent-note a { color: var(--btn-primary); text-decoration: underline; }
   /* "Try 1 day free" links: only shown to people who haven't joined before */
   .trial-link { display: inline-block; margin-top: 14px; font-size: 15px; font-weight: 700; color: var(--btn-primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; }
-  .trial-link[hidden] { display: none; }
   .price-card .trial-link { display: block; width: 100%; text-align: center; margin-top: 12px; font-size: 14px; }
+  .trial-link[hidden], .price-card .trial-link[hidden] { display: none; }
+  /* Paid challenges are closed in the EU/UK for now (see PAYMENT_BLOCKED_REGIONS) */
+  .region-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 12px 0 0; text-align: center; font-family: "Geist", sans-serif; }
+  .region-box { max-width: 420px; margin: 0 auto 18px; padding: 14px 16px; border-radius: 14px; background: var(--primary-tint); color: var(--foreground); font-size: 14px; line-height: 1.55; text-align: center; position: relative; z-index: 1; font-family: "Geist", sans-serif; }
+  .region-box[hidden] { display: none; }
+  .region-box a { color: var(--btn-primary); font-weight: 700; text-decoration: underline; }
   .price-list .item::before { content: "✓"; color: var(--primary); font-weight: 800; }
 
   .trust-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
@@ -1102,7 +1107,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         <a class="btn btn-primary" href="#" id="apply-btn-hero">Start Challenge →</a>
         <a class="btn btn-secondary" href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">Join for Free</a>
       </div>
-      <button type="button" class="trial-link" id="trial-link-hero" data-trial-link>New here? Try 1 day free, no payment →</button>
+      <button type="button" class="trial-link" id="trial-link-hero" data-trial-link hidden>New here? Try 1 day free, no payment →</button>
       <div class="hero-stats">
         <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>Weekly</b><span>guaranteed correction</span></div></div>
         <div class="stat"><span class="stat-check" aria-hidden="true">✔</span><div class="stat-body"><b>100%</b><span>real human feedback</span></div></div>
@@ -1245,6 +1250,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     </div>
     <img src="images/mascot-full.png" alt="" class="pricing-mascot">
     <div class="price-card-wrap">
+      <p class="region-box" id="region-box" hidden>Paid challenges aren't available in the EU or UK yet. You can still join our <a href="https://discord.gg/bj9w884Epk" target="_blank" rel="noopener noreferrer">free Discord community</a>, where we'll announce when it opens.</p>
       <div class="price-card reveal">
         <div class="badge">Launch Special Price</div>
         <div>Monthly Challenge</div>
@@ -1257,7 +1263,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Private unlimited Q&amp;A channel for paid users</div>
         </div>
         <a class="btn btn-primary" href="#" id="checkout-btn" style="width:100%; justify-content:center; display:flex;">Start My Streak</a>
-        <button type="button" class="trial-link" id="trial-link-pricing" data-trial-link>Not sure yet? Try 1 day free</button>
+        <button type="button" class="trial-link" id="trial-link-pricing" data-trial-link hidden>Not sure yet? Try 1 day free</button>
+        <p class="region-note">Not available in the EU or UK yet: we're still setting up local tax requirements there.</p>
         <p class="consent-note">By applying or paying, you agree to our <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="refund.html" target="_blank" rel="noopener">Refund Policy</a>. You can get a full refund for any reason within 7 days of payment.</p>
       </div>
     </div>
@@ -2624,7 +2631,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // (e.g. after opening an Instagram link in a new tab). Only the first check
   // after the page loads, or a fresh log-in from the login screen, should move
   // someone from the home page to their dashboard; later checks leave them be.
-  let sessionRoutedOnce = false;
+  let sessionRoutedOnce = false, trialLinkHandled = false;
   async function handleSession(session) {
     // A shared link to a home page section (e.g. /#pricing) stays on the home page.
     const routeFromHome = state.view === 'auth' || (state.view === 'landing' && !sessionRoutedOnce && !landingSection(initialUrlHash));
@@ -2709,7 +2716,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       } else if (routeFromHome) {
         if (state.hasEverApplied) {
           showApp('member');
-        } else if (takeTrialIntent()) {
+        } else if (takeTrialIntent() || (!sessionRoutedOnce && initialUrlHash === '#/trial')) {
           justSignedUp = false;
           openTrial();
         } else {
@@ -2726,6 +2733,8 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       state.trialPass = null; state.trialEligible = true;
       renderNav();
       updateApplyButtonLabel();
+      // A shared #/trial link opened while signed out: start the trial flow once.
+      if (!trialLinkHandled && initialUrlHash === '#/trial' && state.view === 'landing') { trialLinkHandled = true; openTrial(); }
       if (state.view === 'member' || state.view === 'leader' || state.view === 'apply' || state.view === 'account') showLanding();
     }
   }
@@ -2741,7 +2750,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       <h2 style="font-size:19px;">Welcome to EngKor! 🎉</h2>
       <p class="dz-muted" style="margin:10px 0 20px;">Your account is ready. Start your 30-day challenge to get your dashboard and begin your streak.</p>
       <button class="btn btn-primary" id="welcome-apply-btn" style="width:100%; justify-content:center; display:flex;">Apply for the Challenge</button>
-      <p style="text-align:center; margin:12px 0 0;"><button type="button" class="trial-link" id="welcome-trial-btn" style="margin:0;">Or try 1 day free first</button></p>
+      ${trialRegionBlocked !== false ? '' : '<p style="text-align:center; margin:12px 0 0;"><button type="button" class="trial-link" id="welcome-trial-btn" style="margin:0;">Or try 1 day free first</button></p>'}
     `);
     const btn = document.getElementById('welcome-apply-btn');
     if (btn) btn.addEventListener('click', () => { closeModal(); openApply(); });
@@ -2868,7 +2877,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     const bannerMonth = document.getElementById('apply-banner-month');
     if (bannerMonth) bannerMonth.textContent = CURRENT_CHALLENGE_MONTH;
     // The free trial is only for people who haven't joined before.
-    document.querySelectorAll('[data-trial-link]').forEach(el => { el.hidden = !state.trialEligible; });
+    document.querySelectorAll('[data-trial-link]').forEach(el => { el.hidden = !state.trialEligible || trialRegionBlocked !== false; });
   }
 
   // Signed out -> push into signup, signed in and already enrolled this month
@@ -2894,6 +2903,15 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
   // this remembers that, so they land on the trial form once they're in
   // (even after confirming their email in another tab).
   const TRIAL_INTENT_KEY = 'engkor_trial_intent';
+  // EU/UK visitors can't buy a pass after the trial yet, so they get the
+  // Discord note on the pricing section instead of a trial they can't follow up on.
+  let trialRegionBlocked = null; // null until the visitor's country is known
+  paymentBlockedHere().then((blocked) => {
+    trialRegionBlocked = blocked;
+    const box = document.getElementById('region-box');
+    if (box) box.hidden = !blocked;
+    updateApplyButtonLabel();
+  });
   function setTrialIntent() { try { localStorage.setItem(TRIAL_INTENT_KEY, String(Date.now())); } catch (e) {} }
   function takeTrialIntent() {
     try {
@@ -2902,7 +2920,26 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       return !!at && Date.now() - at < 3 * 86400000;
     } catch (e) { return false; }
   }
-  function openTrial() {
+  // Waits for the visitor's country first. When Back/Forward lands on #/trial,
+  // the screen it moves on to still replaces that history entry (see setRouteHash).
+  async function openTrial() {
+    const fromRoute = replacingRoute;
+    trialRegionBlocked = await paymentBlockedHere();
+    replacingRoute = fromRoute;
+    try { openTrialNow(fromRoute); } finally { replacingRoute = false; }
+  }
+  function openTrialNow(fromRoute) {
+    if (trialRegionBlocked) {
+      if (state.view !== 'landing') showLanding();
+      else if (location.hash === '#/trial') history.replaceState(null, '', '#/');
+      showModal(`
+        <h2 style="font-size:19px;">Not available in your region yet</h2>
+        <p class="dz-muted" style="margin:10px 0 20px;">Paid challenges aren't available in the EU or UK yet, so the free trial isn't either. You can still join our <a href="${DISCORD_INVITE_URL}" ${discordLinkAttrs} style="color:var(--btn-primary); font-weight:700;">free Discord community</a>, where we'll announce when it opens.</p>
+        <button class="btn btn-primary" id="trial-region-ok-btn" style="width:100%; justify-content:center; display:flex;">Got it</button>
+      `);
+      document.getElementById('trial-region-ok-btn').addEventListener('click', closeModal);
+      return;
+    }
     if (!currentUser) {
       setTrialIntent();
       showAuth();
@@ -2914,7 +2951,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (isPendingDeletion()) { showRestoreModal(); return; }
     if (!state.trialEligible) {
       if (state.hasEverApplied) showApp('member');
-      showToast('The free trial is for first-time members only.', true);
+      if (!fromRoute) showToast('The free trial is for first-time members only.', true);
       return;
     }
     state.view = 'apply';
@@ -3017,7 +3054,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
           <div class="item">Community leaderboard</div>
         </div>
         <button type="button" class="btn btn-primary" id="pricing-continue-btn" style="width:100%; justify-content:center; display:flex;">Continue</button>
-        ${state.trialEligible ? '<button type="button" class="trial-link" id="pricing-trial-btn">Not sure yet? Try 1 day free</button>' : ''}
+        ${state.trialEligible && trialRegionBlocked === false ? '<button type="button" class="trial-link" id="pricing-trial-btn">Not sure yet? Try 1 day free</button>' : ''}
         ${CONSENT_NOTE_HTML}
       </div>
     `;
