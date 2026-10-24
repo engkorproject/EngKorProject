@@ -1895,11 +1895,22 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     return (await lengthAudioCtx.decodeAudioData(await blob.arrayBuffer())).duration;
   }
   // Some systems hand over .m4a files with no type; name it from the extension.
+  // Some systems report audio types the server doesn't list (e.g. Windows calls
+  // .aac "audio/vnd.dlna.adts"), or none at all for .m4a: go by the extension.
   function withAudioType(file) {
-    if (file.type) return file;
     const ext = (file.name.split('.').pop() || '').toLowerCase();
-    const type = { m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac', ogg: 'audio/ogg', webm: 'audio/webm' }[ext];
-    return type ? new Blob([file], { type }) : file;
+    const type = { m4a: 'audio/mp4', mp4: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', webm: 'audio/webm' }[ext];
+    return type && type !== file.type ? new File([file], file.name, { type }) : file;
+  }
+  // What to tell the mentor when a clip didn't save, with the raw reason for us.
+  function clipErrorText(err) {
+    const m = String((err && err.message) || err || '');
+    if (m.includes('UNSUPPORTED_FILE_TYPE')) return "This file type isn't supported. Please use an m4a, mp3 or wav file.";
+    if (m.includes('FILE_TOO_LARGE')) return 'This file is over 6MB. Please use a shorter or smaller file.';
+    if (m.includes('NO_SPEAKING_CHECKIN')) return "This member didn't submit Speaking that day, so there's no recording to attach a clip to.";
+    if (m.includes('MENTORS_ONLY')) return 'Only mentor accounts can add voice clips. Please log out and back in, then try again.';
+    if (/R2 upload failed|Failed to fetch|NetworkError|Load failed|timed? ?out|abort/i.test(m)) return "The file couldn't be uploaded. Check your connection, or turn off any VPN or ad blocker for this site, and try again.";
+    return "The clip couldn't be saved. Please try again.";
   }
   async function addFeedbackClip(memberId, date, blob, label) {
     const key = clipKey(memberId, date);
@@ -1910,7 +1921,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     try { sec = await audioSeconds(blob); } catch (e) { return clipNotice("Couldn't read that audio file", 'Please try an m4a, mp3 or wav file.'); }
     if (sec > FB_CLIP_SECONDS + 0.5) return clipNotice('Clip is too long', `This clip is ${fmtLen(sec)} long. Voice clips can be up to ${FB_CLIP_SECONDS} seconds, so please trim it or record just the part you want to show.`);
     state.fbClipBusy = key; renderApp();
-    let path = null, ok = false;
+    let path = null, ok = false, failure = null;
     try {
       path = await uploadFeedbackClip(memberId, date, blob);
       const next = clips.concat([{ path, label }]);
@@ -1921,13 +1932,14 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
       delete state.clipLabels[key];
       ok = true;
     } catch (e) {
-      console.error(e);
+      console.error('Voice clip failed:', e);
+      failure = e;
       if (path) deleteFromR2(path); // uploaded, but the row didn't save
     }
     state.fbClipBusy = null;
     state.leaderDayOpen[key] = true;
     renderApp();
-    if (!ok) showToast("Couldn't save the voice clip. Check your connection and try again.", true);
+    if (!ok) clipNotice("Couldn't save the voice clip", `${escapeHtml(clipErrorText(failure))}<br><span style="font-size:11px; opacity:0.7;">Details: ${escapeHtml(String((failure && failure.message) || failure || 'unknown').slice(0, 120))} · ${escapeHtml((blob.type || 'no type') + ', ' + Math.round(blob.size / 1024) + 'KB')}</span>`);
     else showToast(getDay(memberId, date).shadowingFeedbackSentAt ? 'Voice clip added. The member can hear it now.' : 'Voice clip added. It goes out when you send your Speaking feedback.');
   }
   function confirmRemoveFeedbackClip(memberId, date, path) {
@@ -2385,7 +2397,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
     if (!file) return;
     // Uploaded files are stored as-is (no re-encoding), so keep them small.
     if (file.size > 4 * 1024 * 1024) { alert('File too large. Please choose an audio file under 4MB (about 3 minutes).'); return; }
-    await saveMedia(memberId, 'shadowing', file);
+    await saveMedia(memberId, 'shadowing', withAudioType(file));
   }
   async function startRecording(memberId) {
     state.recError = null;
@@ -3713,7 +3725,7 @@ Sandbox client-id: AR72s3XWQsLeJjUPHzGhUucBzh9JNDv6wsC46BMXv-D1NnCdBH60g-KoYmsvx
         return `
           <p class="dz-fb-label">${label} feedback</p>
           <textarea class="dz-ta" placeholder="Feedback on this ${label.toLowerCase()} submission..." data-fb-day-member="${focusId}" data-fb-day-date="${date}" data-fb-day-field="${field}">${escapeHtml(state.fbTextDrafts[focusId + '|' + date + '|' + field] ?? existing)}</textarea>
-          ${kind === 'shadowing' ? feedbackClipsEditor(focusId, date, day) : ''}
+          ${kind === 'shadowing' && day.shadowing ? feedbackClipsEditor(focusId, date, day) : ''}
           <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
             <button class="dz-btn ghost" data-save-day-fb="${focusId}" data-save-day-fb-date="${date}" data-save-day-fb-field="${field}">Save draft</button>
             <button class="dz-btn" data-submit-day-fb="${focusId}" data-submit-day-fb-date="${date}" data-submit-day-fb-field="${field}">Send feedback</button>
